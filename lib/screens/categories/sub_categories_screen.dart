@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import '../../models/sub_category.dart';
 import '../../models/main_category.dart';
 import '../../services/sub_category_service.dart';
@@ -113,6 +114,61 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
     }
   }
 
+  Widget _buildCategoryFilterItem(MainCategory category) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 20,
+          height: 20,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(3),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: category.iconPath != null && category.iconPath!.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: Image.file(
+                    File(category.iconPath!),
+                    width: 20,
+                    height: 20,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: Colors.grey[200],
+                        child: Icon(
+                          Icons.broken_image,
+                          size: 8,
+                          color: Colors.grey[400],
+                        ),
+                      );
+                    },
+                  ),
+                )
+              : Container(
+                  color: Colors.grey[100],
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.image_not_supported,
+                        size: 6,
+                        color: Colors.grey[400],
+                      ),
+                      Text(
+                        'No Image',
+                        style: TextStyle(fontSize: 3, color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                ),
+        ),
+        const SizedBox(width: 6),
+        Flexible(child: Text(category.name, overflow: TextOverflow.ellipsis)),
+      ],
+    );
+  }
+
   void _showAddEditDialog({SubCategory? subCategory}) {
     showDialog(
       context: context,
@@ -151,7 +207,7 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
               SizedBox(
                 width: 200,
                 child: DropdownButtonFormField<int?>(
-                  value: _selectedMainCategoryId,
+                  initialValue: _selectedMainCategoryId,
                   decoration: const InputDecoration(
                     labelText: 'Filter by Category',
                     border: OutlineInputBorder(),
@@ -159,12 +215,18 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
                   items: [
                     const DropdownMenuItem<int?>(
                       value: null,
-                      child: Text('All Categories'),
+                      child: Row(
+                        children: [
+                          Icon(Icons.all_inclusive, size: 20),
+                          SizedBox(width: 6),
+                          Text('All Categories'),
+                        ],
+                      ),
                     ),
                     ..._mainCategories.map((category) {
                       return DropdownMenuItem<int?>(
                         value: category.id,
-                        child: Text(category.name),
+                        child: _buildCategoryFilterItem(category),
                       );
                     }),
                   ],
@@ -223,7 +285,32 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
                             cells: [
                               DataCell(Text(subCategory.name)),
                               DataCell(
-                                Text(subCategory.mainCategoryName ?? ''),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _buildTableImagePreview(
+                                      _mainCategories
+                                          .firstWhere(
+                                            (cat) =>
+                                                cat.id ==
+                                                subCategory.mainCategoryId,
+                                            orElse: () => MainCategory(
+                                              id: 0,
+                                              name: '',
+                                              sortOrder: 0,
+                                              isActive: true,
+                                            ),
+                                          )
+                                          .iconPath,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        subCategory.mainCategoryName ?? '',
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                               DataCell(Text(subCategory.description ?? '')),
                               DataCell(Text(subCategory.sortOrder.toString())),
@@ -279,6 +366,54 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildTableImagePreview(String? iconPath) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: iconPath != null && iconPath.isNotEmpty
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: Image.file(
+                File(iconPath),
+                width: 40,
+                height: 40,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: Colors.grey[200],
+                    child: Icon(
+                      Icons.broken_image,
+                      size: 20,
+                      color: Colors.grey[400],
+                    ),
+                  );
+                },
+              ),
+            )
+          : Container(
+              color: Colors.grey[100],
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.image_not_supported,
+                    size: 12,
+                    color: Colors.grey[400],
+                  ),
+                  Text(
+                    'No Image',
+                    style: TextStyle(fontSize: 8, color: Colors.grey[500]),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 }
@@ -346,6 +481,72 @@ class _AddEditSubCategoryDialogState extends State<AddEditSubCategoryDialog> {
     _descriptionController.dispose();
     _sortOrderController.dispose();
     super.dispose();
+  }
+
+  Widget _buildCategoryDropdownItem(
+    MainCategory category, {
+    bool isSelected = false,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: category.iconPath != null && category.iconPath!.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: Image.file(
+                    File(category.iconPath!),
+                    width: 24,
+                    height: 24,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: Colors.grey[200],
+                        child: Icon(
+                          Icons.broken_image,
+                          size: 12,
+                          color: Colors.grey[400],
+                        ),
+                      );
+                    },
+                  ),
+                )
+              : Container(
+                  color: Colors.grey[100],
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.image_not_supported,
+                        size: 8,
+                        color: Colors.grey[400],
+                      ),
+                      Text(
+                        'No Image',
+                        style: TextStyle(fontSize: 4, color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            category.name,
+            style: TextStyle(
+              color: isSelected ? Colors.blue : null,
+              fontWeight: isSelected ? FontWeight.w500 : null,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _saveSubCategory() async {
@@ -433,15 +634,23 @@ class _AddEditSubCategoryDialogState extends State<AddEditSubCategoryDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<int>(
-                value: _selectedMainCategoryId,
+                initialValue: _selectedMainCategoryId,
                 decoration: const InputDecoration(
                   labelText: 'Main Category *',
                   border: OutlineInputBorder(),
                 ),
+                selectedItemBuilder: (context) {
+                  return widget.mainCategories.map((category) {
+                    return _buildCategoryDropdownItem(
+                      category,
+                      isSelected: true,
+                    );
+                  }).toList();
+                },
                 items: widget.mainCategories.map((category) {
                   return DropdownMenuItem<int>(
                     value: category.id,
-                    child: Text(category.name),
+                    child: _buildCategoryDropdownItem(category),
                   );
                 }).toList(),
                 validator: (value) {

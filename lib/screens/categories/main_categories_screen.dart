@@ -167,6 +167,7 @@ class _MainCategoriesScreenState extends State<MainCategoriesScreen> {
                     child: SingleChildScrollView(
                       child: DataTable(
                         columns: const [
+                          DataColumn(label: Text('Image')),
                           DataColumn(label: Text('Name')),
                           DataColumn(label: Text('Description')),
                           DataColumn(label: Text('Sort Order')),
@@ -176,6 +177,7 @@ class _MainCategoriesScreenState extends State<MainCategoriesScreen> {
                         rows: _filteredCategories.map((category) {
                           return DataRow(
                             cells: [
+                              DataCell(_buildImagePreview(category.iconPath)),
                               DataCell(Text(category.name)),
                               DataCell(Text(category.description ?? '')),
                               DataCell(Text(category.sortOrder.toString())),
@@ -229,6 +231,119 @@ class _MainCategoriesScreenState extends State<MainCategoriesScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildImagePreview(String? iconPath) {
+    if (iconPath == null || iconPath.isEmpty) {
+      return Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.image_not_supported, size: 20, color: Colors.grey),
+            Text('No Image', style: TextStyle(fontSize: 8, color: Colors.grey)),
+          ],
+        ),
+      );
+    }
+
+    return Tooltip(
+      message: 'Click to view full image',
+      child: GestureDetector(
+        onTap: () => _showImageDialog(iconPath),
+        child: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: Image.file(
+              File(iconPath),
+              width: 50,
+              height: 50,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: Colors.grey[200],
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.broken_image, size: 20, color: Colors.red),
+                      Text(
+                        'Error',
+                        style: TextStyle(fontSize: 8, color: Colors.red),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showImageDialog(String imagePath) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 600, maxHeight: 600),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppBar(
+                  title: const Text('Image Preview'),
+                  leading: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Image.file(
+                      File(imagePath),
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.broken_image,
+                                size: 64,
+                                color: Colors.red,
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                'Failed to load image',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -313,6 +428,58 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
         );
       }
     }
+  }
+
+  Widget _buildImagePreviewInDialog(String? iconPath) {
+    if (iconPath == null || iconPath.isEmpty) {
+      return Container(
+        width: 100,
+        height: 100,
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.image_not_supported, size: 32, color: Colors.grey[400]),
+            const SizedBox(height: 4),
+            Text(
+              'No Image',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: Image.file(
+        File(iconPath),
+        width: 100,
+        height: 100,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            width: 100,
+            height: 100,
+            color: Colors.red[50],
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.broken_image, size: 32, color: Colors.red[400]),
+                const SizedBox(height: 4),
+                Text(
+                  'Error Loading',
+                  style: TextStyle(fontSize: 10, color: Colors.red[600]),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _saveCategory() async {
@@ -425,16 +592,59 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
                 },
               ),
               const SizedBox(height: 16),
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      _iconPath != null ? 'Icon selected' : 'No icon selected',
-                    ),
+                  const Text(
+                    'Category Icon',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                   ),
-                  ElevatedButton(
-                    onPressed: _pickIcon,
-                    child: const Text('Pick Icon'),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: _buildImagePreviewInDialog(_iconPath),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: _pickIcon,
+                              icon: const Icon(Icons.image),
+                              label: Text(
+                                _iconPath != null ? 'Change Icon' : 'Pick Icon',
+                              ),
+                            ),
+                            if (_iconPath != null) ...[
+                              const SizedBox(height: 8),
+                              TextButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    _iconPath = null;
+                                  });
+                                },
+                                icon: const Icon(
+                                  Icons.delete,
+                                  color: Colors.red,
+                                ),
+                                label: const Text(
+                                  'Remove Icon',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
