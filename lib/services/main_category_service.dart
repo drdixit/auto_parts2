@@ -1,0 +1,172 @@
+import '../database/database_helper.dart';
+import '../models/main_category.dart';
+
+class MainCategoryService {
+  final DatabaseHelper _dbHelper = DatabaseHelper();
+
+  Future<List<MainCategory>> getAllCategories({
+    bool includeInactive = false,
+  }) async {
+    String? where;
+    List<dynamic>? whereArgs;
+
+    if (!includeInactive) {
+      where = 'is_active = ?';
+      whereArgs = [1];
+    }
+
+    final maps = await _dbHelper.getRecords(
+      'main_categories',
+      where: where,
+      whereArgs: whereArgs,
+    );
+
+    return List.generate(maps.length, (i) {
+      return MainCategory.fromMap(maps[i]);
+    });
+  }
+
+  Future<MainCategory?> getCategoryById(int id) async {
+    final maps = await _dbHelper.getRecords(
+      'main_categories',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    if (maps.isNotEmpty) {
+      return MainCategory.fromMap(maps.first);
+    }
+    return null;
+  }
+
+  Future<int> insertCategory(MainCategory category) async {
+    final data = category.toMap();
+    data.remove('id'); // Remove id for insert
+    return await _dbHelper.insertRecord('main_categories', data);
+  }
+
+  Future<int> updateCategory(MainCategory category) async {
+    if (category.id == null) {
+      throw ArgumentError('Category ID cannot be null for update');
+    }
+
+    final data = category.toMap();
+    data['updated_at'] = DateTime.now().toIso8601String();
+    data.remove('id'); // Remove id from data map
+
+    return await _dbHelper.updateRecord('main_categories', data, 'id = ?', [
+      category.id!,
+    ]);
+  }
+
+  Future<int> deleteCategory(int id) async {
+    return await _dbHelper.deleteRecord('main_categories', 'id = ?', [id]);
+  }
+
+  Future<int> softDeleteCategory(int id) async {
+    return await _dbHelper.softDeleteRecord('main_categories', id);
+  }
+
+  Future<int> toggleCategoryStatus(int id, bool isActive) async {
+    final db = await _dbHelper.database;
+
+    // Start a transaction to ensure atomicity
+    return await db.transaction((txn) async {
+      // Update the main category status
+      await txn.update(
+        'main_categories',
+        {
+          'is_active': isActive ? 1 : 0,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+
+      // Cascade to sub-categories
+      if (!isActive) {
+        // When deactivating main category, deactivate all its sub-categories
+        await txn.update(
+          'sub_categories',
+          {'is_active': 0, 'updated_at': DateTime.now().toIso8601String()},
+          where: 'main_category_id = ?',
+          whereArgs: [id],
+        );
+      } else {
+        // When reactivating main category, reactivate all its sub-categories
+        // Note: This will reactivate ALL sub-categories. In future, we could
+        // implement a more sophisticated approach to remember previous states
+        await txn.update(
+          'sub_categories',
+          {'is_active': 1, 'updated_at': DateTime.now().toIso8601String()},
+          where: 'main_category_id = ?',
+          whereArgs: [id],
+        );
+      }
+
+      return 1; // Return success
+    });
+  }
+
+  Future<List<MainCategory>> searchCategories(String searchTerm) async {
+    final db = await _dbHelper.database;
+    final maps = await db.rawQuery(
+      '''
+      SELECT * FROM main_categories
+      WHERE (name LIKE ? OR description LIKE ?)
+      AND is_active = 1
+      ORDER BY sort_order, name
+    ''',
+      ['%$searchTerm%', '%$searchTerm%'],
+    );
+
+    return List.generate(maps.length, (i) {
+      return MainCategory.fromMap(maps[i]);
+    });
+  }
+
+  Future<bool> isCategoryNameExists(String name, {int? excludeId}) async {
+    String where = 'LOWER(name) = ?';
+    List<dynamic> whereArgs = [name.toLowerCase()];
+
+    if (excludeId != null) {
+      where += ' AND id != ?';
+      whereArgs.add(excludeId);
+    }
+
+    final maps = await _dbHelper.getRecords(
+      'main_categories',
+      where: where,
+      whereArgs: whereArgs,
+    );
+
+    return maps.isNotEmpty;
+  }
+
+  Future<int> getNextSortOrder() async {
+    final db = await _dbHelper.database;
+    final result = await db.rawQuery(
+      'SELECT MAX(sort_order) as max_order FROM main_categories',
+    );
+    final maxOrder = result.first['max_order'] as int?;
+    return (maxOrder ?? 0) + 1;
+  }
+
+  Future<int> getCategoryCount({bool includeInactive = false}) async {
+    String? where;
+    List<dynamic>? whereArgs;
+
+    if (!includeInactive) {
+      where = 'is_active = ?';
+      whereArgs = [1];
+    }
+
+    final db = await _dbHelper.database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM main_categories${where != null ? ' WHERE $where' : ''}',
+      whereArgs,
+    );
+
+    return result.first['count'] as int;
+  }
+}
