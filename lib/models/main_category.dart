@@ -6,6 +6,7 @@ class MainCategory {
   final int sortOrder;
   final bool isActive;
   final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   MainCategory({
     this.id,
@@ -15,6 +16,7 @@ class MainCategory {
     this.sortOrder = 0,
     this.isActive = true,
     this.createdAt,
+    this.updatedAt,
   });
 
   Map<String, dynamic> toMap() {
@@ -25,7 +27,9 @@ class MainCategory {
       'icon_path': iconPath,
       'sort_order': sortOrder,
       'is_active': isActive ? 1 : 0,
-      'created_at': createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
+      'created_at':
+          createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
     };
   }
 
@@ -37,7 +41,12 @@ class MainCategory {
       iconPath: map['icon_path'],
       sortOrder: map['sort_order']?.toInt() ?? 0,
       isActive: (map['is_active'] ?? 1) == 1,
-      createdAt: map['created_at'] != null ? DateTime.tryParse(map['created_at']) : null,
+      createdAt: map['created_at'] != null
+          ? DateTime.tryParse(map['created_at'])
+          : null,
+      updatedAt: map['updated_at'] != null
+          ? DateTime.tryParse(map['updated_at'])
+          : null,
     );
   }
 
@@ -49,6 +58,7 @@ class MainCategory {
     int? sortOrder,
     bool? isActive,
     DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return MainCategory(
       id: id ?? this.id,
@@ -58,12 +68,13 @@ class MainCategory {
       sortOrder: sortOrder ?? this.sortOrder,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
   @override
   String toString() {
-    return 'MainCategory{id: $id, name: $name, description: $description, iconPath: $iconPath, sortOrder: $sortOrder, isActive: $isActive, createdAt: $createdAt}';
+    return 'MainCategory{id: $id, name: $name, description: $description, iconPath: $iconPath, sortOrder: $sortOrder, isActive: $isActive, createdAt: $createdAt, updatedAt: $updatedAt}';
   }
 
   @override

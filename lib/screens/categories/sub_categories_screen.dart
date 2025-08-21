@@ -281,6 +281,13 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
                           DataColumn(label: Text('Actions')),
                         ],
                         rows: _filteredSubCategories.map((subCategory) {
+                          // Find main category once for performance
+                          final mainCategory = _mainCategories
+                              .where(
+                                (cat) => cat.id == subCategory.mainCategoryId,
+                              )
+                              .firstOrNull;
+
                           return DataRow(
                             cells: [
                               DataCell(Text(subCategory.name)),
@@ -289,19 +296,7 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     _buildTableImagePreview(
-                                      _mainCategories
-                                          .firstWhere(
-                                            (cat) =>
-                                                cat.id ==
-                                                subCategory.mainCategoryId,
-                                            orElse: () => MainCategory(
-                                              id: 0,
-                                              name: '',
-                                              sortOrder: 0,
-                                              isActive: true,
-                                            ),
-                                          )
-                                          .iconPath,
+                                      mainCategory?.iconPath,
                                     ),
                                     const SizedBox(width: 8),
                                     Flexible(
@@ -578,14 +573,16 @@ class _AddEditSubCategoryDialogState extends State<AddEditSubCategoryDialog> {
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Sub-category name already exists in this main category',
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Sub-category name already exists in this main category',
+              ),
+              backgroundColor: Colors.red,
             ),
-            backgroundColor: Colors.red,
-          ),
-        );
+          );
+        }
         return;
       }
 
@@ -611,12 +608,14 @@ class _AddEditSubCategoryDialogState extends State<AddEditSubCategoryDialog> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving sub-category: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving sub-category: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

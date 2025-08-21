@@ -420,12 +420,14 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
           _iconPath = targetPath;
         });
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving icon: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error saving icon: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
@@ -500,12 +502,14 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Category name already exists'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Category name already exists'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
         return;
       }
 
@@ -531,12 +535,14 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving category: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving category: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

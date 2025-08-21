@@ -40,6 +40,9 @@ class MainCategoryService {
   }
 
   Future<int> insertCategory(MainCategory category) async {
+    // Input validation
+    _validateCategoryInput(category);
+
     final data = category.toMap();
     data.remove('id'); // Remove id for insert
     return await _dbHelper.insertRecord('main_categories', data);
@@ -50,6 +53,9 @@ class MainCategoryService {
       throw ArgumentError('Category ID cannot be null for update');
     }
 
+    // Input validation
+    _validateCategoryInput(category);
+
     final data = category.toMap();
     data['updated_at'] = DateTime.now().toIso8601String();
     data.remove('id'); // Remove id from data map
@@ -57,6 +63,26 @@ class MainCategoryService {
     return await _dbHelper.updateRecord('main_categories', data, 'id = ?', [
       category.id!,
     ]);
+  }
+
+  // Private validation method
+  void _validateCategoryInput(MainCategory category) {
+    if (category.name.trim().isEmpty) {
+      throw ArgumentError('Category name cannot be empty');
+    }
+    if (category.name.trim().length > 100) {
+      throw ArgumentError('Category name cannot exceed 100 characters');
+    }
+    if (category.description != null && category.description!.length > 1000) {
+      throw ArgumentError('Category description cannot exceed 1000 characters');
+    }
+    // Sanitize name - check for dangerous characters
+    final dangerousChars = [';', "'", '"', '`', '--', '/*'];
+    for (final char in dangerousChars) {
+      if (category.name.contains(char)) {
+        throw ArgumentError('Category name contains invalid characters');
+      }
+    }
   }
 
   Future<int> deleteCategory(int id) async {
@@ -72,39 +98,36 @@ class MainCategoryService {
 
     // Start a transaction to ensure atomicity
     return await db.transaction((txn) async {
-      // Update the main category status
-      await txn.update(
-        'main_categories',
-        {
-          'is_active': isActive ? 1 : 0,
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [id],
-      );
+      try {
+        // Update the main category status
+        await txn.update(
+          'main_categories',
+          {
+            'is_active': isActive ? 1 : 0,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [id],
+        );
 
-      // Cascade to sub-categories
-      if (!isActive) {
-        // When deactivating main category, deactivate all its sub-categories
-        await txn.update(
-          'sub_categories',
-          {'is_active': 0, 'updated_at': DateTime.now().toIso8601String()},
-          where: 'main_category_id = ?',
-          whereArgs: [id],
-        );
-      } else {
-        // When reactivating main category, reactivate all its sub-categories
-        // Note: This will reactivate ALL sub-categories. In future, we could
-        // implement a more sophisticated approach to remember previous states
-        await txn.update(
-          'sub_categories',
-          {'is_active': 1, 'updated_at': DateTime.now().toIso8601String()},
-          where: 'main_category_id = ?',
-          whereArgs: [id],
-        );
+        // Only cascade deactivation, not reactivation to preserve sub-category states
+        if (!isActive) {
+          // When deactivating main category, deactivate all its sub-categories
+          await txn.update(
+            'sub_categories',
+            {'is_active': 0, 'updated_at': DateTime.now().toIso8601String()},
+            where: 'main_category_id = ?',
+            whereArgs: [id],
+          );
+        }
+        // Note: When reactivating main category, sub-categories keep their previous states
+        // This preserves individual sub-category activation/deactivation settings
+
+        return 1; // Return success
+      } catch (e) {
+        // Transaction will automatically rollback on error
+        rethrow;
       }
-
-      return 1; // Return success
     });
   }
 

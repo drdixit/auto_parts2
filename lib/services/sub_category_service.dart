@@ -74,6 +74,9 @@ class SubCategoryService {
   }
 
   Future<int> insertSubCategory(SubCategory subCategory) async {
+    // Input validation
+    _validateSubCategoryInput(subCategory);
+
     final data = subCategory.toMap();
     data.remove('id'); // Remove id for insert
     data.remove('main_category_name'); // Remove joined field
@@ -85,6 +88,9 @@ class SubCategoryService {
       throw ArgumentError('SubCategory ID cannot be null for update');
     }
 
+    // Input validation
+    _validateSubCategoryInput(subCategory);
+
     final data = subCategory.toMap();
     data['updated_at'] = DateTime.now().toIso8601String();
     data.remove('id'); // Remove id from data map
@@ -93,6 +99,32 @@ class SubCategoryService {
     return await _dbHelper.updateRecord('sub_categories', data, 'id = ?', [
       subCategory.id!,
     ]);
+  }
+
+  // Private validation method
+  void _validateSubCategoryInput(SubCategory subCategory) {
+    if (subCategory.name.trim().isEmpty) {
+      throw ArgumentError('Sub-category name cannot be empty');
+    }
+    if (subCategory.name.trim().length > 100) {
+      throw ArgumentError('Sub-category name cannot exceed 100 characters');
+    }
+    if (subCategory.description != null &&
+        subCategory.description!.length > 1000) {
+      throw ArgumentError(
+        'Sub-category description cannot exceed 1000 characters',
+      );
+    }
+    if (subCategory.mainCategoryId <= 0) {
+      throw ArgumentError('Valid main category must be selected');
+    }
+    // Sanitize name - check for dangerous characters
+    final dangerousChars = [';', "'", '"', '`', '--', '/*'];
+    for (final char in dangerousChars) {
+      if (subCategory.name.contains(char)) {
+        throw ArgumentError('Sub-category name contains invalid characters');
+      }
+    }
   }
 
   Future<int> deleteSubCategory(int id) async {

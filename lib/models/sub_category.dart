@@ -6,6 +6,7 @@ class SubCategory {
   final int sortOrder;
   final bool isActive;
   final DateTime? createdAt;
+  final DateTime? updatedAt;
   final String? mainCategoryName; // For joined queries
 
   SubCategory({
@@ -16,6 +17,7 @@ class SubCategory {
     this.sortOrder = 0,
     this.isActive = true,
     this.createdAt,
+    this.updatedAt,
     this.mainCategoryName,
   });
 
@@ -27,7 +29,9 @@ class SubCategory {
       'description': description,
       'sort_order': sortOrder,
       'is_active': isActive ? 1 : 0,
-      'created_at': createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
+      'created_at':
+          createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
     };
   }
 
@@ -39,7 +43,12 @@ class SubCategory {
       description: map['description'],
       sortOrder: map['sort_order']?.toInt() ?? 0,
       isActive: (map['is_active'] ?? 1) == 1,
-      createdAt: map['created_at'] != null ? DateTime.tryParse(map['created_at']) : null,
+      createdAt: map['created_at'] != null
+          ? DateTime.tryParse(map['created_at'])
+          : null,
+      updatedAt: map['updated_at'] != null
+          ? DateTime.tryParse(map['updated_at'])
+          : null,
       mainCategoryName: map['main_category_name'], // For joined queries
     );
   }
@@ -52,6 +61,7 @@ class SubCategory {
     int? sortOrder,
     bool? isActive,
     DateTime? createdAt,
+    DateTime? updatedAt,
     String? mainCategoryName,
   }) {
     return SubCategory(
@@ -62,13 +72,14 @@ class SubCategory {
       sortOrder: sortOrder ?? this.sortOrder,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       mainCategoryName: mainCategoryName ?? this.mainCategoryName,
     );
   }
 
   @override
   String toString() {
-    return 'SubCategory{id: $id, name: $name, mainCategoryId: $mainCategoryId, description: $description, sortOrder: $sortOrder, isActive: $isActive, createdAt: $createdAt, mainCategoryName: $mainCategoryName}';
+    return 'SubCategory{id: $id, name: $name, mainCategoryId: $mainCategoryId, description: $description, sortOrder: $sortOrder, isActive: $isActive, createdAt: $createdAt, updatedAt: $updatedAt, mainCategoryName: $mainCategoryName}';
   }
 
   @override
