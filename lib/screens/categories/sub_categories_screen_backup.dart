@@ -206,7 +206,6 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
   void _showAddEditDialog({SubCategory? subCategory}) {
     showDialog(
       context: context,
-      barrierDismissible: false, // Prevent dismissing by clicking outside
       builder: (context) => AddEditSubCategoryDialog(
         subCategory: subCategory,
         mainCategories:
@@ -279,7 +278,6 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
                       return DropdownMenuItem(
                         value: category.id,
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
                             if (category.iconPath != null &&
                                 category.iconPath!.isNotEmpty)
@@ -311,7 +309,7 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
                                   ),
                                 ),
                               ),
-                            Flexible(
+                            Expanded(
                               child: Text(
                                 category.name,
                                 overflow: TextOverflow.ellipsis,
@@ -545,6 +543,105 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
             ),
     );
   }
+
+  Widget _buildCategoryDropdownItem(
+    MainCategory category, {
+    bool isSelected = false,
+    bool showInactiveState = false,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: category.iconPath != null && category.iconPath!.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: Image.file(
+                    File(category.iconPath!),
+                    width: 24,
+                    height: 24,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: Colors.grey[200],
+                        child: Icon(
+                          Icons.broken_image,
+                          size: 12,
+                          color: Colors.grey[400],
+                        ),
+                      );
+                    },
+                  ),
+                )
+              : Container(
+                  color: Colors.grey[100],
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.image_not_supported,
+                        size: 8,
+                        color: Colors.grey[400],
+                      ),
+                      Text(
+                        'No Image',
+                        style: TextStyle(fontSize: 4, color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Row(
+            children: [
+              Flexible(
+                child: Text(
+                  category.name,
+                  style: TextStyle(
+                    color: showInactiveState
+                        ? Colors.grey[600]
+                        : (isSelected ? Colors.blue : null),
+                    fontWeight: isSelected ? FontWeight.w500 : null,
+                    decoration: showInactiveState
+                        ? TextDecoration.lineThrough
+                        : null,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (showInactiveState)
+                Container(
+                  margin: const EdgeInsets.only(left: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red[100],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'Inactive',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.red[700],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class AddEditSubCategoryDialog extends StatefulWidget {
@@ -688,16 +785,44 @@ class _AddEditSubCategoryDialogState extends State<AddEditSubCategoryDialog> {
         ),
         const SizedBox(width: 8),
         Flexible(
-          child: Text(
-            category.name + (showInactiveState ? ' (Inactive)' : ''),
-            style: TextStyle(
-              color: showInactiveState
-                  ? Colors.grey[600]
-                  : (isSelected ? Colors.blue : null),
-              fontWeight: isSelected ? FontWeight.w500 : null,
-              decoration: showInactiveState ? TextDecoration.lineThrough : null,
-            ),
-            overflow: TextOverflow.ellipsis,
+          child: Row(
+            children: [
+              Flexible(
+                child: Text(
+                  category.name,
+                  style: TextStyle(
+                    color: showInactiveState
+                        ? Colors.grey[600]
+                        : (isSelected ? Colors.blue : null),
+                    fontWeight: isSelected ? FontWeight.w500 : null,
+                    decoration: showInactiveState
+                        ? TextDecoration.lineThrough
+                        : null,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (showInactiveState)
+                Container(
+                  margin: const EdgeInsets.only(left: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red[100],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'Inactive',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.red[700],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ],
@@ -768,240 +893,192 @@ class _AddEditSubCategoryDialogState extends State<AddEditSubCategoryDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-
-    return Dialog(
-      child: Container(
-        width: screenSize.width > 500 ? 450 : screenSize.width * 0.9,
-        constraints: BoxConstraints(maxHeight: screenSize.height * 0.8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Title bar
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(12),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      widget.subCategory == null
-                          ? 'Add Sub-Category'
-                          : 'Edit Sub-Category',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
+    return AlertDialog(
+      title: Text(
+        widget.subCategory == null ? 'Add Sub-Category' : 'Edit Sub-Category',
+      ),
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width > 500
+              ? 400
+              : MediaQuery.of(context).size.width * 0.8,
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<int>(
+                  initialValue: _selectedMainCategoryId,
+                  decoration: const InputDecoration(
+                    labelText: 'Main Category *',
+                    border: OutlineInputBorder(),
+                  ),
+                  selectedItemBuilder: (context) {
+                    return widget.mainCategories.map((category) {
+                      return _buildCategoryDropdownItem(
+                        category,
+                        isSelected: true,
+                        showInactiveState: !category.isActive,
+                      );
+                    }).toList();
+                  },
+                  items: widget.mainCategories.map((category) {
+                    return DropdownMenuItem<int>(
+                      value: category.id,
+                      enabled:
+                          category.isActive ||
+                          (widget.subCategory != null &&
+                              widget.subCategory!.mainCategoryId ==
+                                  category.id),
+                      child: _buildCategoryDropdownItem(
+                        category,
+                        showInactiveState: !category.isActive,
                       ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: _isLoading
-                        ? null
-                        : () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
-                    tooltip: 'Close',
-                  ),
-                ],
-              ),
-            ),
-            // Content
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      DropdownButtonFormField<int>(
-                        initialValue: _selectedMainCategoryId,
-                        decoration: const InputDecoration(
-                          labelText: 'Main Category *',
-                          border: OutlineInputBorder(),
+                    );
+                  }).toList(),
+                  validator: (value) {
+                    if (value == null) {
+                      return 'Please select a main category';
+                    }
+                    // For new sub-categories, prevent selection of inactive main categories
+                    if (widget.subCategory == null) {
+                      final selectedCategory = widget.mainCategories.firstWhere(
+                        (cat) => cat.id == value,
+                        orElse: () => MainCategory(
+                          id: 0,
+                          name: '',
+                          sortOrder: 0,
+                          isActive: false,
                         ),
-                        selectedItemBuilder: (context) {
-                          return widget.mainCategories.map((category) {
-                            return _buildCategoryDropdownItem(
-                              category,
-                              isSelected: true,
-                              showInactiveState: !category.isActive,
+                      );
+                      if (!selectedCategory.isActive) {
+                        return 'Cannot select inactive main category for new sub-category';
+                      }
+                    }
+                    return null;
+                  },
+                  onChanged: (value) {
+                    // For new sub-categories, prevent selection of inactive main categories
+                    if (widget.subCategory == null && value != null) {
+                      final selectedCategory = widget.mainCategories.firstWhere(
+                        (cat) => cat.id == value,
+                        orElse: () => MainCategory(
+                          id: 0,
+                          name: '',
+                          sortOrder: 0,
+                          isActive: false,
+                        ),
+                      );
+                      if (!selectedCategory.isActive) {
+                        // Delay the SnackBar to avoid mouse tracker assertion error
+                        Future.microtask(() {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Cannot select inactive main category',
+                                ),
+                                backgroundColor: Colors.red,
+                              ),
                             );
-                          }).toList();
-                        },
-                        items: widget.mainCategories.map((category) {
-                          return DropdownMenuItem<int>(
-                            value: category.id,
-                            enabled:
-                                category.isActive ||
-                                (widget.subCategory != null &&
-                                    widget.subCategory!.mainCategoryId ==
-                                        category.id),
-                            child: _buildCategoryDropdownItem(
-                              category,
-                              showInactiveState: !category.isActive,
-                            ),
-                          );
-                        }).toList(),
-                        validator: (value) {
-                          if (value == null) {
-                            return 'Please select a main category';
                           }
-                          // For new sub-categories, prevent selection of inactive main categories
-                          if (widget.subCategory == null) {
-                            final selectedCategory = widget.mainCategories
-                                .firstWhere(
-                                  (cat) => cat.id == value,
-                                  orElse: () => MainCategory(
-                                    id: 0,
-                                    name: '',
-                                    sortOrder: 0,
-                                    isActive: false,
-                                  ),
-                                );
-                            if (!selectedCategory.isActive) {
-                              return 'Cannot select inactive main category for new sub-category';
-                            }
-                          }
-                          return null;
-                        },
-                        onChanged: (value) {
-                          // For new sub-categories, prevent selection of inactive main categories
-                          if (widget.subCategory == null && value != null) {
-                            final selectedCategory = widget.mainCategories
-                                .firstWhere(
-                                  (cat) => cat.id == value,
-                                  orElse: () => MainCategory(
-                                    id: 0,
-                                    name: '',
-                                    sortOrder: 0,
-                                    isActive: false,
-                                  ),
-                                );
-                            if (!selectedCategory.isActive) {
-                              // Delay the SnackBar to avoid mouse tracker assertion error
-                              Future.microtask(() {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Cannot select inactive main category',
-                                      ),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                }
-                              });
-                              return; // Don't change the selection
-                            }
-                          }
+                        });
+                        return; // Don't change the selection
+                      }
+                    }
 
-                          setState(() {
-                            _selectedMainCategoryId = value;
-                          });
-                          if (widget.subCategory == null) {
-                            // Use microtask to avoid potential timing issues
-                            Future.microtask(() async {
-                              if (mounted) {
-                                await _updateSortOrder();
-                              }
-                            });
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _nameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Name *',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Name is required';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _descriptionController,
-                        decoration: const InputDecoration(
-                          labelText: 'Description',
-                          border: OutlineInputBorder(),
-                        ),
-                        maxLines: 3,
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _sortOrderController,
-                        decoration: const InputDecoration(
-                          labelText: 'Sort Order *',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.number,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Sort order is required';
-                          }
-                          if (int.tryParse(value) == null) {
-                            return 'Please enter a valid number';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Checkbox(
-                            value: _isActive,
-                            onChanged: (value) {
-                              setState(() {
-                                _isActive = value ?? true;
-                              });
-                            },
-                          ),
-                          const Text('Active'),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      // Action buttons
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton(
-                            onPressed: _isLoading
-                                ? null
-                                : () => Navigator.of(context).pop(),
-                            child: const Text('Cancel'),
-                          ),
-                          const SizedBox(width: 12),
-                          ElevatedButton(
-                            onPressed: _isLoading ? null : _saveSubCategory,
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Text('Save'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                    setState(() {
+                      _selectedMainCategoryId = value;
+                    });
+                    if (widget.subCategory == null) {
+                      // Use microtask to avoid potential timing issues
+                      Future.microtask(() async {
+                        if (mounted) {
+                          await _updateSortOrder();
+                        }
+                      });
+                    }
+                  },
                 ),
-              ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name *',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Name is required';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _sortOrderController,
+                  decoration: const InputDecoration(
+                    labelText: 'Sort Order *',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Sort order is required';
+                    }
+                    if (int.tryParse(value) == null) {
+                      return 'Please enter a valid number';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: _isActive,
+                      onChanged: (value) {
+                        setState(() {
+                          _isActive = value ?? true;
+                        });
+                      },
+                    ),
+                    const Text('Active'),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _saveSubCategory,
+          child: _isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save'),
+        ),
+      ],
     );
   }
 }
