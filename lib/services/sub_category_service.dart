@@ -77,10 +77,33 @@ class SubCategoryService {
     // Input validation
     _validateSubCategoryInput(subCategory);
 
+    // Check for duplicate name within the same main category
+    final nameExists = await isSubCategoryNameExists(
+      subCategory.name.trim(),
+      subCategory.mainCategoryId,
+    );
+    if (nameExists) {
+      throw ArgumentError(
+        'A sub-category with the name "${subCategory.name.trim()}" already exists in this main category. Please choose a different name.',
+      );
+    }
+
     final data = subCategory.toMap();
     data.remove('id'); // Remove id for insert
     data.remove('main_category_name'); // Remove joined field
-    return await _dbHelper.insertRecord('sub_categories', data);
+
+    try {
+      return await _dbHelper.insertRecord('sub_categories', data);
+    } catch (e) {
+      // Check if it's a constraint violation error
+      if (e.toString().contains('UNIQUE constraint failed')) {
+        throw ArgumentError(
+          'A sub-category with this name already exists in the selected main category. Please choose a different name.',
+        );
+      }
+      // Re-throw other database errors
+      rethrow;
+    }
   }
 
   Future<int> updateSubCategory(SubCategory subCategory) async {
@@ -91,14 +114,37 @@ class SubCategoryService {
     // Input validation
     _validateSubCategoryInput(subCategory);
 
+    // Check for duplicate name within the same main category (excluding current record)
+    final nameExists = await isSubCategoryNameExists(
+      subCategory.name.trim(),
+      subCategory.mainCategoryId,
+      excludeId: subCategory.id,
+    );
+    if (nameExists) {
+      throw ArgumentError(
+        'A sub-category with the name "${subCategory.name.trim()}" already exists in this main category. Please choose a different name.',
+      );
+    }
+
     final data = subCategory.toMap();
     data['updated_at'] = DateTime.now().toIso8601String();
     data.remove('id'); // Remove id from data map
     data.remove('main_category_name'); // Remove joined field
 
-    return await _dbHelper.updateRecord('sub_categories', data, 'id = ?', [
-      subCategory.id!,
-    ]);
+    try {
+      return await _dbHelper.updateRecord('sub_categories', data, 'id = ?', [
+        subCategory.id!,
+      ]);
+    } catch (e) {
+      // Check if it's a constraint violation error
+      if (e.toString().contains('UNIQUE constraint failed')) {
+        throw ArgumentError(
+          'A sub-category with this name already exists in the selected main category. Please choose a different name.',
+        );
+      }
+      // Re-throw other database errors
+      rethrow;
+    }
   }
 
   // Private validation method

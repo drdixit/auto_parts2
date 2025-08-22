@@ -351,146 +351,95 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Content
+          // Sub-categories table
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _filteredSubCategories.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No sub-categories found.',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: _filteredSubCategories.length,
-                    itemBuilder: (context, index) {
-                      final subCategory = _filteredSubCategories[index];
-                      final mainCategory = _allMainCategories.firstWhere(
-                        (cat) => cat.id == subCategory.mainCategoryId,
-                        orElse: () => MainCategory(
-                          id: 0,
-                          name: 'Unknown',
-                          sortOrder: 0,
-                          isActive: false,
-                        ),
-                      );
-
-                      return Card(
-                        child: ListTile(
-                          leading: _buildMainCategoryImage(mainCategory),
-                          title: Text(
-                            subCategory.name,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w500,
-                              decoration: subCategory.isActive
-                                  ? null
-                                  : TextDecoration.lineThrough,
-                              color: subCategory.isActive
-                                  ? null
-                                  : Colors.grey[600],
+                ? const Center(child: Text('No sub-categories found'))
+                : Card(
+                    child: SingleChildScrollView(
+                      child: DataTable(
+                        columns: const [
+                          DataColumn(label: Text('Main Category')),
+                          DataColumn(label: Text('Name')),
+                          DataColumn(label: Text('Description')),
+                          DataColumn(label: Text('Sort Order')),
+                          DataColumn(label: Text('Status')),
+                          DataColumn(label: Text('Actions')),
+                        ],
+                        rows: _filteredSubCategories.map((subCategory) {
+                          final mainCategory = _allMainCategories.firstWhere(
+                            (cat) => cat.id == subCategory.mainCategoryId,
+                            orElse: () => MainCategory(
+                              id: 0,
+                              name: 'Unknown',
+                              sortOrder: 0,
+                              isActive: false,
                             ),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Main Category: ${mainCategory.name}',
-                                style: TextStyle(
-                                  color: mainCategory.isActive
-                                      ? null
-                                      : Colors.red[600],
-                                  decoration: mainCategory.isActive
-                                      ? null
-                                      : TextDecoration.lineThrough,
-                                ),
-                              ),
-                              if (subCategory.description != null &&
-                                  subCategory.description!.isNotEmpty)
-                                Text(subCategory.description!),
-                              Text(
-                                'Sort Order: ${subCategory.sortOrder}',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (!subCategory.isActive)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red[100],
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    'Inactive',
+                          );
+
+                          return DataRow(
+                            cells: [
+                              DataCell(_buildMainCategoryCell(mainCategory)),
+                              DataCell(Text(subCategory.name)),
+                              DataCell(Text(subCategory.description ?? '')),
+                              DataCell(Text(subCategory.sortOrder.toString())),
+                              DataCell(
+                                Chip(
+                                  label: Text(
+                                    subCategory.isActive
+                                        ? 'Active'
+                                        : 'Inactive',
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.red[700],
-                                      fontWeight: FontWeight.w500,
+                                      color: subCategory.isActive
+                                          ? Colors.white
+                                          : Colors.black,
                                     ),
                                   ),
+                                  backgroundColor: subCategory.isActive
+                                      ? Colors.green
+                                      : Colors.grey,
                                 ),
-                              const SizedBox(width: 8),
-                              PopupMenuButton(
-                                itemBuilder: (context) => [
-                                  PopupMenuItem(
-                                    onTap: () => _showAddEditDialog(
-                                      subCategory: subCategory,
+                              ),
+                              DataCell(
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.edit),
+                                      onPressed: () => _showAddEditDialog(
+                                        subCategory: subCategory,
+                                      ),
+                                      tooltip: 'Edit',
                                     ),
-                                    child: const Row(
-                                      children: [
-                                        Icon(Icons.edit),
-                                        SizedBox(width: 8),
-                                        Text('Edit'),
-                                      ],
+                                    IconButton(
+                                      icon: Icon(
+                                        subCategory.isActive
+                                            ? Icons.visibility_off
+                                            : Icons.visibility,
+                                      ),
+                                      onPressed: () =>
+                                          _toggleSubCategoryStatus(subCategory),
+                                      tooltip: subCategory.isActive
+                                          ? 'Deactivate'
+                                          : 'Activate',
                                     ),
-                                  ),
-                                  PopupMenuItem(
-                                    onTap: () =>
-                                        _toggleSubCategoryStatus(subCategory),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          subCategory.isActive
-                                              ? Icons.visibility_off
-                                              : Icons.visibility,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          subCategory.isActive
-                                              ? 'Deactivate'
-                                              : 'Activate',
-                                        ),
-                                      ],
+                                    IconButton(
+                                      icon: const Icon(Icons.delete),
+                                      onPressed: () =>
+                                          _deleteSubCategory(subCategory),
+                                      tooltip: 'Delete',
+                                      color: Colors.red,
                                     ),
-                                  ),
-                                  PopupMenuItem(
-                                    onTap: () =>
-                                        _deleteSubCategory(subCategory),
-                                    child: const Row(
-                                      children: [
-                                        Icon(Icons.delete, color: Colors.red),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          'Delete',
-                                          style: TextStyle(color: Colors.red),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ],
-                          ),
-                        ),
-                      );
-                    },
+                          );
+                        }).toList(),
+                      ),
+                    ),
                   ),
           ),
         ],
@@ -498,51 +447,85 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
     );
   }
 
-  Widget _buildMainCategoryImage(MainCategory category) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: category.iconPath != null && category.iconPath!.isNotEmpty
-          ? ClipRRect(
-              borderRadius: BorderRadius.circular(7),
-              child: Image.file(
-                File(category.iconPath!),
-                width: 40,
-                height: 40,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: Colors.grey[200],
-                    child: Icon(
-                      Icons.broken_image,
-                      size: 20,
-                      color: Colors.grey[400],
-                    ),
-                  );
-                },
-              ),
-            )
-          : Container(
-              color: Colors.grey[100],
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.image_not_supported,
-                    size: 12,
-                    color: Colors.grey[400],
+  Widget _buildMainCategoryCell(MainCategory category) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: category.iconPath != null && category.iconPath!.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: Image.file(
+                    File(category.iconPath!),
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: Colors.grey[200],
+                        child: Icon(
+                          Icons.broken_image,
+                          size: 20,
+                          color: Colors.grey[400],
+                        ),
+                      );
+                    },
                   ),
-                  Text(
-                    'No Image',
-                    style: TextStyle(fontSize: 8, color: Colors.grey[500]),
+                )
+              : Container(
+                  color: Colors.grey[100],
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.image_not_supported,
+                        size: 12,
+                        color: Colors.grey[400],
+                      ),
+                      Text(
+                        'No Image',
+                        style: TextStyle(fontSize: 6, color: Colors.grey[500]),
+                      ),
+                    ],
                   ),
-                ],
+                ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                category.name,
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  color: category.isActive ? null : Colors.red[600],
+                  decoration: category.isActive
+                      ? null
+                      : TextDecoration.lineThrough,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
+              if (!category.isActive)
+                Text(
+                  'Inactive',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.red[600],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
