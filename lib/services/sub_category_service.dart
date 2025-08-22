@@ -1,8 +1,10 @@
 import '../database/database_helper.dart';
 import '../models/sub_category.dart';
+import 'product_service.dart';
 
 class SubCategoryService {
   final DatabaseHelper _dbHelper = DatabaseHelper();
+  final ProductService _productService = ProductService();
 
   Future<List<SubCategory>> getAllSubCategories({
     bool includeInactive = false,
@@ -226,6 +228,9 @@ class SubCategoryService {
           where: 'id = ?',
           whereArgs: [id],
         );
+
+        // Handle product cascading
+        await _productService.handleSubCategoryCascade(id, isActive, txn: txn);
 
         return 1; // Return success
       } catch (e) {

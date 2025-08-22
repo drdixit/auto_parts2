@@ -273,6 +273,8 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
         warrantyMonths: warranty,
         isUniversal: _isUniversal,
         isActive: _isActive,
+        isManuallyDisabled:
+            false, // New products start as not manually disabled
       );
 
       Map<String, dynamic> result;

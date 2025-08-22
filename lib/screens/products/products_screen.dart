@@ -100,9 +100,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
     // Apply status filter
     if (_selectedFilter == 'active') {
-      filtered = filtered.where((product) => product.isActive).toList();
+      filtered = filtered
+          .where((product) => product.isEffectivelyActive == true)
+          .toList();
     } else if (_selectedFilter == 'inactive') {
-      filtered = filtered.where((product) => !product.isActive).toList();
+      filtered = filtered
+          .where((product) => product.isEffectivelyActive != true)
+          .toList();
     }
 
     // Apply search filter
@@ -196,62 +200,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
           backgroundColor: Colors.red,
         ),
       );
-    }
-  }
-
-  Future<void> _confirmDeleteProduct(Product product) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: Text(
-          'Are you sure you want to delete "${product.name}"?\n\nThis action will hide the product but preserve all data.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      try {
-        final result = await _productService.deleteProduct(product.id!);
-
-        if (result['success']) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['message']),
-              backgroundColor: Colors.green,
-            ),
-          );
-          _loadProducts();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['error'] ?? 'Failed to delete product'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
 
@@ -566,25 +514,29 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   label: const Text('Edit'),
                 ),
                 const SizedBox(width: 8),
-                TextButton.icon(
-                  onPressed: () => _toggleProductStatus(product),
-                  icon: Icon(
-                    product.isActive ? Icons.visibility_off : Icons.visibility,
-                    size: 16,
+                Tooltip(
+                  message: _getToggleTooltip(product),
+                  child: TextButton.icon(
+                    onPressed: _canToggleProduct(product)
+                        ? () => _toggleProductStatus(product)
+                        : null,
+                    icon: Icon(
+                      (product.isEffectivelyActive ?? false)
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                      size: 16,
+                    ),
+                    label: Text(
+                      (product.isEffectivelyActive ?? false)
+                          ? 'Deactivate'
+                          : 'Activate',
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: (product.isEffectivelyActive ?? false)
+                          ? Colors.orange
+                          : Colors.green,
+                    ),
                   ),
-                  label: Text(product.isActive ? 'Deactivate' : 'Activate'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: product.isActive
-                        ? Colors.orange
-                        : Colors.green,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                TextButton.icon(
-                  onPressed: () => _confirmDeleteProduct(product),
-                  icon: const Icon(Icons.delete, size: 16),
-                  label: const Text('Delete'),
-                  style: TextButton.styleFrom(foregroundColor: Colors.red),
                 ),
               ],
             ),
@@ -595,16 +547,55 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Widget _buildStatusChip(Product product) {
+    // Show clear states with specific category information
+    final isEffectivelyActive = product.isEffectivelyActive ?? false;
+    final isManuallyDisabled = product.isManuallyDisabled;
+    final isProductActive = product.isActive;
+    final subCategoryActive = product.subCategoryActive ?? true;
+    final mainCategoryActive = product.mainCategoryActive ?? true;
+
+    String statusText;
+    Color backgroundColor;
+    Color textColor;
+
+    if (isEffectivelyActive) {
+      // Product and all parents are active
+      statusText = 'Active';
+      backgroundColor = Colors.green;
+      textColor = Colors.white;
+    } else if (isManuallyDisabled) {
+      // User manually disabled this product
+      statusText = 'Manually Disabled';
+      backgroundColor = Colors.red;
+      textColor = Colors.white;
+    } else if (isProductActive) {
+      // Product is active but parent category is inactive
+      if (!mainCategoryActive) {
+        statusText = 'Inactive by Main Category';
+      } else if (!subCategoryActive) {
+        statusText = 'Inactive by Sub Category';
+      } else {
+        statusText = 'Inactive by Category';
+      }
+      backgroundColor = Colors.orange;
+      textColor = Colors.white;
+    } else {
+      // Product is inactive (fallback)
+      statusText = 'Inactive';
+      backgroundColor = Colors.grey;
+      textColor = Colors.white;
+    }
+
     return Chip(
       label: Text(
-        product.isActive ? 'Active' : 'Inactive',
+        statusText,
         style: TextStyle(
-          color: product.isActive ? Colors.white : Colors.black,
+          color: textColor,
           fontSize: 12,
           fontWeight: FontWeight.w500,
         ),
       ),
-      backgroundColor: product.isActive ? Colors.green : Colors.grey,
+      backgroundColor: backgroundColor,
     );
   }
 
@@ -729,5 +720,34 @@ class _ProductsScreenState extends State<ProductsScreen> {
         ),
       ),
     );
+  }
+
+  bool _canToggleProduct(Product product) {
+    // Can always toggle if it's manually disabled
+    if (product.isManuallyDisabled) return true;
+
+    // Can only toggle to active if categories are active
+    if (!product.isActive) {
+      // Check if categories are active (we need to validate this)
+      return true; // For now, allow toggle - service will handle the logic
+    }
+
+    // Can always deactivate an active product
+    return true;
+  }
+
+  String _getToggleTooltip(Product product) {
+    final isEffectivelyActive = product.isEffectivelyActive ?? false;
+    final isManuallyDisabled = product.isManuallyDisabled;
+
+    if (isEffectivelyActive) {
+      return 'Click to manually disable this product';
+    } else if (isManuallyDisabled) {
+      return 'Click to enable this product';
+    } else if (product.isActive) {
+      return 'Product is active but disabled by parent category. Click to manually disable it.';
+    } else {
+      return 'Product is inactive due to parent category';
+    }
   }
 }

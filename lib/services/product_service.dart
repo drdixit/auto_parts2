@@ -8,6 +8,7 @@ import '../models/product_image.dart';
 import '../models/product_inventory.dart';
 import 'dart:io';
 import 'package:path/path.dart' as path;
+import 'package:sqflite_common/sqlite_api.dart';
 
 class ProductService {
   final DatabaseHelper _dbHelper = DatabaseHelper();
@@ -16,23 +17,46 @@ class ProductService {
   Future<List<Product>> getAllProducts({bool includeInactive = false}) async {
     final db = await _dbHelper.database;
 
+    // Complex query to handle the cascading system properly
+    // A product is "effectively active" if:
+    // 1. p.is_active = 1 AND sc.is_active = 1 AND mc.is_active = 1
+    // A product is "effectively inactive" if:
+    // 1. p.is_active = 0 (manually disabled)
+    // 2. OR sc.is_active = 0 (sub-category disabled)
+    // 3. OR mc.is_active = 0 (main category disabled)
+
+    String whereClause = '';
+    if (!includeInactive) {
+      whereClause = '''
+        WHERE p.is_active = 1
+        AND sc.is_active = 1
+        AND mc.is_active = 1
+      ''';
+    }
+
     final String query =
         '''
       SELECT
         p.*,
         sc.name as sub_category_name,
+        sc.is_active as sub_category_active,
         mc.name as main_category_name,
+        mc.is_active as main_category_active,
         m.name as manufacturer_name,
         pi.image_path as primary_image_path,
         inv.stock_quantity,
-        inv.selling_price
+        inv.selling_price,
+        CASE
+          WHEN p.is_active = 1 AND sc.is_active = 1 AND mc.is_active = 1 THEN 1
+          ELSE 0
+        END as is_effectively_active
       FROM products p
       LEFT JOIN sub_categories sc ON p.sub_category_id = sc.id
       LEFT JOIN main_categories mc ON sc.main_category_id = mc.id
       LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
       LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_primary = 1
       LEFT JOIN product_inventory inv ON p.id = inv.product_id AND inv.is_active = 1
-      ${includeInactive ? '' : 'WHERE p.is_active = 1'}
+      $whereClause
       ORDER BY p.name ASC
     ''';
 
@@ -61,27 +85,44 @@ class ProductService {
   }) async {
     final db = await _dbHelper.database;
 
+    String whereClause = 'WHERE p.sub_category_id = ?';
+    List<dynamic> whereArgs = [subCategoryId];
+
+    if (!includeInactive) {
+      whereClause += '''
+        AND p.is_active = 1
+        AND sc.is_active = 1
+        AND mc.is_active = 1
+      ''';
+    }
+
     final String query =
         '''
       SELECT
         p.*,
         sc.name as sub_category_name,
+        sc.is_active as sub_category_active,
         mc.name as main_category_name,
+        mc.is_active as main_category_active,
         m.name as manufacturer_name,
         pi.image_path as primary_image_path,
         inv.stock_quantity,
-        inv.selling_price
+        inv.selling_price,
+        CASE
+          WHEN p.is_active = 1 AND sc.is_active = 1 AND mc.is_active = 1 THEN 1
+          ELSE 0
+        END as is_effectively_active
       FROM products p
       LEFT JOIN sub_categories sc ON p.sub_category_id = sc.id
       LEFT JOIN main_categories mc ON sc.main_category_id = mc.id
       LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
       LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_primary = 1
       LEFT JOIN product_inventory inv ON p.id = inv.product_id AND inv.is_active = 1
-      WHERE p.sub_category_id = ? ${includeInactive ? '' : 'AND p.is_active = 1'}
+      $whereClause
       ORDER BY p.name ASC
     ''';
 
-    final results = await db.rawQuery(query, [subCategoryId]);
+    final results = await db.rawQuery(query, whereArgs);
     return results.map((map) => Product.fromMap(map)).toList();
   }
 
@@ -97,7 +138,11 @@ class ProductService {
         m.name as manufacturer_name,
         pi.image_path as primary_image_path,
         inv.stock_quantity,
-        inv.selling_price
+        inv.selling_price,
+        CASE
+          WHEN p.is_active = 1 AND sc.is_active = 1 AND mc.is_active = 1 THEN 1
+          ELSE 0
+        END as is_effectively_active
       FROM products p
       LEFT JOIN sub_categories sc ON p.sub_category_id = sc.id
       LEFT JOIN main_categories mc ON sc.main_category_id = mc.id
@@ -121,6 +166,18 @@ class ProductService {
   }) async {
     final db = await _dbHelper.database;
 
+    String whereClause = '''
+      WHERE (p.name LIKE ? OR p.part_number LIKE ? OR m.name LIKE ? OR sc.name LIKE ? OR mc.name LIKE ?)
+    ''';
+
+    if (!includeInactive) {
+      whereClause += '''
+        AND p.is_active = 1
+        AND sc.is_active = 1
+        AND mc.is_active = 1
+      ''';
+    }
+
     final String searchQuery =
         '''
       SELECT
@@ -130,20 +187,25 @@ class ProductService {
         m.name as manufacturer_name,
         pi.image_path as primary_image_path,
         inv.stock_quantity,
-        inv.selling_price
+        inv.selling_price,
+        CASE
+          WHEN p.is_active = 1 AND sc.is_active = 1 AND mc.is_active = 1 THEN 1
+          ELSE 0
+        END as is_effectively_active
       FROM products p
       LEFT JOIN sub_categories sc ON p.sub_category_id = sc.id
       LEFT JOIN main_categories mc ON sc.main_category_id = mc.id
       LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
       LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_primary = 1
       LEFT JOIN product_inventory inv ON p.id = inv.product_id AND inv.is_active = 1
-      WHERE (p.name LIKE ? OR p.part_number LIKE ? OR m.name LIKE ?)
-      ${includeInactive ? '' : 'AND p.is_active = 1'}
+      $whereClause
       ORDER BY p.name ASC
     ''';
 
     final searchTerm = '%$query%';
     final results = await db.rawQuery(searchQuery, [
+      searchTerm,
+      searchTerm,
       searchTerm,
       searchTerm,
       searchTerm,
@@ -419,14 +481,15 @@ class ProductService {
   }
 
   // Toggle product status (active/inactive)
+  // Toggle product status (manual enable/disable)
   Future<Map<String, dynamic>> toggleProductStatus(int productId) async {
     try {
       final db = await _dbHelper.database;
 
-      // Get current status
+      // Get current status - we only need the product's own flags
       final result = await db.query(
         'products',
-        columns: ['is_active'],
+        columns: ['is_active', 'is_manually_disabled'],
         where: 'id = ?',
         whereArgs: [productId],
       );
@@ -435,15 +498,32 @@ class ProductService {
         return {'success': false, 'error': 'Product not found'};
       }
 
-      final currentStatus = result.first['is_active'] == 1;
-      final newStatus = !currentStatus;
+      final current = result.first;
+      final currentlyActive = current['is_active'] == 1;
+
+      Map<String, dynamic> updateData = {
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      String message;
+
+      // Toggle logic exactly like sub-categories:
+      // Just flip the isActive flag and update isManuallyDisabled accordingly
+      if (currentlyActive) {
+        // Currently active, user wants to disable it manually
+        updateData['is_active'] = 0;
+        updateData['is_manually_disabled'] = 1;
+        message = 'Product deactivated successfully';
+      } else {
+        // Currently inactive, user wants to enable it
+        updateData['is_active'] = 1;
+        updateData['is_manually_disabled'] = 0;
+        message = 'Product activated successfully';
+      }
 
       final rowsAffected = await db.update(
         'products',
-        {
-          'is_active': newStatus ? 1 : 0,
-          'updated_at': DateTime.now().toIso8601String(),
-        },
+        updateData,
         where: 'id = ?',
         whereArgs: [productId],
       );
@@ -451,9 +531,8 @@ class ProductService {
       if (rowsAffected > 0) {
         return {
           'success': true,
-          'message':
-              'Product ${newStatus ? 'activated' : 'deactivated'} successfully',
-          'new_status': newStatus,
+          'message': message,
+          'new_status': updateData['is_active'] == 1,
         };
       } else {
         return {'success': false, 'error': 'Failed to update product status'};
@@ -464,6 +543,40 @@ class ProductService {
         'error': 'Failed to toggle product status: ${e.toString()}',
       };
     }
+  }
+
+  // Handle cascading when a main category is toggled
+  Future<void> handleMainCategoryCascade(
+    int mainCategoryId,
+    bool isActive, {
+    Transaction? txn,
+  }) async {
+    // NOTE: Unlike the original broken implementation, we DON'T modify product.is_active flags
+    // when main categories change. The is_active flag represents the product's individual state.
+    // The effective status is computed in queries based on:
+    // isEffectivelyActive = product.is_active AND sub_category.is_active AND main_category.is_active
+    //
+    // This preserves product states when categories are re-enabled, just like sub-categories work.
+
+    // No database operations needed here - the cascade effect is handled by computed queries
+    // The UI will automatically show products as inactive when parent categories are inactive
+  }
+
+  // Handle cascading when a sub category is toggled
+  Future<void> handleSubCategoryCascade(
+    int subCategoryId,
+    bool isActive, {
+    Transaction? txn,
+  }) async {
+    // NOTE: Unlike the original broken implementation, we DON'T modify product.is_active flags
+    // when sub-categories change. The is_active flag represents the product's individual state.
+    // The effective status is computed in queries based on:
+    // isEffectivelyActive = product.is_active AND sub_category.is_active AND main_category.is_active
+    //
+    // This preserves product states when categories are re-enabled, just like sub-categories work.
+
+    // No database operations needed here - the cascade effect is handled by computed queries
+    // The UI will automatically show products as inactive when parent categories are inactive
   }
 
   // Get all manufacturers for parts

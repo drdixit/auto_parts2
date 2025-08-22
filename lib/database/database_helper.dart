@@ -43,7 +43,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 5, // Incremented for compatibility data
+      version: 6, // Incremented for product manual disable flag
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: (db) {
@@ -103,6 +103,19 @@ class DatabaseHelper {
     if (oldVersion < 5) {
       // Add sample compatibility data
       await _insertSampleCompatibility(db);
+    }
+
+    if (oldVersion < 6) {
+      // Add is_manually_disabled flag to products to track user-initiated deactivation
+      // This helps distinguish between cascade deactivation and manual deactivation
+      await db.execute('''
+        ALTER TABLE products ADD COLUMN is_manually_disabled BOOLEAN DEFAULT 0
+      ''');
+
+      // Initialize existing records - if currently inactive, consider it manually disabled
+      await db.execute('''
+        UPDATE products SET is_manually_disabled = 1 WHERE is_active = 0
+      ''');
     }
   }
 
@@ -202,6 +215,7 @@ class DatabaseHelper {
         warranty_months INTEGER DEFAULT 0,
         is_universal BOOLEAN DEFAULT 0,
         is_active BOOLEAN DEFAULT 1,
+        is_manually_disabled BOOLEAN DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (sub_category_id) REFERENCES sub_categories(id) ON DELETE RESTRICT,

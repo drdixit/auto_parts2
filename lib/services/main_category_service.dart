@@ -1,8 +1,10 @@
 import '../database/database_helper.dart';
 import '../models/main_category.dart';
+import 'product_service.dart';
 
 class MainCategoryService {
   final DatabaseHelper _dbHelper = DatabaseHelper();
+  final ProductService _productService = ProductService();
 
   Future<List<MainCategory>> getAllCategories({
     bool includeInactive = false,
@@ -115,10 +117,16 @@ class MainCategoryService {
           // DON'T change sub-category is_active flags - preserve individual states
           // Sub-categories will appear inactive in UI due to filtering logic
           // but maintain their individual is_active state in database
+
+          // Handle product cascading
+          await _productService.handleMainCategoryCascade(id, false, txn: txn);
         } else {
           // When REACTIVATING main category:
           // DON'T change sub-category is_active flags - preserve individual states
           // Sub-categories will appear according to their individual is_active state
+
+          // Handle product cascading
+          await _productService.handleMainCategoryCascade(id, true, txn: txn);
         }
 
         return 1; // Return success

@@ -11,7 +11,8 @@ class Product {
   final String? material;
   final int warrantyMonths;
   final bool isUniversal; // TRUE if fits all vehicles
-  final bool isActive;
+  final bool isActive; // Product's own active status
+  final bool isManuallyDisabled; // Track user-initiated deactivation
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -22,6 +23,10 @@ class Product {
   final String? primaryImagePath;
   final int? stockQuantity;
   final double? sellingPrice;
+  final bool? subCategoryActive;
+  final bool? mainCategoryActive;
+  final bool?
+  isEffectivelyActive; // Computed: active only if both product and categories are active
 
   Product({
     this.id,
@@ -37,6 +42,7 @@ class Product {
     this.warrantyMonths = 0,
     this.isUniversal = false,
     this.isActive = true,
+    this.isManuallyDisabled = false,
     this.createdAt,
     this.updatedAt,
     this.subCategoryName,
@@ -45,6 +51,9 @@ class Product {
     this.primaryImagePath,
     this.stockQuantity,
     this.sellingPrice,
+    this.subCategoryActive,
+    this.mainCategoryActive,
+    this.isEffectivelyActive,
   });
 
   Map<String, dynamic> toMap() {
@@ -62,6 +71,7 @@ class Product {
       'warranty_months': warrantyMonths,
       'is_universal': isUniversal ? 1 : 0,
       'is_active': isActive ? 1 : 0,
+      'is_manually_disabled': isManuallyDisabled ? 1 : 0,
       'created_at':
           createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
@@ -83,6 +93,7 @@ class Product {
       warrantyMonths: map['warranty_months']?.toInt() ?? 0,
       isUniversal: (map['is_universal'] ?? 0) == 1,
       isActive: (map['is_active'] ?? 1) == 1,
+      isManuallyDisabled: (map['is_manually_disabled'] ?? 0) == 1,
       createdAt: map['created_at'] != null
           ? DateTime.parse(map['created_at'])
           : null,
@@ -95,6 +106,15 @@ class Product {
       primaryImagePath: map['primary_image_path'],
       stockQuantity: map['stock_quantity']?.toInt(),
       sellingPrice: map['selling_price']?.toDouble(),
+      subCategoryActive: map['sub_category_active'] != null
+          ? (map['sub_category_active'] ?? 1) == 1
+          : null,
+      mainCategoryActive: map['main_category_active'] != null
+          ? (map['main_category_active'] ?? 1) == 1
+          : null,
+      isEffectivelyActive: map['is_effectively_active'] != null
+          ? (map['is_effectively_active'] ?? 0) == 1
+          : null,
     );
   }
 
@@ -112,6 +132,7 @@ class Product {
     int? warrantyMonths,
     bool? isUniversal,
     bool? isActive,
+    bool? isManuallyDisabled,
     DateTime? createdAt,
     DateTime? updatedAt,
     String? subCategoryName,
@@ -120,6 +141,9 @@ class Product {
     String? primaryImagePath,
     int? stockQuantity,
     double? sellingPrice,
+    bool? subCategoryActive,
+    bool? mainCategoryActive,
+    bool? isEffectivelyActive,
   }) {
     return Product(
       id: id ?? this.id,
@@ -135,6 +159,7 @@ class Product {
       warrantyMonths: warrantyMonths ?? this.warrantyMonths,
       isUniversal: isUniversal ?? this.isUniversal,
       isActive: isActive ?? this.isActive,
+      isManuallyDisabled: isManuallyDisabled ?? this.isManuallyDisabled,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       subCategoryName: subCategoryName ?? this.subCategoryName,
@@ -143,12 +168,15 @@ class Product {
       primaryImagePath: primaryImagePath ?? this.primaryImagePath,
       stockQuantity: stockQuantity ?? this.stockQuantity,
       sellingPrice: sellingPrice ?? this.sellingPrice,
+      subCategoryActive: subCategoryActive ?? this.subCategoryActive,
+      mainCategoryActive: mainCategoryActive ?? this.mainCategoryActive,
+      isEffectivelyActive: isEffectivelyActive ?? this.isEffectivelyActive,
     );
   }
 
   @override
   String toString() {
-    return 'Product{id: $id, name: $name, partNumber: $partNumber, subCategoryId: $subCategoryId, manufacturerId: $manufacturerId, isActive: $isActive}';
+    return 'Product{id: $id, name: $name, partNumber: $partNumber, subCategoryId: $subCategoryId, manufacturerId: $manufacturerId, isActive: $isActive, isManuallyDisabled: $isManuallyDisabled}';
   }
 
   @override
