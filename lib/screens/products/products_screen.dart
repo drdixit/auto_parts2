@@ -240,14 +240,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   Future<void> _showQuickStockUpdate(Product product) async {
     final currentStock = product.stockQuantity ?? 0;
-    final stockController = TextEditingController(
-      text: currentStock.toString(),
-    );
+    // Treat quick stock input as incoming stock to ADD to current stock
+    final stockController = TextEditingController(text: '0');
 
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Update Stock - ${product.name}'),
+        title: Text('Add Stock - ${product.name}'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,7 +260,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               controller: stockController,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: 'New Stock Quantity',
+                labelText: 'Incoming Stock Quantity (to add)',
                 border: OutlineInputBorder(),
                 suffixText: 'units',
               ),
@@ -269,7 +268,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Note: This only updates stock quantity. Use "Inventory" button for full inventory management.',
+              'Note: This will add the entered quantity to the current stock. Use "Inventory" for full inventory edits.',
               style: TextStyle(
                 color: Colors.grey[500],
                 fontSize: 12,
@@ -285,8 +284,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              final newStock = int.tryParse(stockController.text) ?? 0;
-              if (newStock < 0) {
+              final addedStock = int.tryParse(stockController.text) ?? 0;
+              if (addedStock < 0) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Stock quantity cannot be negative'),
@@ -298,29 +297,62 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
               Navigator.of(context).pop();
 
-              try {
-                final result = await _productService.updateStockQuantity(
-                  product.id!,
-                  newStock,
-                );
+              final newQuantity = currentStock + addedStock;
 
-                if (result['success']) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(result['message']),
-                      backgroundColor: Colors.green,
-                    ),
+              try {
+                // If product already has inventory (stockQuantity != null), update it
+                if (product.stockQuantity != null) {
+                  final result = await _productService.updateStockQuantity(
+                    product.id!,
+                    newQuantity,
                   );
-                  _loadProducts(); // Refresh the list
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        result['error'] ?? 'Failed to update stock',
+
+                  if (result['success']) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(result['message']),
+                        backgroundColor: Colors.green,
                       ),
-                      backgroundColor: Colors.red,
-                    ),
+                    );
+                    _loadProducts(); // Refresh the list
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          result['error'] ?? 'Failed to update stock',
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                } else {
+                  // No inventory exists - create one with the incoming stock using upsert
+                  final inventory = ProductInventory(
+                    productId: product.id!,
+                    stockQuantity: newQuantity,
                   );
+
+                  final result = await _productService.upsertInventory(
+                    inventory,
+                  );
+                  if (result['success']) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(result['message'] ?? 'Inventory created'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    _loadProducts();
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          result['error'] ?? 'Failed to create inventory',
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 }
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -331,7 +363,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 );
               }
             },
-            child: const Text('Update'),
+            child: const Text('Add'),
           ),
         ],
       ),
