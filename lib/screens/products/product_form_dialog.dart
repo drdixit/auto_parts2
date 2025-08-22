@@ -6,6 +6,8 @@ import '../../models/product.dart';
 import '../../models/manufacturer.dart';
 import '../../models/sub_category.dart';
 import '../../models/product_image.dart';
+import '../../models/vehicle_model.dart';
+import '../../models/product_compatibility.dart';
 import '../../services/product_service.dart';
 
 class ProductFormDialog extends StatefulWidget {
@@ -43,6 +45,13 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   List<SubCategory> _subCategories = [];
   List<Manufacturer> _manufacturers = [];
 
+  // Vehicle compatibility
+  List<VehicleModel> _allVehicles = [];
+  List<VehicleModel> _filteredVehicles = [];
+  Set<int> _selectedVehicleIds = {};
+  final TextEditingController _vehicleSearchController =
+      TextEditingController();
+
   // Image handling
   List<ProductImage> _productImages = [];
   List<String> _selectedImagePaths = [];
@@ -71,6 +80,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     _dimensionsController.dispose();
     _materialController.dispose();
     _warrantyController.dispose();
+    _vehicleSearchController.dispose();
 
     super.dispose();
   }
@@ -170,10 +180,24 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     try {
       final subCategories = await _productService.getActiveSubCategories();
       final manufacturers = await _productService.getPartsManufacturers();
+      final vehicles = await _productService.getAllVehicleModels();
+
+      // Load existing vehicle compatibility if editing
+      List<ProductCompatibility> existingCompatibilities = [];
+      if (widget.product?.id != null) {
+        existingCompatibilities = await _productService.getProductCompatibility(
+          widget.product!.id!,
+        );
+      }
 
       setState(() {
         _subCategories = subCategories;
         _manufacturers = manufacturers;
+        _allVehicles = vehicles;
+        _filteredVehicles = vehicles;
+        _selectedVehicleIds = existingCompatibilities
+            .map((c) => c.vehicleModelId)
+            .toSet();
         _isLoadingData = false;
       });
     } catch (e) {
@@ -189,6 +213,40 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
         );
       }
     }
+  }
+
+  void _filterVehicles(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredVehicles = _allVehicles;
+      } else {
+        _filteredVehicles = _allVehicles.where((vehicle) {
+          final searchQuery = query.toLowerCase();
+          final manufacturerName =
+              vehicle.manufacturerName?.toLowerCase() ?? '';
+          final vehicleName = vehicle.name.toLowerCase();
+          final vehicleType = vehicle.vehicleTypeName?.toLowerCase() ?? '';
+          final year = vehicle.modelYear?.toString() ?? '';
+          final capacity = vehicle.engineCapacity?.toLowerCase() ?? '';
+
+          return manufacturerName.contains(searchQuery) ||
+              vehicleName.contains(searchQuery) ||
+              vehicleType.contains(searchQuery) ||
+              year.contains(searchQuery) ||
+              capacity.contains(searchQuery);
+        }).toList();
+      }
+    });
+  }
+
+  void _toggleVehicleCompatibility(int vehicleId, bool selected) {
+    setState(() {
+      if (selected) {
+        _selectedVehicleIds.add(vehicleId);
+      } else {
+        _selectedVehicleIds.remove(vehicleId);
+      }
+    });
   }
 
   Future<void> _saveProduct() async {
@@ -337,6 +395,48 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           );
 
           print('Image save result: $imageResult');
+        }
+
+        // Save vehicle compatibility after product is saved
+        try {
+          final savedProductId = productId;
+          if (savedProductId != null) {
+            // Get current compatibility to compare
+            final currentCompatibility = await _productService
+                .getProductCompatibility(savedProductId);
+            final currentVehicleIds = currentCompatibility
+                .map((c) => c.vehicleModelId)
+                .toSet();
+
+            // Find vehicles to add and remove
+            final toAdd = _selectedVehicleIds.difference(currentVehicleIds);
+            final toRemove = currentVehicleIds.difference(_selectedVehicleIds);
+
+            // Remove unselected vehicles
+            for (final vehicleId in toRemove) {
+              final compatibilityToRemove = currentCompatibility.firstWhere(
+                (c) => c.vehicleModelId == vehicleId,
+              );
+              if (compatibilityToRemove.id != null) {
+                await _productService.removeProductCompatibility(
+                  compatibilityToRemove.id!,
+                );
+              }
+            }
+
+            // Add newly selected vehicles
+            for (final vehicleId in toAdd) {
+              final newCompatibility = ProductCompatibility(
+                id: 0, // Will be auto-assigned
+                productId: savedProductId,
+                vehicleModelId: vehicleId,
+              );
+              await _productService.addProductCompatibility(newCompatibility);
+            }
+          }
+        } catch (e) {
+          // Log error but don't prevent success notification
+          print('Error saving vehicle compatibility: $e');
         }
 
         if (mounted) {
@@ -820,6 +920,14 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                             ),
                             const SizedBox(height: 24),
 
+                            // Vehicle Compatibility Section
+                            if (!_isUniversal) ...[
+                              _buildSectionHeader('Vehicle Compatibility'),
+                              const SizedBox(height: 16),
+                              _buildVehicleCompatibilitySection(),
+                              const SizedBox(height: 24),
+                            ],
+
                             // Product Images Section
                             _buildSectionHeader('Product Images'),
                             const SizedBox(height: 16),
@@ -1047,6 +1155,128 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       height: 180,
       color: Colors.grey.shade200,
       child: Icon(Icons.broken_image, color: Colors.grey.shade400, size: 40),
+    );
+  }
+
+  Widget _buildVehicleCompatibilitySection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Search field
+        TextField(
+          controller: _vehicleSearchController,
+          decoration: const InputDecoration(
+            labelText: 'Search Vehicles',
+            hintText:
+                'Search by manufacturer, model, year, type, or capacity...',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.search),
+          ),
+          onChanged: _filterVehicles,
+        ),
+        const SizedBox(height: 16),
+
+        // Selected vehicles count
+        if (_selectedVehicleIds.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.blue.shade600, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  '${_selectedVehicleIds.length} vehicle(s) selected',
+                  style: TextStyle(
+                    color: Colors.blue.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 16),
+
+        // Vehicle list
+        Container(
+          height: 300,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: _filteredVehicles.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.search_off,
+                        size: 48,
+                        color: Colors.grey.shade400,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'No vehicles found',
+                        style: TextStyle(color: Colors.grey.shade600),
+                      ),
+                      if (_vehicleSearchController.text.isNotEmpty)
+                        Text(
+                          'Try adjusting your search terms',
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 12,
+                          ),
+                        ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _filteredVehicles.length,
+                  itemBuilder: (context, index) {
+                    final vehicle = _filteredVehicles[index];
+                    final isSelected = _selectedVehicleIds.contains(vehicle.id);
+
+                    return CheckboxListTile(
+                      title: Text(
+                        '${vehicle.manufacturerName ?? 'Unknown'} ${vehicle.name}',
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (vehicle.vehicleTypeName != null)
+                            Text('Type: ${vehicle.vehicleTypeName}'),
+                          Row(
+                            children: [
+                              if (vehicle.modelYear != null)
+                                Text('Year: ${vehicle.modelYear}'),
+                              if (vehicle.modelYear != null &&
+                                  vehicle.engineCapacity != null)
+                                const Text(' • '),
+                              if (vehicle.engineCapacity != null)
+                                Text('Engine: ${vehicle.engineCapacity}'),
+                            ],
+                          ),
+                        ],
+                      ),
+                      value: isSelected,
+                      onChanged: (bool? value) {
+                        _toggleVehicleCompatibility(
+                          vehicle.id!,
+                          value ?? false,
+                        );
+                      },
+                      controlAffinity: ListTileControlAffinity.leading,
+                      dense: true,
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 
