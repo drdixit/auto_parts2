@@ -43,7 +43,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3, // Incremented for new schema changes
+      version: 5, // Incremented for compatibility data
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: (db) {
@@ -93,6 +93,16 @@ class DatabaseHelper {
       await db.execute('''
         UPDATE sub_categories SET is_manually_disabled = 1 WHERE is_active = 0
       ''');
+    }
+
+    if (oldVersion < 4) {
+      // Add sample products and inventory data
+      await _insertSampleProducts(db);
+    }
+
+    if (oldVersion < 5) {
+      // Add sample compatibility data
+      await _insertSampleCompatibility(db);
     }
   }
 
@@ -444,6 +454,192 @@ class DatabaseHelper {
       ('Discover 125', 3, 1, 2023, '125cc', 'petrol'),
       ('Apache RTR 160', 5, 1, 2023, '160cc', 'petrol'),
       ('Jupiter', 5, 2, 2023, '110cc', 'petrol')
+    ''');
+
+    // Sample Products - Add comprehensive product data
+    await _insertSampleProducts(db);
+  }
+
+  Future<void> _insertSampleProducts(Database db) async {
+    // Insert sample products with realistic data
+
+    // Engine Parts - Spark Plugs (Sub Category ID: 1)
+    await db.execute('''
+      INSERT INTO products (name, part_number, sub_category_id, manufacturer_id, description, specifications, weight, warranty_months, is_universal, is_active) VALUES
+      ('NGK Spark Plug CR8E', 'CR8E', 1, 13, 'Standard spark plug for motorcycles', '{"electrode_gap": "0.8mm", "thread_size": "M12", "reach": "19mm"}', 0.05, 12, 0, 1),
+      ('Bosch Spark Plug UR4AC', 'UR4AC', 1, 8, 'Copper core spark plug', '{"electrode_gap": "0.6mm", "thread_size": "M14", "reach": "12.7mm"}', 0.06, 6, 0, 1),
+      ('NGK Iridium Spark Plug CPR8EAIX-9', 'CPR8EAIX-9', 1, 13, 'Premium iridium spark plug for better performance', '{"electrode_gap": "0.9mm", "thread_size": "M12", "reach": "19mm", "material": "iridium"}', 0.05, 24, 0, 1)
+    ''');
+
+    // Brake System - Brake Pads (Sub Category ID: 5)
+    await db.execute('''
+      INSERT INTO products (name, part_number, sub_category_id, manufacturer_id, description, specifications, weight, warranty_months, is_universal, is_active) VALUES
+      ('Lucas TVS Brake Pad Set Front', 'BP-F-125', 5, 9, 'High quality brake pads for front disc brakes', '{"material": "ceramic", "temperature_range": "-40°C to 400°C"}', 0.3, 12, 0, 1),
+      ('Bosch Brake Pad Organic', 'BP-ORG-150', 5, 8, 'Organic brake pads for smooth braking', '{"material": "organic", "temperature_range": "-30°C to 350°C"}', 0.25, 18, 0, 1)
+    ''');
+
+    // Transmission - Clutch Plates (Sub Category ID: 9)
+    await db.execute('''
+      INSERT INTO products (name, part_number, sub_category_id, manufacturer_id, description, specifications, weight, warranty_months, is_universal, is_active) VALUES
+      ('Hero Genuine Clutch Plate Set', 'CP-125-H', 9, 1, 'Original clutch plates for Hero motorcycles', '{"thickness": "3.2mm", "outer_diameter": "125mm", "inner_diameter": "65mm"}', 0.8, 12, 0, 1),
+      ('Bajaj Original Clutch Friction Plate', 'CFP-150-B', 9, 3, 'OEM clutch friction plates', '{"thickness": "3.5mm", "outer_diameter": "150mm", "inner_diameter": "75mm"}', 1.0, 12, 0, 1)
+    ''');
+
+    // Electrical - Batteries (Sub Category ID: 12)
+    await db.execute('''
+      INSERT INTO products (name, part_number, sub_category_id, manufacturer_id, description, specifications, weight, warranty_months, is_universal, is_active) VALUES
+      ('Exide 12V 9Ah Battery', 'EX-12V9AH', 12, 10, 'Maintenance-free motorcycle battery', '{"voltage": "12V", "capacity": "9Ah", "terminals": "L+R-", "dimensions": "150x87x105mm"}', 2.8, 18, 0, 1),
+      ('Amaron 12V 5Ah Battery', 'AM-12V5AH', 12, 16, 'Long-life VRLA battery for two-wheelers', '{"voltage": "12V", "capacity": "5Ah", "terminals": "L+R-", "dimensions": "120x70x92mm"}', 1.8, 24, 0, 1)
+    ''');
+
+    // Electrical - Headlights (Sub Category ID: 13)
+    await db.execute('''
+      INSERT INTO products (name, part_number, sub_category_id, manufacturer_id, description, specifications, weight, warranty_months, is_universal, is_active) VALUES
+      ('Bosch H4 Halogen Headlight Bulb', 'H4-55W', 13, 8, 'Standard halogen headlight bulb', '{"wattage": "55W/60W", "voltage": "12V", "base": "P43t", "luminous_flux": "1650lm"}', 0.08, 6, 1, 1),
+      ('Lucas LED Headlight Assembly', 'LED-HL-120', 13, 9, 'LED headlight with DRL', '{"power": "20W", "voltage": "12V", "color_temperature": "6000K", "luminous_flux": "2400lm"}', 0.4, 12, 0, 1)
+    ''');
+
+    // Filters - Air Filters (Sub Category ID: 15)
+    await db.execute('''
+      INSERT INTO products (name, part_number, sub_category_id, manufacturer_id, description, specifications, weight, warranty_months, is_universal, is_active) VALUES
+      ('K&N High Flow Air Filter', 'KN-125-1', 15, 12, 'High-performance washable air filter', '{"material": "cotton_gauze", "filtration_efficiency": "99%", "airflow_increase": "50%"}', 0.2, 12, 0, 1),
+      ('Bosch Paper Air Filter', 'AF-P-125', 15, 8, 'Standard paper air filter element', '{"material": "pleated_paper", "filtration_efficiency": "95%"}', 0.15, 6, 0, 1)
+    ''');
+
+    // Pistons (Sub Category ID: 2)
+    await db.execute('''
+      INSERT INTO products (name, part_number, sub_category_id, manufacturer_id, description, specifications, weight, warranty_months, is_universal, is_active) VALUES
+      ('Honda Genuine Piston Kit 125cc', 'PK-125-H', 2, 2, 'Complete piston kit with rings and pin', '{"bore_size": "52.4mm", "compression_ratio": "9.3:1", "material": "aluminum_alloy"}', 0.5, 12, 0, 1),
+      ('Bajaj OEM Piston Assembly 150cc', 'PA-150-B', 2, 3, 'Original piston assembly for 150cc engines', '{"bore_size": "57mm", "compression_ratio": "9.5:1", "material": "aluminum_alloy"}', 0.6, 12, 0, 1)
+    ''');
+
+    // Chain & Sprockets (Sub Category ID: 11)
+    await db.execute('''
+      INSERT INTO products (name, part_number, sub_category_id, manufacturer_id, description, specifications, weight, warranty_months, is_universal, is_active) VALUES
+      ('DID Gold Chain 428HG', '428HG-120L', 11, 14, 'Heavy duty gold chain 120 links', '{"pitch": "428", "links": "120", "tensile_strength": "1400kg", "material": "alloy_steel"}', 1.2, 18, 0, 1),
+      ('TVS Chain Kit Complete 125cc', 'CK-125-TVS', 11, 5, 'Complete chain and sprocket kit', '{"chain_size": "428", "front_sprocket": "14T", "rear_sprocket": "42T"}', 1.8, 12, 0, 1)
+    ''');
+
+    // Oil Filters (Sub Category ID: 16)
+    await db.execute('''
+      INSERT INTO products (name, part_number, sub_category_id, manufacturer_id, description, specifications, weight, warranty_months, is_universal, is_active) VALUES
+      ('Bosch Oil Filter F002H23627', 'F002H23627', 16, 8, 'Spin-on oil filter for motorcycles', '{"thread": "M20x1.5", "bypass_valve": "yes", "filtration": "20_micron"}', 0.3, 6, 0, 1),
+      ('TVS King Oil Filter', 'OF-TVS-125', 16, 5, 'High-quality oil filter element', '{"thread": "M20x1.5", "bypass_valve": "yes", "filtration": "25_micron"}', 0.25, 12, 0, 1)
+    ''');
+
+    // Now insert corresponding inventory records
+    await _insertSampleInventory(db);
+  }
+
+  Future<void> _insertSampleInventory(Database db) async {
+    // Insert inventory for the products (using product IDs 1-15)
+    await db.execute('''
+      INSERT INTO product_inventory (product_id, supplier_name, supplier_contact, cost_price, selling_price, mrp, stock_quantity, minimum_stock_level, location_rack) VALUES
+      (1, 'NGK Spark Plugs India', '+91-80-2234-5678', 180.00, 250.00, 280.00, 45, 10, 'A1-SP'),
+      (2, 'Bosch Ltd India', '+91-80-2345-6789', 120.00, 180.00, 200.00, 30, 15, 'A1-SP'),
+      (3, 'NGK Spark Plugs India', '+91-80-2234-5678', 450.00, 650.00, 750.00, 20, 5, 'A1-SP'),
+      (4, 'Lucas TVS', '+91-44-2345-6789', 280.00, 420.00, 480.00, 25, 8, 'B1-BP'),
+      (5, 'Bosch Ltd India', '+91-80-2345-6789', 320.00, 480.00, 550.00, 18, 10, 'B1-BP'),
+      (6, 'Hero MotoCorp Parts', '+91-124-234-5678', 850.00, 1200.00, 1350.00, 12, 5, 'C1-CP'),
+      (7, 'Bajaj Auto Parts', '+91-20-2345-6789', 950.00, 1350.00, 1500.00, 15, 5, 'C1-CP'),
+      (8, 'Exide Industries', '+91-33-2234-5678', 1800.00, 2400.00, 2700.00, 8, 3, 'D1-BAT'),
+      (9, 'Amaron Batteries', '+91-44-2345-6789', 1200.00, 1650.00, 1850.00, 10, 5, 'D1-BAT'),
+      (10, 'Bosch Ltd India', '+91-80-2345-6789', 85.00, 120.00, 140.00, 50, 20, 'D2-HL'),
+      (11, 'Lucas TVS', '+91-44-2345-6789', 2200.00, 3200.00, 3600.00, 6, 2, 'D2-HL'),
+      (12, 'K&N Engineering', '+91-22-2345-6789', 2800.00, 4200.00, 4800.00, 8, 3, 'E1-AF'),
+      (13, 'Bosch Ltd India', '+91-80-2345-6789', 180.00, 280.00, 320.00, 35, 15, 'E1-AF'),
+      (14, 'Honda Motorcycle Parts', '+91-124-345-6789', 2400.00, 3500.00, 3900.00, 5, 2, 'A2-PIS'),
+      (15, 'Bajaj Auto Parts', '+91-20-2345-6789', 2800.00, 4000.00, 4500.00, 4, 2, 'A2-PIS'),
+      (16, 'DID Chains India', '+91-22-3456-7890', 1800.00, 2700.00, 3000.00, 12, 5, 'C2-CHN'),
+      (17, 'TVS Motor Parts', '+91-44-3456-7890', 2200.00, 3200.00, 3600.00, 8, 3, 'C2-CHN'),
+      (18, 'Bosch Ltd India', '+91-80-2345-6789', 220.00, 350.00, 400.00, 25, 10, 'E2-OF'),
+      (19, 'TVS King Filters', '+91-44-4567-8901', 180.00, 280.00, 320.00, 30, 12, 'E2-OF')
+    ''');
+
+    // Insert product compatibility data
+    await _insertSampleCompatibility(db);
+  }
+
+  Future<void> _insertSampleCompatibility(Database db) async {
+    // Insert realistic product-vehicle compatibility
+    await db.execute('''
+      INSERT INTO product_compatibility (product_id, vehicle_model_id, is_oem, fit_notes, compatibility_confirmed, added_by) VALUES
+      -- NGK Spark Plug CR8E compatible with multiple bikes
+      (1, 1, 1, 'OEM fitment', 1, 'System'),
+      (1, 2, 1, 'OEM fitment', 1, 'System'),
+      (1, 5, 0, 'Direct fit', 1, 'System'),
+
+      -- Bosch Spark Plug for different models
+      (2, 3, 0, 'Aftermarket replacement', 1, 'System'),
+      (2, 4, 0, 'Direct fit', 1, 'System'),
+      (2, 6, 0, 'Compatible', 1, 'System'),
+
+      -- Iridium spark plug for premium bikes
+      (3, 7, 0, 'Performance upgrade', 1, 'System'),
+      (3, 9, 0, 'Direct fit', 1, 'System'),
+
+      -- Brake pads compatibility
+      (4, 4, 0, 'Front brake pads', 1, 'System'),
+      (4, 5, 0, 'Direct fit', 1, 'System'),
+      (4, 7, 0, 'Compatible', 1, 'System'),
+
+      (5, 1, 0, 'Organic brake pads', 1, 'System'),
+      (5, 2, 0, 'Direct fit', 1, 'System'),
+      (5, 3, 0, 'Compatible', 1, 'System'),
+
+      -- Clutch plates
+      (6, 1, 1, 'OEM clutch plates', 1, 'System'),
+      (6, 2, 1, 'OEM fitment', 1, 'System'),
+      (6, 3, 1, 'Original part', 1, 'System'),
+
+      (7, 7, 1, 'OEM Bajaj part', 1, 'System'),
+      (7, 8, 1, 'Original fitment', 1, 'System'),
+
+      -- Batteries
+      (8, 1, 0, '12V 9Ah battery', 1, 'System'),
+      (8, 2, 0, 'Direct replacement', 1, 'System'),
+      (8, 3, 0, 'Compatible', 1, 'System'),
+      (8, 5, 0, 'Suitable', 1, 'System'),
+      (8, 7, 0, 'Compatible', 1, 'System'),
+      (8, 9, 0, 'Direct fit', 1, 'System'),
+
+      (9, 4, 0, '12V 5Ah scooter battery', 1, 'System'),
+      (9, 10, 0, 'Perfect fit', 1, 'System'),
+
+      -- Headlights (universal)
+      (10, 1, 0, 'H4 halogen bulb', 1, 'System'),
+      (10, 2, 0, 'Universal fit', 1, 'System'),
+      (10, 3, 0, 'Standard bulb', 1, 'System'),
+      (10, 5, 0, 'Compatible', 1, 'System'),
+      (10, 7, 0, 'Universal', 1, 'System'),
+      (10, 8, 0, 'Direct fit', 1, 'System'),
+      (10, 9, 0, 'Standard', 1, 'System'),
+
+      -- Air filters
+      (12, 1, 0, 'High flow filter', 1, 'System'),
+      (12, 2, 0, 'Performance upgrade', 1, 'System'),
+      (12, 3, 0, 'Direct fit', 1, 'System'),
+
+      (13, 4, 0, 'Paper air filter', 1, 'System'),
+      (13, 5, 0, 'Standard filter', 1, 'System'),
+      (13, 10, 0, 'OEM replacement', 1, 'System'),
+
+      -- Pistons
+      (14, 5, 1, 'OEM Honda piston', 1, 'System'),
+      (15, 7, 1, 'OEM Bajaj piston', 1, 'System'),
+      (15, 8, 1, 'Original part', 1, 'System'),
+
+      -- Chains
+      (16, 1, 0, '428 chain', 1, 'System'),
+      (16, 2, 0, 'Direct fit', 1, 'System'),
+      (16, 7, 0, 'Compatible', 1, 'System'),
+      (16, 8, 0, 'Standard chain', 1, 'System'),
+
+      -- Oil filters
+      (18, 1, 0, 'Spin-on filter', 1, 'System'),
+      (18, 2, 0, 'Direct fit', 1, 'System'),
+      (18, 3, 0, 'Compatible', 1, 'System'),
+      (18, 5, 0, 'Standard filter', 1, 'System')
     ''');
   }
 

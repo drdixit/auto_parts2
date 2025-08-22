@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'categories/main_categories_screen.dart';
 import 'categories/sub_categories_screen.dart';
+import 'products/products_screen.dart';
 import '../database/database_helper.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -18,7 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
     const DashboardTab(),
     const MainCategoriesScreen(),
     const SubCategoriesScreen(),
-    const PlaceholderTab(title: 'Products'),
+    const ProductsScreen(),
     const PlaceholderTab(title: 'Inventory'),
   ];
 
