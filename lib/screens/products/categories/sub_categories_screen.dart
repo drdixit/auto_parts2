@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
-import '../../models/sub_category.dart';
-import '../../models/main_category.dart';
-import '../../services/sub_category_service.dart';
-import '../../services/main_category_service.dart';
+import '../../../models/sub_category.dart';
+import '../../../models/main_category.dart';
+import '../../../services/sub_category_service.dart';
+import '../../../services/main_category_service.dart';
 
 class SubCategoriesScreen extends StatefulWidget {
   const SubCategoriesScreen({super.key});
@@ -236,7 +236,7 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
               // Main Category Filter
               Expanded(
                 child: DropdownButtonFormField<int?>(
-                  value: _selectedMainCategoryId,
+                  initialValue: _selectedMainCategoryId,
                   decoration: const InputDecoration(
                     labelText: 'Filter by Main Category',
                     border: OutlineInputBorder(),

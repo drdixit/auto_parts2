@@ -521,18 +521,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         ? () => _toggleProductStatus(product)
                         : null,
                     icon: Icon(
-                      (product.isEffectivelyActive ?? false)
+                      product.isActive
                           ? Icons.visibility_off
                           : Icons.visibility,
                       size: 16,
                     ),
-                    label: Text(
-                      (product.isEffectivelyActive ?? false)
-                          ? 'Deactivate'
-                          : 'Activate',
-                    ),
+                    label: Text(product.isActive ? 'Deactivate' : 'Activate'),
                     style: TextButton.styleFrom(
-                      foregroundColor: (product.isEffectivelyActive ?? false)
+                      foregroundColor: product.isActive
                           ? Colors.orange
                           : Colors.green,
                     ),
@@ -723,31 +719,28 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   bool _canToggleProduct(Product product) {
-    // Can always toggle if it's manually disabled
-    if (product.isManuallyDisabled) return true;
-
-    // Can only toggle to active if categories are active
-    if (!product.isActive) {
-      // Check if categories are active (we need to validate this)
-      return true; // For now, allow toggle - service will handle the logic
-    }
-
-    // Can always deactivate an active product
+    // Always allow toggling the product's own status
+    // The service layer will handle the business logic
     return true;
   }
 
   String _getToggleTooltip(Product product) {
-    final isEffectivelyActive = product.isEffectivelyActive ?? false;
     final isManuallyDisabled = product.isManuallyDisabled;
+    final subCategoryActive = product.subCategoryActive ?? true;
+    final mainCategoryActive = product.mainCategoryActive ?? true;
 
-    if (isEffectivelyActive) {
-      return 'Click to manually disable this product';
+    if (product.isActive) {
+      return 'Click to deactivate this product';
     } else if (isManuallyDisabled) {
-      return 'Click to enable this product';
-    } else if (product.isActive) {
-      return 'Product is active but disabled by parent category. Click to manually disable it.';
+      if (!subCategoryActive) {
+        return 'Product is manually disabled AND sub-category is inactive. Click to activate product.';
+      } else if (!mainCategoryActive) {
+        return 'Product is manually disabled AND main category is inactive. Click to activate product.';
+      } else {
+        return 'Product is manually disabled. Click to activate product.';
+      }
     } else {
-      return 'Product is inactive due to parent category';
+      return 'Product is inactive. Click to activate product.';
     }
   }
 }

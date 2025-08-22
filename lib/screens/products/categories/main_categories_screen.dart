@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
-import '../../models/main_category.dart';
-import '../../services/main_category_service.dart';
-import '../../database/database_helper.dart';
+import '../../../models/main_category.dart';
+import '../../../services/main_category_service.dart';
+import '../../../database/database_helper.dart';
 
 class MainCategoriesScreen extends StatefulWidget {
   const MainCategoriesScreen({super.key});
