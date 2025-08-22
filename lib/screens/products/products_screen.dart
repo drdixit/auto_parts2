@@ -4,6 +4,7 @@ import '../../models/product.dart';
 import '../../services/product_service.dart';
 import 'product_form_dialog.dart';
 import 'product_compatibility_dialog.dart';
+import 'product_inventory_dialog.dart';
 
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
@@ -208,6 +209,32 @@ class _ProductsScreenState extends State<ProductsScreen> {
       context: context,
       builder: (context) => ProductCompatibilityDialog(product: product),
     );
+  }
+
+  Future<void> _showInventoryDialog(Product product) async {
+    try {
+      // Load existing inventory if any
+      final inventory = await _productService.getProductInventory(product.id!);
+
+      await showDialog(
+        context: context,
+        builder: (context) => ProductInventoryDialog(
+          productId: product.id!,
+          productName: product.name,
+          inventory: inventory,
+        ),
+      );
+
+      // Reload products to refresh any stock/pricing information
+      _loadProducts();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading inventory: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -455,33 +482,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      if (product.stockQuantity != null) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: product.stockQuantity! > 0
-                                ? Colors.green[100]
-                                : Colors.red[100],
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'Stock: ${product.stockQuantity}',
-                            style: TextStyle(
-                              color: product.stockQuantity! > 0
-                                  ? Colors.green[800]
-                                  : Colors.red[800],
-                              fontWeight: FontWeight.w500,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                      ],
+                      // Inventory Status
+                      _buildInventoryStatus(product),
                       if (product.sellingPrice != null &&
                           product.sellingPrice! > 0) ...[
+                        const SizedBox(height: 4),
                         Text(
                           '₹${product.sellingPrice!.toStringAsFixed(2)}',
                           style: const TextStyle(
@@ -506,6 +511,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   icon: const Icon(Icons.directions_car, size: 16),
                   label: const Text('Vehicles'),
                   style: TextButton.styleFrom(foregroundColor: Colors.purple),
+                ),
+                const SizedBox(width: 8),
+                TextButton.icon(
+                  onPressed: () => _showInventoryDialog(product),
+                  icon: const Icon(Icons.inventory_2, size: 16),
+                  label: const Text('Inventory'),
+                  style: TextButton.styleFrom(foregroundColor: Colors.blue),
                 ),
                 const SizedBox(width: 8),
                 TextButton.icon(
@@ -737,5 +749,93 @@ class _ProductsScreenState extends State<ProductsScreen> {
     } else {
       return 'Product is inactive. Click to activate product.';
     }
+  }
+
+  Widget _buildInventoryStatus(Product product) {
+    if (product.stockQuantity == null && product.sellingPrice == null) {
+      // No inventory data available
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.inventory_2_outlined, size: 12, color: Colors.grey[600]),
+            const SizedBox(width: 4),
+            Text(
+              'No Inventory',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Inventory data exists
+    final stockQty = product.stockQuantity ?? 0;
+    final isOutOfStock = stockQty == 0;
+    final isLowStock =
+        stockQty > 0 && stockQty <= 5; // Assuming low stock threshold of 5
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        if (product.stockQuantity != null) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isOutOfStock
+                  ? Colors.red[100]
+                  : isLowStock
+                  ? Colors.orange[100]
+                  : Colors.green[100],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isOutOfStock
+                      ? Icons.remove_shopping_cart
+                      : isLowStock
+                      ? Icons.warning_amber
+                      : Icons.inventory_2,
+                  size: 12,
+                  color: isOutOfStock
+                      ? Colors.red[800]
+                      : isLowStock
+                      ? Colors.orange[800]
+                      : Colors.green[800],
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  isOutOfStock
+                      ? 'Out of Stock'
+                      : isLowStock
+                      ? 'Low Stock: $stockQty'
+                      : 'Stock: $stockQty',
+                  style: TextStyle(
+                    color: isOutOfStock
+                        ? Colors.red[800]
+                        : isLowStock
+                        ? Colors.orange[800]
+                        : Colors.green[800],
+                    fontWeight: FontWeight.w500,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
   }
 }
