@@ -559,12 +559,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
       statusText = 'Active';
       backgroundColor = Colors.green;
       textColor = Colors.white;
-    } else if (isManuallyDisabled) {
-      // User manually disabled this product
-      statusText = 'Manually Disabled';
-      backgroundColor = Colors.red;
+    } else if (!isProductActive) {
+      // Product itself is inactive (whether manually disabled or not)
+      statusText = 'Inactive';
+      backgroundColor = isManuallyDisabled ? Colors.red : Colors.grey;
       textColor = Colors.white;
-    } else if (isProductActive) {
+    } else {
       // Product is active but parent category is inactive
       if (!mainCategoryActive) {
         statusText = 'Inactive by Main Category';
@@ -574,11 +574,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
         statusText = 'Inactive by Category';
       }
       backgroundColor = Colors.orange;
-      textColor = Colors.white;
-    } else {
-      // Product is inactive (fallback)
-      statusText = 'Inactive';
-      backgroundColor = Colors.grey;
       textColor = Colors.white;
     }
 

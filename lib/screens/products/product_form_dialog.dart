@@ -40,6 +40,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   int? _selectedManufacturerId;
   bool _isUniversal = false;
   bool _isActive = true;
+  bool _originalIsActive = true; // Track original status for editing
 
   // Options
   List<SubCategory> _subCategories = [];
@@ -101,12 +102,14 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       _selectedManufacturerId = product.manufacturerId;
       _isUniversal = product.isUniversal;
       _isActive = product.isActive;
+      _originalIsActive = product.isActive; // Store original status
 
       // Load existing images
       _loadProductImages();
     } else {
       // Default values for new product
       _warrantyController.text = '0';
+      _originalIsActive = true; // New products start as active
     }
   }
 
@@ -305,6 +308,16 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     });
 
     try {
+      // Determine if manually disabled
+      bool isManuallyDisabled;
+      if (widget.isEditing) {
+        // For editing: manually disabled if user changed active status to false
+        isManuallyDisabled = !_isActive && (_originalIsActive != _isActive);
+      } else {
+        // For new products: manually disabled if user unchecked active
+        isManuallyDisabled = !_isActive;
+      }
+
       final product = Product(
         id: widget.product?.id,
         name: _nameController.text.trim(),
@@ -331,8 +344,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
         warrantyMonths: warranty,
         isUniversal: _isUniversal,
         isActive: _isActive,
-        isManuallyDisabled:
-            false, // New products start as not manually disabled
+        isManuallyDisabled: isManuallyDisabled,
       );
 
       Map<String, dynamic> result;
