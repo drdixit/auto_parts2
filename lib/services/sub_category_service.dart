@@ -7,25 +7,42 @@ class SubCategoryService {
   Future<List<SubCategory>> getAllSubCategories({
     bool includeInactive = false,
   }) async {
-    String? where;
-    List<dynamic>? whereArgs;
+    final db = await _dbHelper.database;
+
+    // Complex query to handle the two-flag system properly
+    // A sub-category is "effectively active" if:
+    // 1. is_active = 1 AND main_category is_active = 1
+    // A sub-category is "effectively inactive" if:
+    // 1. is_active = 0 (regardless of main category status)
+    // 2. OR main_category is_active = 0 (even if sub-category is_active = 1)
+
+    String whereClause = '';
+    List<dynamic> whereArgs = [];
 
     if (!includeInactive) {
-      where = 'sc.is_active = ?';
-      whereArgs = [1];
+      // Only show sub-categories that are active AND have active main categories
+      whereClause = 'WHERE sc.is_active = 1 AND mc.is_active = 1';
     }
 
-    final db = await _dbHelper.database;
     final maps = await db.rawQuery('''
-      SELECT sc.*, mc.name as main_category_name
+      SELECT sc.*, mc.name as main_category_name, mc.is_active as main_category_is_active
       FROM sub_categories sc
       LEFT JOIN main_categories mc ON sc.main_category_id = mc.id
-      ${where != null ? 'WHERE $where' : ''}
+      $whereClause
       ORDER BY sc.sort_order, sc.name
     ''', whereArgs);
 
     return List.generate(maps.length, (i) {
-      return SubCategory.fromMap(maps[i]);
+      final map = Map<String, dynamic>.from(maps[i]);
+      // Add computed effective status
+      final isMainCategoryActive = (map['main_category_is_active'] ?? 1) == 1;
+      final isSubCategoryActive = (map['is_active'] ?? 1) == 1;
+
+      // Effective status: sub-category is effectively active only if both are active
+      map['is_effectively_active'] =
+          isMainCategoryActive && isSubCategoryActive;
+
+      return SubCategory.fromMap(map);
     });
   }
 
@@ -33,25 +50,35 @@ class SubCategoryService {
     int mainCategoryId, {
     bool includeInactive = false,
   }) async {
-    String where = 'sc.main_category_id = ?';
+    final db = await _dbHelper.database;
+
+    String whereClause = 'WHERE sc.main_category_id = ?';
     List<dynamic> whereArgs = [mainCategoryId];
 
     if (!includeInactive) {
-      where += ' AND sc.is_active = ?';
-      whereArgs.add(1);
+      // Only show sub-categories that are active AND have active main categories
+      whereClause += ' AND sc.is_active = 1 AND mc.is_active = 1';
     }
 
-    final db = await _dbHelper.database;
     final maps = await db.rawQuery('''
-      SELECT sc.*, mc.name as main_category_name
+      SELECT sc.*, mc.name as main_category_name, mc.is_active as main_category_is_active
       FROM sub_categories sc
       LEFT JOIN main_categories mc ON sc.main_category_id = mc.id
-      WHERE $where
+      $whereClause
       ORDER BY sc.sort_order, sc.name
     ''', whereArgs);
 
     return List.generate(maps.length, (i) {
-      return SubCategory.fromMap(maps[i]);
+      final map = Map<String, dynamic>.from(maps[i]);
+      // Add computed effective status
+      final isMainCategoryActive = (map['main_category_is_active'] ?? 1) == 1;
+      final isSubCategoryActive = (map['is_active'] ?? 1) == 1;
+
+      // Effective status: sub-category is effectively active only if both are active
+      map['is_effectively_active'] =
+          isMainCategoryActive && isSubCategoryActive;
+
+      return SubCategory.fromMap(map);
     });
   }
 
@@ -173,24 +200,38 @@ class SubCategoryService {
     }
   }
 
-  Future<int> deleteSubCategory(int id) async {
-    return await _dbHelper.deleteRecord('sub_categories', 'id = ?', [id]);
-  }
+  // Remove hard delete method - we only use soft delete in this project
+  // Future<int> deleteSubCategory(int id) async {
+  //   return await _dbHelper.deleteRecord('sub_categories', 'id = ?', [id]);
+  // }
 
   Future<int> softDeleteSubCategory(int id) async {
     return await _dbHelper.softDeleteRecord('sub_categories', id);
   }
 
   Future<int> toggleSubCategoryStatus(int id, bool isActive) async {
-    return await _dbHelper.updateRecord(
-      'sub_categories',
-      {
-        'is_active': isActive ? 1 : 0,
-        'updated_at': DateTime.now().toIso8601String(),
-      },
-      'id = ?',
-      [id],
-    );
+    final db = await _dbHelper.database;
+
+    return await db.transaction((txn) async {
+      try {
+        // Update sub-category status regardless of main category status
+        // The effective status is handled by UI filtering, not database constraints
+        await txn.update(
+          'sub_categories',
+          {
+            'is_active': isActive ? 1 : 0,
+            'is_manually_disabled': isActive ? 0 : 1, // Track user intent
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+
+        return 1; // Return success
+      } catch (e) {
+        rethrow;
+      }
+    });
   }
 
   Future<List<SubCategory>> searchSubCategories(String searchTerm) async {

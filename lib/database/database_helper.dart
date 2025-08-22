@@ -43,7 +43,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 3, // Incremented for new schema changes
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: (db) {
@@ -80,6 +80,19 @@ class DatabaseHelper {
       ''',
         [currentTime],
       );
+    }
+
+    if (oldVersion < 3) {
+      // Add is_manually_disabled flag to track user-initiated deactivation
+      // This helps distinguish between cascade deactivation and manual deactivation
+      await db.execute('''
+        ALTER TABLE sub_categories ADD COLUMN is_manually_disabled BOOLEAN DEFAULT 0
+      ''');
+
+      // Initialize existing records - if currently inactive, consider it manually disabled
+      await db.execute('''
+        UPDATE sub_categories SET is_manually_disabled = 1 WHERE is_active = 0
+      ''');
     }
   }
 
@@ -155,6 +168,7 @@ class DatabaseHelper {
         description TEXT,
         sort_order INTEGER DEFAULT 0,
         is_active BOOLEAN DEFAULT 1,
+        is_manually_disabled BOOLEAN DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (main_category_id) REFERENCES main_categories(id) ON DELETE CASCADE,

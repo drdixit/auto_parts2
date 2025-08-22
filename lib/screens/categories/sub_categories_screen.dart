@@ -49,7 +49,9 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
       final allMainCategories = await _mainCategoryService.getAllCategories(
         includeInactive: true,
       );
-      final subCategories = await _subCategoryService.getAllSubCategories();
+      final subCategories = await _subCategoryService.getAllSubCategories(
+        includeInactive: true, // Always load all sub-categories for filtering
+      );
 
       setState(() {
         _mainCategories = mainCategories;
@@ -111,9 +113,23 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
           .toList();
     }
 
-    // Apply active/inactive filter
+    // Apply active/inactive filter based on effective status
     if (!_showInactive) {
-      filtered = filtered.where((subCategory) => subCategory.isActive).toList();
+      filtered = filtered.where((subCategory) {
+        // Get main category for this sub-category
+        final mainCategory = _allMainCategories.firstWhere(
+          (cat) => cat.id == subCategory.mainCategoryId,
+          orElse: () => MainCategory(
+            id: 0,
+            name: 'Unknown',
+            sortOrder: 0,
+            isActive: false,
+          ),
+        );
+
+        // Sub-category is effectively active only if both sub and main are active
+        return subCategory.isActive && mainCategory.isActive;
+      }).toList();
     }
 
     // Sort by sort order
@@ -124,69 +140,24 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
     });
   }
 
-  Future<void> _deleteSubCategory(SubCategory subCategory) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Sub-Category'),
-        content: Text(
-          'Are you sure you want to delete "${subCategory.name}"? This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && mounted) {
-      try {
-        await _subCategoryService.deleteSubCategory(subCategory.id!);
-        _loadData();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Sub-category deleted successfully')),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error deleting sub-category: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    }
-  }
+  // Remove delete functionality - we only use soft delete (hiding) in this project
+  // Delete button has been removed from the UI
 
   Future<void> _toggleSubCategoryStatus(SubCategory subCategory) async {
     try {
-      final updatedSubCategory = SubCategory(
-        id: subCategory.id,
-        name: subCategory.name,
-        description: subCategory.description,
-        mainCategoryId: subCategory.mainCategoryId,
-        sortOrder: subCategory.sortOrder,
-        isActive: !subCategory.isActive,
-        updatedAt: DateTime.now(),
+      // Allow toggle regardless of main category status
+      // The effective status will be handled by UI filtering
+      await _subCategoryService.toggleSubCategoryStatus(
+        subCategory.id!,
+        !subCategory.isActive,
       );
 
-      await _subCategoryService.updateSubCategory(updatedSubCategory);
-      _loadData();
+      _loadData(); // Reload data to reflect changes
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Sub-category ${subCategory.isActive ? 'deactivated' : 'activated'} successfully',
+              'Sub-category "${subCategory.name}" ${subCategory.isActive ? 'deactivated' : 'activated'} successfully',
             ),
           ),
         );
@@ -361,8 +332,12 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
                     child: SingleChildScrollView(
                       child: DataTable(
                         columns: const [
-                          DataColumn(label: Text('Main Category')),
-                          DataColumn(label: Text('Name')),
+                          DataColumn(
+                            label: Text('Sub-Category Name'),
+                          ), // Sub-category first
+                          DataColumn(
+                            label: Text('Main Category'),
+                          ), // Main category second
                           DataColumn(label: Text('Description')),
                           DataColumn(label: Text('Sort Order')),
                           DataColumn(label: Text('Status')),
@@ -381,26 +356,16 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
 
                           return DataRow(
                             cells: [
-                              DataCell(_buildMainCategoryCell(mainCategory)),
-                              DataCell(Text(subCategory.name)),
+                              DataCell(
+                                Text(subCategory.name),
+                              ), // Sub-category name first
+                              DataCell(
+                                _buildMainCategoryCell(mainCategory),
+                              ), // Main category with image second
                               DataCell(Text(subCategory.description ?? '')),
                               DataCell(Text(subCategory.sortOrder.toString())),
                               DataCell(
-                                Chip(
-                                  label: Text(
-                                    subCategory.isActive
-                                        ? 'Active'
-                                        : 'Inactive',
-                                    style: TextStyle(
-                                      color: subCategory.isActive
-                                          ? Colors.white
-                                          : Colors.black,
-                                    ),
-                                  ),
-                                  backgroundColor: subCategory.isActive
-                                      ? Colors.green
-                                      : Colors.grey,
-                                ),
+                                _buildStatusChip(subCategory, mainCategory),
                               ),
                               DataCell(
                                 Row(
@@ -418,20 +383,29 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
                                         subCategory.isActive
                                             ? Icons.visibility_off
                                             : Icons.visibility,
+                                        color:
+                                            _canToggleSubCategory(
+                                              subCategory,
+                                              mainCategory,
+                                            )
+                                            ? null
+                                            : Colors.grey,
                                       ),
-                                      onPressed: () =>
-                                          _toggleSubCategoryStatus(subCategory),
-                                      tooltip: subCategory.isActive
-                                          ? 'Deactivate'
-                                          : 'Activate',
+                                      onPressed:
+                                          _canToggleSubCategory(
+                                            subCategory,
+                                            mainCategory,
+                                          )
+                                          ? () => _toggleSubCategoryStatus(
+                                              subCategory,
+                                            )
+                                          : null,
+                                      tooltip: _getToggleTooltip(
+                                        subCategory,
+                                        mainCategory,
+                                      ),
                                     ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete),
-                                      onPressed: () =>
-                                          _deleteSubCategory(subCategory),
-                                      tooltip: 'Delete',
-                                      color: Colors.red,
-                                    ),
+                                    // Removed delete button - we only use soft delete (hiding) in this project
                                   ],
                                 ),
                               ),
@@ -444,6 +418,37 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  bool _canToggleSubCategory(
+    SubCategory subCategory,
+    MainCategory mainCategory,
+  ) {
+    // Can always toggle sub-categories regardless of main category status
+    return true;
+  }
+
+  String _getToggleTooltip(SubCategory subCategory, MainCategory mainCategory) {
+    if (subCategory.isActive) {
+      return 'Deactivate sub-category';
+    } else {
+      return 'Activate sub-category';
+    }
+  }
+
+  Widget _buildStatusChip(SubCategory subCategory, MainCategory mainCategory) {
+    // Simple display: show sub-category's own active/inactive state
+    return Chip(
+      label: Text(
+        subCategory.isActive ? 'Active' : 'Inactive',
+        style: TextStyle(
+          color: subCategory.isActive ? Colors.white : Colors.black,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      backgroundColor: subCategory.isActive ? Colors.green : Colors.grey,
     );
   }
 
@@ -715,6 +720,15 @@ class _AddEditSubCategoryDialogState extends State<AddEditSubCategoryDialog> {
         mainCategoryId: _selectedMainCategoryId!,
         sortOrder: int.parse(_sortOrderController.text),
         isActive: _isActive,
+        // For new sub-categories, isManuallyDisabled defaults to false
+        // For existing sub-categories, preserve current state unless status changed
+        isManuallyDisabled: widget.subCategory == null
+            ? false // New sub-category: not manually disabled
+            : (widget.subCategory!.isActive == _isActive
+                  ? widget
+                        .subCategory!
+                        .isManuallyDisabled // Status unchanged: preserve flag
+                  : !_isActive), // Status changed: update flag based on new active state
         updatedAt: DateTime.now(),
       );
 

@@ -110,18 +110,16 @@ class MainCategoryService {
           whereArgs: [id],
         );
 
-        // Only cascade deactivation, not reactivation to preserve sub-category states
         if (!isActive) {
-          // When deactivating main category, deactivate all its sub-categories
-          await txn.update(
-            'sub_categories',
-            {'is_active': 0, 'updated_at': DateTime.now().toIso8601String()},
-            where: 'main_category_id = ?',
-            whereArgs: [id],
-          );
+          // When DEACTIVATING main category:
+          // DON'T change sub-category is_active flags - preserve individual states
+          // Sub-categories will appear inactive in UI due to filtering logic
+          // but maintain their individual is_active state in database
+        } else {
+          // When REACTIVATING main category:
+          // DON'T change sub-category is_active flags - preserve individual states
+          // Sub-categories will appear according to their individual is_active state
         }
-        // Note: When reactivating main category, sub-categories keep their previous states
-        // This preserves individual sub-category activation/deactivation settings
 
         return 1; // Return success
       } catch (e) {

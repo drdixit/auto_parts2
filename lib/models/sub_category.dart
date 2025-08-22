@@ -4,10 +4,13 @@ class SubCategory {
   final int mainCategoryId;
   final String? description;
   final int sortOrder;
-  final bool isActive;
+  final bool isActive; // Sub-category's own active status
+  final bool isManuallyDisabled; // Track user-initiated deactivation
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final String? mainCategoryName; // For joined queries
+  final bool?
+  isEffectivelyActive; // Computed: active only if both sub and main are active
 
   SubCategory({
     this.id,
@@ -16,9 +19,11 @@ class SubCategory {
     this.description,
     this.sortOrder = 0,
     this.isActive = true,
+    this.isManuallyDisabled = false,
     this.createdAt,
     this.updatedAt,
     this.mainCategoryName,
+    this.isEffectivelyActive,
   });
 
   Map<String, dynamic> toMap() {
@@ -29,6 +34,7 @@ class SubCategory {
       'description': description,
       'sort_order': sortOrder,
       'is_active': isActive ? 1 : 0,
+      'is_manually_disabled': isManuallyDisabled ? 1 : 0,
       'created_at':
           createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
@@ -43,6 +49,7 @@ class SubCategory {
       description: map['description'],
       sortOrder: map['sort_order']?.toInt() ?? 0,
       isActive: (map['is_active'] ?? 1) == 1,
+      isManuallyDisabled: (map['is_manually_disabled'] ?? 0) == 1,
       createdAt: map['created_at'] != null
           ? DateTime.tryParse(map['created_at'])
           : null,
@@ -50,6 +57,7 @@ class SubCategory {
           ? DateTime.tryParse(map['updated_at'])
           : null,
       mainCategoryName: map['main_category_name'], // For joined queries
+      isEffectivelyActive: map['is_effectively_active'], // Computed field
     );
   }
 
@@ -60,9 +68,11 @@ class SubCategory {
     String? description,
     int? sortOrder,
     bool? isActive,
+    bool? isManuallyDisabled,
     DateTime? createdAt,
     DateTime? updatedAt,
     String? mainCategoryName,
+    bool? isEffectivelyActive,
   }) {
     return SubCategory(
       id: id ?? this.id,
@@ -71,15 +81,17 @@ class SubCategory {
       description: description ?? this.description,
       sortOrder: sortOrder ?? this.sortOrder,
       isActive: isActive ?? this.isActive,
+      isManuallyDisabled: isManuallyDisabled ?? this.isManuallyDisabled,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       mainCategoryName: mainCategoryName ?? this.mainCategoryName,
+      isEffectivelyActive: isEffectivelyActive ?? this.isEffectivelyActive,
     );
   }
 
   @override
   String toString() {
-    return 'SubCategory{id: $id, name: $name, mainCategoryId: $mainCategoryId, description: $description, sortOrder: $sortOrder, isActive: $isActive, createdAt: $createdAt, updatedAt: $updatedAt, mainCategoryName: $mainCategoryName}';
+    return 'SubCategory{id: $id, name: $name, mainCategoryId: $mainCategoryId, description: $description, sortOrder: $sortOrder, isActive: $isActive, isManuallyDisabled: $isManuallyDisabled, createdAt: $createdAt, updatedAt: $updatedAt, mainCategoryName: $mainCategoryName}';
   }
 
   @override
@@ -92,7 +104,8 @@ class SubCategory {
           mainCategoryId == other.mainCategoryId &&
           description == other.description &&
           sortOrder == other.sortOrder &&
-          isActive == other.isActive;
+          isActive == other.isActive &&
+          isManuallyDisabled == other.isManuallyDisabled;
 
   @override
   int get hashCode =>
@@ -101,5 +114,6 @@ class SubCategory {
       mainCategoryId.hashCode ^
       description.hashCode ^
       sortOrder.hashCode ^
-      isActive.hashCode;
+      isActive.hashCode ^
+      isManuallyDisabled.hashCode;
 }
