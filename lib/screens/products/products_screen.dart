@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import '../../models/product.dart';
+import '../../models/product_inventory.dart';
 import '../../services/product_service.dart';
 import 'product_form_dialog.dart';
 import 'product_compatibility_dialog.dart';
@@ -237,6 +238,163 @@ class _ProductsScreenState extends State<ProductsScreen> {
     }
   }
 
+  Future<void> _showQuickStockUpdate(Product product) async {
+    final currentStock = product.stockQuantity ?? 0;
+    final stockController = TextEditingController(
+      text: currentStock.toString(),
+    );
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Update Stock - ${product.name}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Current Stock: $currentStock units',
+              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: stockController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'New Stock Quantity',
+                border: OutlineInputBorder(),
+                suffixText: 'units',
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Note: This only updates stock quantity. Use "Inventory" button for full inventory management.',
+              style: TextStyle(
+                color: Colors.grey[500],
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newStock = int.tryParse(stockController.text) ?? 0;
+              if (newStock < 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Stock quantity cannot be negative'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              Navigator.of(context).pop();
+
+              try {
+                final result = await _productService.updateStockQuantity(
+                  product.id!,
+                  newStock,
+                );
+
+                if (result['success']) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(result['message']),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  _loadProducts(); // Refresh the list
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        result['error'] ?? 'Failed to update stock',
+                      ),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error: ${e.toString()}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showInventoryOverview() async {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          height: MediaQuery.of(context).size.height * 0.8,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Inventory Overview',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: DefaultTabController(
+                  length: 3,
+                  child: Column(
+                    children: [
+                      const TabBar(
+                        tabs: [
+                          Tab(text: 'Out of Stock'),
+                          Tab(text: 'Low Stock'),
+                          Tab(text: 'All Inventory'),
+                        ],
+                      ),
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            _buildOutOfStockTab(),
+                            _buildLowStockTab(),
+                            _buildAllInventoryTab(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -245,6 +403,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.analytics),
+            onPressed: _showInventoryOverview,
+            tooltip: 'Inventory Overview',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadProducts,
@@ -514,6 +677,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 ),
                 const SizedBox(width: 8),
                 TextButton.icon(
+                  onPressed: () => _showQuickStockUpdate(product),
+                  icon: const Icon(Icons.speed, size: 16),
+                  label: const Text('Quick Stock'),
+                  style: TextButton.styleFrom(foregroundColor: Colors.teal),
+                ),
+                const SizedBox(width: 8),
+                TextButton.icon(
                   onPressed: () => _showInventoryDialog(product),
                   icon: const Icon(Icons.inventory_2, size: 16),
                   label: const Text('Inventory'),
@@ -752,13 +922,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Widget _buildInventoryStatus(Product product) {
-    if (product.stockQuantity == null && product.sellingPrice == null) {
+    // Check if product has any inventory data at all
+    final hasInventoryData =
+        product.stockQuantity != null || product.sellingPrice != null;
+
+    if (!hasInventoryData) {
       // No inventory data available
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: Colors.grey[200],
           borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: Colors.grey[300]!, width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -778,64 +953,331 @@ class _ProductsScreenState extends State<ProductsScreen> {
       );
     }
 
-    // Inventory data exists
+    // Inventory data exists - analyze stock status
     final stockQty = product.stockQuantity ?? 0;
+    final sellingPrice = product.sellingPrice ?? 0.0;
+    final minimumStockLevel =
+        product.minimumStockLevel ?? 5; // Default to 5 if not set
+
+    // Determine stock status using database-driven minimum stock level
     final isOutOfStock = stockQty == 0;
-    final isLowStock =
-        stockQty > 0 && stockQty <= 5; // Assuming low stock threshold of 5
+    final isLowStock = stockQty > 0 && stockQty <= minimumStockLevel;
+    final isCriticalStock =
+        stockQty > 0 &&
+        stockQty <= (minimumStockLevel * 0.4).ceil(); // 40% of minimum level
+
+    // Choose appropriate colors and icons
+    Color backgroundColor;
+    Color foregroundColor;
+    IconData icon;
+    String statusText;
+
+    if (isOutOfStock) {
+      backgroundColor = Colors.red[100]!;
+      foregroundColor = Colors.red[800]!;
+      icon = Icons.remove_shopping_cart;
+      statusText = 'Out of Stock';
+    } else if (isCriticalStock) {
+      backgroundColor = Colors.red[50]!;
+      foregroundColor = Colors.red[700]!;
+      icon = Icons.warning;
+      statusText = 'Critical: $stockQty';
+    } else if (isLowStock) {
+      backgroundColor = Colors.orange[100]!;
+      foregroundColor = Colors.orange[800]!;
+      icon = Icons.warning_amber;
+      statusText = 'Low: $stockQty';
+    } else {
+      backgroundColor = Colors.green[100]!;
+      foregroundColor = Colors.green[800]!;
+      icon = Icons.inventory_2;
+      statusText = 'Stock: $stockQty';
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        if (product.stockQuantity != null) ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: isOutOfStock
-                  ? Colors.red[100]
-                  : isLowStock
-                  ? Colors.orange[100]
-                  : Colors.green[100],
-              borderRadius: BorderRadius.circular(4),
+        // Stock Status Chip
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: foregroundColor.withOpacity(0.3),
+              width: 1,
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  isOutOfStock
-                      ? Icons.remove_shopping_cart
-                      : isLowStock
-                      ? Icons.warning_amber
-                      : Icons.inventory_2,
-                  size: 12,
-                  color: isOutOfStock
-                      ? Colors.red[800]
-                      : isLowStock
-                      ? Colors.orange[800]
-                      : Colors.green[800],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 12, color: foregroundColor),
+              const SizedBox(width: 4),
+              Text(
+                statusText,
+                style: TextStyle(
+                  color: foregroundColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  isOutOfStock
-                      ? 'Out of Stock'
-                      : isLowStock
-                      ? 'Low Stock: $stockQty'
-                      : 'Stock: $stockQty',
-                  style: TextStyle(
-                    color: isOutOfStock
-                        ? Colors.red[800]
-                        : isLowStock
-                        ? Colors.orange[800]
-                        : Colors.green[800],
-                    fontWeight: FontWeight.w500,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
+              ),
+            ],
+          ),
+        ),
+
+        // Price information if available
+        if (sellingPrice > 0) ...[
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(color: Colors.blue[200]!, width: 1),
+            ),
+            child: Text(
+              '₹${sellingPrice.toStringAsFixed(2)}',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue[800],
+              ),
             ),
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildOutOfStockTab() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _productService.getOutOfStockProducts(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        final outOfStockProducts = snapshot.data ?? [];
+
+        if (outOfStockProducts.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle, size: 64, color: Colors.green),
+                SizedBox(height: 16),
+                Text(
+                  'No products are out of stock!',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          itemCount: outOfStockProducts.length,
+          itemBuilder: (context, index) {
+            final product = outOfStockProducts[index];
+            return ListTile(
+              leading: const Icon(
+                Icons.remove_shopping_cart,
+                color: Colors.red,
+              ),
+              title: Text(product['name'] ?? 'Unknown'),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (product['part_number'] != null)
+                    Text('Part: ${product['part_number']}'),
+                  Text(
+                    '${product['manufacturer_name']} - ${product['sub_category_name']}',
+                  ),
+                ],
+              ),
+              trailing: Text(
+                'Out of Stock',
+                style: TextStyle(
+                  color: Colors.red[700],
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildLowStockTab() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _productService.getLowStockProducts(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        final lowStockProducts = snapshot.data ?? [];
+
+        if (lowStockProducts.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle, size: 64, color: Colors.green),
+                SizedBox(height: 16),
+                Text(
+                  'No products have low stock!',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          itemCount: lowStockProducts.length,
+          itemBuilder: (context, index) {
+            final product = lowStockProducts[index];
+            final stockQty = product['stock_quantity'] ?? 0;
+            final minLevel = product['minimum_stock_level'] ?? 5;
+            final criticalLevel = (minLevel * 0.4)
+                .ceil(); // 40% of minimum level is critical
+
+            return ListTile(
+              leading: Icon(
+                stockQty <= criticalLevel ? Icons.warning : Icons.warning_amber,
+                color: stockQty <= criticalLevel ? Colors.red : Colors.orange,
+              ),
+              title: Text(product['name'] ?? 'Unknown'),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (product['part_number'] != null)
+                    Text('Part: ${product['part_number']}'),
+                  Text(
+                    '${product['manufacturer_name']} - ${product['sub_category_name']}',
+                  ),
+                ],
+              ),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'Stock: $stockQty',
+                    style: TextStyle(
+                      color: stockQty <= criticalLevel
+                          ? Colors.red[700]
+                          : Colors.orange[700],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'Min: $minLevel',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildAllInventoryTab() {
+    return FutureBuilder<List<ProductInventory>>(
+      future: _productService.getAllInventory(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        final inventoryList = snapshot.data ?? [];
+
+        if (inventoryList.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text(
+                  'No inventory records found.',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          itemCount: inventoryList.length,
+          itemBuilder: (context, index) {
+            final inventory = inventoryList[index];
+            final stockQty = inventory.stockQuantity;
+            final isLowStock = stockQty <= inventory.minimumStockLevel;
+            final isOutOfStock = stockQty == 0;
+
+            return ListTile(
+              leading: Icon(
+                isOutOfStock
+                    ? Icons.remove_shopping_cart
+                    : isLowStock
+                    ? Icons.warning_amber
+                    : Icons.inventory_2,
+                color: isOutOfStock
+                    ? Colors.red
+                    : isLowStock
+                    ? Colors.orange
+                    : Colors.green,
+              ),
+              title: Text('Product ID: ${inventory.productId}'),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Stock: $stockQty units'),
+                  if (inventory.supplierName != null)
+                    Text('Supplier: ${inventory.supplierName}'),
+                  if (inventory.locationRack != null)
+                    Text('Location: ${inventory.locationRack}'),
+                ],
+              ),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (inventory.sellingPrice > 0)
+                    Text(
+                      '₹${inventory.sellingPrice.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
+                    ),
+                  Text(
+                    'Min: ${inventory.minimumStockLevel}',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

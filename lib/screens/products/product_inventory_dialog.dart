@@ -162,23 +162,10 @@ class _ProductInventoryDialogState extends State<ProductInventoryDialog> {
         isActive: _isActive,
       );
 
-      // Note: You'll need to add these methods to ProductService
-      Map<String, dynamic> result;
-      if (widget.isEditing) {
-        // result = await _productService.updateProductInventory(inventory);
-        result = {
-          'success': false,
-          'error': 'Update inventory not implemented yet',
-        };
-      } else {
-        // result = await _productService.createProductInventory(inventory);
-        result = {
-          'success': false,
-          'error': 'Create inventory not implemented yet',
-        };
-      }
+      // Use upsertInventory to create or update inventory
+      final result = await _productService.upsertInventory(inventory);
 
-      if (result['success']) {
+      if (result['success'] == true) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -192,7 +179,56 @@ class _ProductInventoryDialogState extends State<ProductInventoryDialog> {
         setState(() {
           _isLoading = false;
           if (result['errors'] != null) {
-            _fieldErrors = Map<String, String>.from(result['errors']);
+            // Map backend error keys to form field keys used here
+            final Map<String, String> backendErrors = Map<String, String>.from(
+              result['errors'],
+            );
+            final Map<String, String> uiErrors = {};
+
+            backendErrors.forEach((k, v) {
+              switch (k) {
+                case 'costPrice':
+                case 'cost_price':
+                  uiErrors['cost_price'] = v;
+                  break;
+                case 'sellingPrice':
+                case 'selling_price':
+                  uiErrors['selling_price'] = v;
+                  break;
+                case 'mrp':
+                  uiErrors['mrp'] = v;
+                  break;
+                case 'stockQuantity':
+                case 'stock_quantity':
+                  uiErrors['stock_quantity'] = v;
+                  break;
+                case 'minimumStockLevel':
+                case 'minimum_stock_level':
+                  uiErrors['minimum_stock'] = v;
+                  break;
+                case 'maximumStockLevel':
+                case 'maximum_stock_level':
+                  uiErrors['maximum_stock'] = v;
+                  break;
+                case 'supplierEmail':
+                case 'supplier_email':
+                  uiErrors['supplier_email'] = v;
+                  break;
+                case 'supplierContact':
+                case 'supplier_contact':
+                  uiErrors['supplier_contact'] = v;
+                  break;
+                case 'supplierName':
+                case 'supplier_name':
+                  uiErrors['supplier_name'] = v;
+                  break;
+                default:
+                  // Fallback to using raw key
+                  uiErrors[k] = v;
+              }
+            });
+
+            _fieldErrors = uiErrors;
           }
         });
 

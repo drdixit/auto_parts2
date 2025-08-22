@@ -23,6 +23,7 @@ class Product {
   final String? primaryImagePath;
   final int? stockQuantity;
   final double? sellingPrice;
+  final int? minimumStockLevel;
   final bool? subCategoryActive;
   final bool? mainCategoryActive;
   final bool?
@@ -51,6 +52,7 @@ class Product {
     this.primaryImagePath,
     this.stockQuantity,
     this.sellingPrice,
+    this.minimumStockLevel,
     this.subCategoryActive,
     this.mainCategoryActive,
     this.isEffectivelyActive,
@@ -106,6 +108,7 @@ class Product {
       primaryImagePath: map['primary_image_path'],
       stockQuantity: map['stock_quantity']?.toInt(),
       sellingPrice: map['selling_price']?.toDouble(),
+      minimumStockLevel: map['minimum_stock_level']?.toInt(),
       subCategoryActive: map['sub_category_active'] != null
           ? (map['sub_category_active'] ?? 1) == 1
           : null,
@@ -141,6 +144,7 @@ class Product {
     String? primaryImagePath,
     int? stockQuantity,
     double? sellingPrice,
+    int? minimumStockLevel,
     bool? subCategoryActive,
     bool? mainCategoryActive,
     bool? isEffectivelyActive,
@@ -168,6 +172,7 @@ class Product {
       primaryImagePath: primaryImagePath ?? this.primaryImagePath,
       stockQuantity: stockQuantity ?? this.stockQuantity,
       sellingPrice: sellingPrice ?? this.sellingPrice,
+      minimumStockLevel: minimumStockLevel ?? this.minimumStockLevel,
       subCategoryActive: subCategoryActive ?? this.subCategoryActive,
       mainCategoryActive: mainCategoryActive ?? this.mainCategoryActive,
       isEffectivelyActive: isEffectivelyActive ?? this.isEffectivelyActive,

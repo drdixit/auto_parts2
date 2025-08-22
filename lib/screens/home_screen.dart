@@ -20,7 +20,6 @@ class _HomeScreenState extends State<HomeScreen> {
     const MainCategoriesScreen(),
     const SubCategoriesScreen(),
     const ProductsScreen(),
-    const PlaceholderTab(title: 'Inventory'),
   ];
 
   final List<String> _titles = [
@@ -28,7 +27,6 @@ class _HomeScreenState extends State<HomeScreen> {
     'Main Categories',
     'Sub Categories',
     'Products',
-    'Inventory',
   ];
 
   @override
@@ -115,11 +113,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: Icon(Icons.inventory_outlined),
                 selectedIcon: Icon(Icons.inventory),
                 label: Text('Products'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.store_outlined),
-                selectedIcon: Icon(Icons.store),
-                label: Text('Inventory'),
               ),
             ],
           ),

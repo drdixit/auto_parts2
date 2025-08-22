@@ -11,6 +11,70 @@ import 'package:path/path.dart' as path;
 import 'package:sqflite_common/sqlite_api.dart';
 
 class ProductService {
+  // Create or update inventory for a product
+  Future<Map<String, dynamic>> upsertInventory(
+    ProductInventory inventory,
+  ) async {
+    final db = await _dbHelper.database;
+    // Validate inventory data
+    final errors = await validateInventoryData(inventory);
+    if (errors.isNotEmpty) {
+      return {'success': false, 'errors': errors};
+    }
+    // Check if inventory exists
+    final existing = await getProductInventory(inventory.productId);
+    if (existing == null) {
+      // Insert new inventory
+      final id = await db.insert('product_inventory', {
+        'product_id': inventory.productId,
+        'supplier_name': inventory.supplierName,
+        'supplier_contact': inventory.supplierContact,
+        'supplier_email': inventory.supplierEmail,
+        'cost_price': inventory.costPrice,
+        'selling_price': inventory.sellingPrice,
+        'mrp': inventory.mrp,
+        'stock_quantity': inventory.stockQuantity,
+        'minimum_stock_level': inventory.minimumStockLevel,
+        'maximum_stock_level': inventory.maximumStockLevel,
+        'location_rack': inventory.locationRack,
+        'last_restocked_date': inventory.lastRestockedDate?.toIso8601String(),
+        'last_sold_date': inventory.lastSoldDate?.toIso8601String(),
+        'is_active': inventory.isActive ? 1 : 0,
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+      return {'success': true, 'id': id, 'message': 'Inventory created'};
+    } else {
+      // Update existing inventory
+      final rowsAffected = await db.update(
+        'product_inventory',
+        {
+          'supplier_name': inventory.supplierName,
+          'supplier_contact': inventory.supplierContact,
+          'supplier_email': inventory.supplierEmail,
+          'cost_price': inventory.costPrice,
+          'selling_price': inventory.sellingPrice,
+          'mrp': inventory.mrp,
+          'stock_quantity': inventory.stockQuantity,
+          'minimum_stock_level': inventory.minimumStockLevel,
+          'maximum_stock_level': inventory.maximumStockLevel,
+          'location_rack': inventory.locationRack,
+          'last_restocked_date': inventory.lastRestockedDate?.toIso8601String(),
+          'last_sold_date': inventory.lastSoldDate?.toIso8601String(),
+          'is_active': inventory.isActive ? 1 : 0,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'product_id = ?',
+        whereArgs: [inventory.productId],
+      );
+      if (rowsAffected > 0) {
+        return {'success': true, 'message': 'Inventory updated'};
+      } else {
+        return {'success': false, 'error': 'Failed to update inventory'};
+      }
+    }
+  }
+
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
   // Get all products with joined data
@@ -46,6 +110,7 @@ class ProductService {
         pi.image_path as primary_image_path,
         inv.stock_quantity,
         inv.selling_price,
+        inv.minimum_stock_level,
         CASE
           WHEN p.is_active = 1 AND sc.is_active = 1 AND mc.is_active = 1 THEN 1
           ELSE 0
@@ -108,6 +173,7 @@ class ProductService {
         pi.image_path as primary_image_path,
         inv.stock_quantity,
         inv.selling_price,
+        inv.minimum_stock_level,
         CASE
           WHEN p.is_active = 1 AND sc.is_active = 1 AND mc.is_active = 1 THEN 1
           ELSE 0
@@ -139,6 +205,7 @@ class ProductService {
         pi.image_path as primary_image_path,
         inv.stock_quantity,
         inv.selling_price,
+        inv.minimum_stock_level,
         CASE
           WHEN p.is_active = 1 AND sc.is_active = 1 AND mc.is_active = 1 THEN 1
           ELSE 0
@@ -188,6 +255,7 @@ class ProductService {
         pi.image_path as primary_image_path,
         inv.stock_quantity,
         inv.selling_price,
+        inv.minimum_stock_level,
         CASE
           WHEN p.is_active = 1 AND sc.is_active = 1 AND mc.is_active = 1 THEN 1
           ELSE 0
@@ -865,6 +933,201 @@ class ProductService {
     return null;
   }
 
+  // Get all inventory records for products (for reporting/overview)
+  Future<List<ProductInventory>> getAllInventory({
+    bool includeInactive = false,
+  }) async {
+    final db = await _dbHelper.database;
+
+    String whereClause = includeInactive ? '' : 'WHERE pi.is_active = 1';
+
+    final maps = await db.rawQuery('''
+      SELECT pi.*, p.name as product_name, p.part_number
+      FROM product_inventory pi
+      LEFT JOIN products p ON pi.product_id = p.id
+      $whereClause
+      ORDER BY pi.updated_at DESC
+    ''');
+
+    return List.generate(maps.length, (i) {
+      return ProductInventory.fromMap(maps[i]);
+    });
+  }
+
+  // Get low stock products (stock <= minimum level)
+  Future<List<Map<String, dynamic>>> getLowStockProducts() async {
+    final db = await _dbHelper.database;
+
+    final maps = await db.rawQuery('''
+      SELECT p.id, p.name, p.part_number, pi.stock_quantity, pi.minimum_stock_level,
+             m.name as manufacturer_name, sc.name as sub_category_name,
+             mc.name as main_category_name
+      FROM products p
+      INNER JOIN product_inventory pi ON p.id = pi.product_id AND pi.is_active = 1
+      LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
+      LEFT JOIN sub_categories sc ON p.sub_category_id = sc.id
+      LEFT JOIN main_categories mc ON sc.main_category_id = mc.id
+      WHERE p.is_active = 1
+        AND sc.is_active = 1
+        AND mc.is_active = 1
+        AND pi.stock_quantity > 0
+        AND pi.stock_quantity <= pi.minimum_stock_level
+      ORDER BY (pi.stock_quantity / NULLIF(pi.minimum_stock_level, 0)) ASC
+    ''');
+
+    return maps;
+  }
+
+  // Get out of stock products
+  Future<List<Map<String, dynamic>>> getOutOfStockProducts() async {
+    final db = await _dbHelper.database;
+
+    final maps = await db.rawQuery('''
+      SELECT p.id, p.name, p.part_number, pi.stock_quantity,
+             m.name as manufacturer_name, sc.name as sub_category_name,
+             mc.name as main_category_name
+      FROM products p
+      LEFT JOIN product_inventory pi ON p.id = pi.product_id AND pi.is_active = 1
+      LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
+      LEFT JOIN sub_categories sc ON p.sub_category_id = sc.id
+      LEFT JOIN main_categories mc ON sc.main_category_id = mc.id
+      WHERE p.is_active = 1
+        AND sc.is_active = 1
+        AND mc.is_active = 1
+        AND (pi.stock_quantity IS NULL OR pi.stock_quantity = 0)
+      ORDER BY p.name
+    ''');
+
+    return maps;
+  }
+
+  // Update stock quantity (for stock transactions)
+  Future<Map<String, dynamic>> updateStockQuantity(
+    int productId,
+    int newQuantity, {
+    String? notes,
+  }) async {
+    try {
+      final db = await _dbHelper.database;
+
+      // Check if inventory exists
+      final inventory = await getProductInventory(productId);
+      if (inventory == null) {
+        return {
+          'success': false,
+          'error': 'No inventory record found for this product',
+        };
+      }
+
+      // Update stock quantity
+      final rowsAffected = await db.update(
+        'product_inventory',
+        {
+          'stock_quantity': newQuantity,
+          'updated_at': DateTime.now().toIso8601String(),
+          if (newQuantity > 0)
+            'last_restocked_date': DateTime.now().toIso8601String(),
+        },
+        where: 'product_id = ? AND is_active = 1',
+        whereArgs: [productId],
+      );
+
+      if (rowsAffected > 0) {
+        return {
+          'success': true,
+          'message': 'Stock quantity updated successfully',
+          'newQuantity': newQuantity,
+        };
+      } else {
+        return {'success': false, 'error': 'Failed to update stock quantity'};
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'error': 'Failed to update stock quantity: ${e.toString()}',
+      };
+    }
+  }
+
+  // Validate inventory data
+  Future<Map<String, String>> validateInventoryData(
+    ProductInventory inventory,
+  ) async {
+    Map<String, String> errors = {};
+
+    // Validate product existence
+    final product = await getProductById(inventory.productId);
+    if (product == null) {
+      errors['product'] = 'Product not found';
+      return errors;
+    }
+
+    // Validate pricing
+    if (inventory.costPrice < 0) {
+      errors['costPrice'] = 'Cost price cannot be negative';
+    }
+
+    if (inventory.sellingPrice < 0) {
+      errors['sellingPrice'] = 'Selling price cannot be negative';
+    }
+
+    if (inventory.mrp < 0) {
+      errors['mrp'] = 'MRP cannot be negative';
+    }
+
+    // Validate logical pricing relationships
+    if (inventory.sellingPrice > 0 && inventory.costPrice > 0) {
+      if (inventory.sellingPrice < inventory.costPrice) {
+        errors['sellingPrice'] =
+            'Selling price should not be less than cost price';
+      }
+    }
+
+    if (inventory.mrp > 0 && inventory.sellingPrice > 0) {
+      if (inventory.sellingPrice > inventory.mrp) {
+        errors['sellingPrice'] = 'Selling price should not exceed MRP';
+      }
+    }
+
+    // Validate stock levels
+    if (inventory.stockQuantity < 0) {
+      errors['stockQuantity'] = 'Stock quantity cannot be negative';
+    }
+
+    if (inventory.minimumStockLevel < 0) {
+      errors['minimumStockLevel'] = 'Minimum stock level cannot be negative';
+    }
+
+    if (inventory.maximumStockLevel < 0) {
+      errors['maximumStockLevel'] = 'Maximum stock level cannot be negative';
+    }
+
+    if (inventory.minimumStockLevel >= inventory.maximumStockLevel) {
+      errors['minimumStockLevel'] =
+          'Minimum stock level should be less than maximum level';
+    }
+
+    // Validate supplier email format if provided
+    if (inventory.supplierEmail != null &&
+        inventory.supplierEmail!.isNotEmpty) {
+      final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
+      if (!emailRegex.hasMatch(inventory.supplierEmail!)) {
+        errors['supplierEmail'] = 'Invalid email format';
+      }
+    }
+
+    // Validate supplier contact if provided
+    if (inventory.supplierContact != null &&
+        inventory.supplierContact!.isNotEmpty) {
+      final contactRegex = RegExp(r'^[\+\-\s\(\)\d]+$');
+      if (!contactRegex.hasMatch(inventory.supplierContact!)) {
+        errors['supplierContact'] = 'Invalid contact format';
+      }
+    }
+
+    return errors;
+  }
+
   // Fix products with images but no primary image set
   Future<Map<String, dynamic>> fixMissingPrimaryImages() async {
     try {
@@ -937,11 +1200,34 @@ class ProductService {
     ProductInventory inventory,
   ) async {
     try {
+      // Validate inventory data first
+      final validationErrors = await validateInventoryData(inventory);
+      if (validationErrors.isNotEmpty) {
+        return {
+          'success': false,
+          'error': 'Validation failed',
+          'fieldErrors': validationErrors,
+        };
+      }
+
       final db = await _dbHelper.database;
+
+      // Check for existing inventory record
+      final existingInventory = await getProductInventory(inventory.productId);
+
+      if (inventory.id == null && existingInventory != null) {
+        // Product already has inventory, update instead of create
+        final updatedInventory = inventory.copyWith(id: existingInventory.id);
+        return await saveProductInventory(updatedInventory);
+      }
 
       if (inventory.id == null) {
         // Create new inventory
-        final id = await db.insert('product_inventory', inventory.toMap());
+        final inventoryMap = inventory.toMap();
+        inventoryMap['created_at'] = DateTime.now().toIso8601String();
+        inventoryMap['updated_at'] = DateTime.now().toIso8601String();
+
+        final id = await db.insert('product_inventory', inventoryMap);
         return {
           'success': true,
           'id': id,
@@ -949,9 +1235,12 @@ class ProductService {
         };
       } else {
         // Update existing inventory
+        final inventoryMap = inventory.toMap();
+        inventoryMap['updated_at'] = DateTime.now().toIso8601String();
+
         final rowsAffected = await db.update(
           'product_inventory',
-          inventory.toMap(),
+          inventoryMap,
           where: 'id = ?',
           whereArgs: [inventory.id],
         );
@@ -969,6 +1258,34 @@ class ProductService {
       return {
         'success': false,
         'error': 'Failed to save inventory: ${e.toString()}',
+      };
+    }
+  }
+
+  // Delete inventory record (soft delete)
+  Future<Map<String, dynamic>> deleteProductInventory(int inventoryId) async {
+    try {
+      final db = await _dbHelper.database;
+
+      final rowsAffected = await db.update(
+        'product_inventory',
+        {'is_active': 0, 'updated_at': DateTime.now().toIso8601String()},
+        where: 'id = ?',
+        whereArgs: [inventoryId],
+      );
+
+      if (rowsAffected > 0) {
+        return {
+          'success': true,
+          'message': 'Inventory record deleted successfully',
+        };
+      } else {
+        return {'success': false, 'error': 'Inventory record not found'};
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'error': 'Failed to delete inventory: ${e.toString()}',
       };
     }
   }
