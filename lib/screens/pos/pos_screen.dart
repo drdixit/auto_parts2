@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import '../../models/product.dart';
 import '../../models/main_category.dart';
 import '../../models/sub_category.dart';
@@ -32,6 +33,8 @@ class _PosScreenState extends State<PosScreen> {
   List<MainCategory> _mainCategories = [];
   List<SubCategory> _subCategories = [];
   List<VehicleModel> _vehicles = [];
+  List<SubCategory> _visibleSubCategories = [];
+  List<VehicleModel> _visibleVehicles = [];
 
   List<Product> _allProducts = [];
   List<Product> _filteredProducts = [];
@@ -74,6 +77,8 @@ class _PosScreenState extends State<PosScreen> {
         _subCategories = subCats;
         _vehicles = vehicles;
         _allProducts = products;
+        _visibleSubCategories = _subCategories;
+        _visibleVehicles = _vehicles;
       });
 
       _applyFilters();
@@ -82,6 +87,46 @@ class _PosScreenState extends State<PosScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _updateVisibleForMainCategory() async {
+    // Update visible subcategories
+    if (_selectedMainCategoryId == null) {
+      _visibleSubCategories = _subCategories;
+      _visibleVehicles = _vehicles;
+    } else {
+      _visibleSubCategories = _subCategories
+          .where((s) => s.mainCategoryId == _selectedMainCategoryId)
+          .toList();
+
+      // Compute vehicles associated with products under this main category
+      final productIds = _allProducts
+          .where(
+            (p) => _visibleSubCategories.any((s) => s.id == p.subCategoryId),
+          )
+          .map((p) => p.id)
+          .whereType<int>()
+          .toList();
+
+      if (productIds.isEmpty) {
+        _visibleVehicles = [];
+      } else {
+        final db = await DatabaseHelper().database;
+        final placeholders = List.filled(productIds.length, '?').join(',');
+        final rows = await db.rawQuery(
+          'SELECT DISTINCT vehicle_model_id FROM product_compatibility WHERE product_id IN ($placeholders)',
+          productIds,
+        );
+        final ids = rows
+            .map((r) => r['vehicle_model_id'] as int?)
+            .whereType<int>()
+            .toSet();
+        _visibleVehicles = _vehicles.where((v) => ids.contains(v.id)).toList();
+      }
+    }
+
+    // If no vehicles found, fall back to empty list (UI will reflect)
+    if (mounted) setState(() {});
   }
 
   void _applyFilters() {
@@ -179,6 +224,19 @@ class _PosScreenState extends State<PosScreen> {
       _selectedMainCategoryId = id;
       _selectedSubCategoryIds.clear();
     });
+    _updateVisibleForMainCategory();
+    _applyFilters();
+  }
+
+  void _resetAllFilters() {
+    setState(() {
+      _selectedMainCategoryId = null;
+      _selectedSubCategoryIds.clear();
+      _selectedVehicleIds.clear();
+      _visibleSubCategories = _subCategories;
+      _visibleVehicles = _vehicles;
+      _searchQuery = '';
+    });
     _applyFilters();
   }
 
@@ -216,7 +274,6 @@ class _PosScreenState extends State<PosScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('POS')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Padding(
@@ -232,71 +289,105 @@ class _PosScreenState extends State<PosScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Filters',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            const Text('Main Category'),
-                            DropdownButton<int?>(
-                              isExpanded: true,
-                              value: _selectedMainCategoryId,
-                              items: [
-                                const DropdownMenuItem<int?>(
-                                  value: null,
-                                  child: Text('All'),
-                                ),
-                                ..._mainCategories.map(
-                                  (c) => DropdownMenuItem(
-                                    value: c.id,
-                                    child: Text(c.name),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Filters',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
+                                TextButton(
+                                  onPressed: _resetAllFilters,
+                                  child: const Text('Reset'),
+                                ),
                               ],
-                              onChanged: (v) => _selectMainCategory(v),
                             ),
                             const SizedBox(height: 8),
-                            const Text('Sub Categories'),
+
+                            // Make the filter content vertically scrollable to avoid RenderFlex overflow
                             Expanded(
-                              child: ListView(
-                                children: _subCategories
-                                    .where(
-                                      (s) =>
-                                          _selectedMainCategoryId == null ||
-                                          s.mainCategoryId ==
-                                              _selectedMainCategoryId,
-                                    )
-                                    .map(
-                                      (s) => CheckboxListTile(
-                                        title: Text(s.name),
-                                        value: _selectedSubCategoryIds.contains(
-                                          s.id,
-                                        ),
-                                        onChanged: (_) =>
-                                            _toggleSubCategory(s.id!),
+                              child: SingleChildScrollView(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Main Category'),
+                                    const SizedBox(height: 6),
+                                    SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: Row(
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              right: 6.0,
+                                            ),
+                                            child: ChoiceChip(
+                                              label: const Text('All'),
+                                              selected:
+                                                  _selectedMainCategoryId ==
+                                                  null,
+                                              onSelected: (_) =>
+                                                  _selectMainCategory(null),
+                                            ),
+                                          ),
+                                          ..._mainCategories.map(
+                                            (c) => Padding(
+                                              padding: const EdgeInsets.only(
+                                                right: 6.0,
+                                              ),
+                                              child: ChoiceChip(
+                                                label: Text(c.name),
+                                                selected:
+                                                    _selectedMainCategoryId ==
+                                                    c.id,
+                                                onSelected: (_) =>
+                                                    _selectMainCategory(c.id),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    )
-                                    .toList(),
-                              ),
-                            ),
-                            const Divider(),
-                            const Text('Vehicles'),
-                            Expanded(
-                              child: ListView(
-                                children: _vehicles
-                                    .map(
-                                      (v) => CheckboxListTile(
-                                        title: Text(v.displayName),
-                                        value: _selectedVehicleIds.contains(
-                                          v.id,
-                                        ),
-                                        onChanged: (_) => _toggleVehicle(v.id!),
-                                      ),
-                                    )
-                                    .toList(),
+                                    ),
+                                    const SizedBox(height: 12),
+
+                                    const Text('Sub Categories'),
+                                    const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 6,
+                                      children: _visibleSubCategories.map((s) {
+                                        final selected = _selectedSubCategoryIds
+                                            .contains(s.id);
+                                        return FilterChip(
+                                          label: Text(s.name),
+                                          selected: selected,
+                                          onSelected: (_) =>
+                                              _toggleSubCategory(s.id!),
+                                        );
+                                      }).toList(),
+                                    ),
+                                    const SizedBox(height: 12),
+
+                                    const Text('Vehicles'),
+                                    const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 6,
+                                      children: _visibleVehicles.map((v) {
+                                        final sel = _selectedVehicleIds
+                                            .contains(v.id);
+                                        return FilterChip(
+                                          label: Text(v.displayName),
+                                          selected: sel,
+                                          onSelected: (_) =>
+                                              _toggleVehicle(v.id!),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
@@ -346,6 +437,24 @@ class _PosScreenState extends State<PosScreen> {
                                       final p = _filteredProducts[i];
                                       final price = p.sellingPrice ?? 0.0;
                                       return ListTile(
+                                        leading: SizedBox(
+                                          width: 48,
+                                          height: 48,
+                                          child:
+                                              p.primaryImagePath != null &&
+                                                  p.primaryImagePath!.isNotEmpty
+                                              ? Image.file(
+                                                  File(p.primaryImagePath!),
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (_, __, ___) =>
+                                                      const Center(
+                                                        child: Text('No image'),
+                                                      ),
+                                                )
+                                              : const Center(
+                                                  child: Text('No image'),
+                                                ),
+                                        ),
                                         title: Text(p.name),
                                         subtitle: Text(
                                           '₹${price.toStringAsFixed(2)}',
@@ -357,13 +466,18 @@ class _PosScreenState extends State<PosScreen> {
                                               icon: const Icon(
                                                 Icons.remove_circle_outline,
                                               ),
+                                              iconSize: 28,
+                                              splashRadius: 22,
                                               onPressed: () =>
                                                   _removeFromBilling(p),
                                             ),
+                                            const SizedBox(width: 8),
                                             IconButton(
                                               icon: const Icon(
                                                 Icons.add_circle_outline,
                                               ),
+                                              iconSize: 28,
+                                              splashRadius: 22,
                                               onPressed: () => _addToBilling(p),
                                             ),
                                           ],
@@ -413,6 +527,8 @@ class _PosScreenState extends State<PosScreen> {
                                             children: [
                                               IconButton(
                                                 icon: const Icon(Icons.remove),
+                                                iconSize: 28,
+                                                splashRadius: 20,
                                                 onPressed: () {
                                                   setState(() {
                                                     if (b.qty > 1) {
@@ -423,12 +539,23 @@ class _PosScreenState extends State<PosScreen> {
                                                   });
                                                 },
                                               ),
-                                              Text('${b.qty}'),
+                                              const SizedBox(width: 12),
+                                              Text(
+                                                '${b.qty}',
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 12),
                                               IconButton(
                                                 icon: const Icon(Icons.add),
+                                                iconSize: 28,
+                                                splashRadius: 20,
                                                 onPressed: () =>
                                                     setState(() => b.qty += 1),
                                               ),
+                                              const SizedBox(width: 8),
                                               IconButton(
                                                 icon: const Icon(Icons.delete),
                                                 onPressed: () => setState(
