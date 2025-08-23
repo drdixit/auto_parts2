@@ -8,7 +8,8 @@ import '../models/product_image.dart';
 import '../models/product_inventory.dart';
 import 'dart:io';
 import 'package:path/path.dart' as path;
-import 'package:sqflite_common/sqlite_api.dart';
+import 'package:flutter/foundation.dart';
+import 'package:sqflite/sqflite.dart';
 
 class ProductService {
   // Create or update inventory for a product
@@ -126,16 +127,16 @@ class ProductService {
     ''';
 
     final results = await db.rawQuery(query);
-    print('Loaded ${results.length} products from database');
+    debugPrint('Loaded ${results.length} products from database');
 
     final products = results.map((map) {
       final product = Product.fromMap(map);
       if (product.primaryImagePath != null) {
-        print(
+        debugPrint(
           'Product ${product.name} has primary image: ${product.primaryImagePath}',
         );
       } else {
-        print('Product ${product.name} has no primary image');
+        debugPrint('Product ${product.name} has no primary image');
       }
       return product;
     }).toList();
@@ -804,9 +805,9 @@ class ProductService {
     );
 
     final images = maps.map((map) => ProductImage.fromMap(map)).toList();
-    print('Found ${images.length} images for product $productId');
+    debugPrint('Found ${images.length} images for product $productId');
     for (final image in images) {
-      print('Image: ${image.imagePath}, Primary: ${image.isPrimary}');
+      debugPrint('Image: ${image.imagePath}, Primary: ${image.isPrimary}');
     }
 
     return images;
@@ -819,9 +820,9 @@ class ProductService {
     int? primaryImageIndex,
   ) async {
     try {
-      print('Saving ${imagePaths.length} images for product $productId');
+      debugPrint('Saving ${imagePaths.length} images for product $productId');
       if (primaryImageIndex != null) {
-        print('Primary image index: $primaryImageIndex');
+        debugPrint('Primary image index: $primaryImageIndex');
       }
 
       final db = await _dbHelper.database;
@@ -840,7 +841,7 @@ class ProductService {
           final imagePath = imagePaths[i];
           final isPrimary = primaryImageIndex == i;
 
-          print('Saving image $i: $imagePath (primary: $isPrimary)');
+          debugPrint('Saving image $i: $imagePath (primary: $isPrimary)');
 
           final productImage = ProductImage(
             productId: productId,
@@ -854,10 +855,10 @@ class ProductService {
         }
       });
 
-      print('Successfully saved all product images');
+      debugPrint('Successfully saved all product images');
       return {'success': true, 'message': 'Product images saved successfully'};
     } catch (e) {
-      print('Error saving product images: $e');
+      debugPrint('Error saving product images: $e');
       return {
         'success': false,
         'error': 'Failed to save images: ${e.toString()}',
@@ -868,38 +869,38 @@ class ProductService {
   // Copy image to app directory
   Future<String?> copyImageToAppDirectory(String sourcePath) async {
     try {
-      print('Copying image from: $sourcePath');
+      debugPrint('Copying image from: $sourcePath');
 
       final imagesDir = await _dbHelper.getImagesDirectoryPath();
-      print('Images directory: $imagesDir');
+      debugPrint('Images directory: $imagesDir');
 
       final fileName = path.basename(sourcePath);
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final newFileName = '${timestamp}_$fileName';
       final destinationPath = path.join(imagesDir, 'products', newFileName);
 
-      print('Destination path: $destinationPath');
+      debugPrint('Destination path: $destinationPath');
 
       // Create directory if it doesn't exist
       final destinationDir = Directory(path.dirname(destinationPath));
       if (!await destinationDir.exists()) {
-        print('Creating directory: ${destinationDir.path}');
+        debugPrint('Creating directory: ${destinationDir.path}');
         await destinationDir.create(recursive: true);
       }
 
       // Copy file
       final sourceFile = File(sourcePath);
       if (!await sourceFile.exists()) {
-        print('Source file does not exist: $sourcePath');
+        debugPrint('Source file does not exist: $sourcePath');
         return null;
       }
 
       final destinationFile = await sourceFile.copy(destinationPath);
-      print('Image copied successfully to: ${destinationFile.path}');
+      debugPrint('Image copied successfully to: ${destinationFile.path}');
 
       return destinationFile.path;
     } catch (e) {
-      print('Error copying image: $e');
+      debugPrint('Error copying image: $e');
       return null;
     }
   }
@@ -1175,7 +1176,7 @@ class ProductService {
           );
 
           fixedCount++;
-          print(
+          debugPrint(
             'Set primary image for product $productId (image ID: $imageId)',
           );
         }
@@ -1187,7 +1188,7 @@ class ProductService {
         'fixedCount': fixedCount,
       };
     } catch (e) {
-      print('Error fixing missing primary images: $e');
+      debugPrint('Error fixing missing primary images: $e');
       return {
         'success': false,
         'error': 'Failed to fix missing primary images: ${e.toString()}',

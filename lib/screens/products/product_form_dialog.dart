@@ -359,16 +359,16 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
 
         // Handle images if any are selected
         if (_selectedImagePaths.isNotEmpty && productId != null) {
-          print(
+          debugPrint(
             'Processing ${_selectedImagePaths.length} images for product $productId',
           );
-          print('Selected image paths: $_selectedImagePaths');
-          print('Primary image index: $_primaryImageIndex');
+          debugPrint('Selected image paths: $_selectedImagePaths');
+          debugPrint('Primary image index: $_primaryImageIndex');
 
           // If no primary image is selected, set the first image as primary
           if (_primaryImageIndex == null && _selectedImagePaths.isNotEmpty) {
             _primaryImageIndex = 0;
-            print('Auto-setting first image as primary (index: 0)');
+            debugPrint('Auto-setting first image as primary (index: 0)');
           }
 
           // Copy images to app directory
@@ -379,10 +379,10 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
 
             // Check if it's an existing image (already in app directory)
             if (_productImages.any((img) => img.imagePath == imagePath)) {
-              print('Using existing image: $imagePath');
+              debugPrint('Using existing image: $imagePath');
               copiedPath = imagePath; // Keep existing path
             } else {
-              print('Copying new image: $imagePath');
+              debugPrint('Copying new image: $imagePath');
               // Copy new image to app directory
               copiedPath = await _productService.copyImageToAppDirectory(
                 imagePath,
@@ -390,14 +390,14 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
             }
 
             if (copiedPath != null) {
-              print('Image processed successfully: $copiedPath');
+              debugPrint('Image processed successfully: $copiedPath');
               copiedImagePaths.add(copiedPath);
             } else {
-              print('Failed to process image: $imagePath');
+              debugPrint('Failed to process image: $imagePath');
             }
           }
 
-          print('Final copied image paths: $copiedImagePaths');
+          debugPrint('Final copied image paths: $copiedImagePaths');
 
           // Save images to database
           final imageResult = await _productService.saveProductImages(
@@ -406,7 +406,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
             _primaryImageIndex,
           );
 
-          print('Image save result: $imageResult');
+          debugPrint('Image save result: $imageResult');
         }
 
         // Save vehicle compatibility after product is saved
@@ -448,18 +448,17 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           }
         } catch (e) {
           // Log error but don't prevent success notification
-          print('Error saving vehicle compatibility: $e');
+          debugPrint('Error saving vehicle compatibility: $e');
         }
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['message']),
-              backgroundColor: Colors.green,
-            ),
-          );
-          Navigator.of(context).pop(true);
-        }
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message']),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pop(true);
       } else {
         setState(() {
           _isLoading = false;
@@ -469,6 +468,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
         });
 
         if (result['error'] != null) {
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result['error']),
@@ -627,7 +627,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                               children: [
                                 Expanded(
                                   child: DropdownButtonFormField<int>(
-                                    value:
+                                    initialValue:
                                         _subCategories.any(
                                           (cat) =>
                                               cat.id == _selectedSubCategoryId,
@@ -676,7 +676,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: DropdownButtonFormField<int>(
-                                    value:
+                                    initialValue:
                                         _manufacturers.any(
                                           (man) =>
                                               man.id == _selectedManufacturerId,
@@ -1149,12 +1149,12 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
             height: 180,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) {
-              print('Error loading image in form: $imagePath - $error');
+              debugPrint('Error loading image in form: $imagePath - $error');
               return _buildImagePlaceholder();
             },
           );
         } else {
-          print('Image file does not exist in form: $imagePath');
+          debugPrint('Image file does not exist in form: $imagePath');
           return _buildImagePlaceholder();
         }
       },

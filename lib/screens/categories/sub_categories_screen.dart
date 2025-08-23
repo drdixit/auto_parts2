@@ -236,7 +236,7 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
               // Main Category Filter
               Expanded(
                 child: DropdownButtonFormField<int?>(
-                  value: _selectedMainCategoryId,
+                  initialValue: _selectedMainCategoryId,
                   decoration: const InputDecoration(
                     labelText: 'Filter by Main Category',
                     border: OutlineInputBorder(),
@@ -778,7 +778,9 @@ class _AddEditSubCategoryDialogState extends State<AddEditSubCategoryDialog> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                color: Theme.of(
+                  context,
+                ).primaryColor.withAlpha((0.1 * 255).round()),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(12),
                   topRight: Radius.circular(12),
@@ -881,17 +883,16 @@ class _AddEditSubCategoryDialogState extends State<AddEditSubCategoryDialog> {
                                 );
                             if (!selectedCategory.isActive) {
                               // Delay the SnackBar to avoid mouse tracker assertion error
+                              final messenger = ScaffoldMessenger.of(context);
                               Future.microtask(() {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Cannot select inactive main category',
-                                      ),
-                                      backgroundColor: Colors.red,
+                                messenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Cannot select inactive main category',
                                     ),
-                                  );
-                                }
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
                               });
                               return; // Don't change the selection
                             }

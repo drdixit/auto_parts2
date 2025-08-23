@@ -118,11 +118,13 @@ class _ProductCompatibilityDialogState
         );
 
         if (result['success']) {
+          if (!mounted) return;
           setState(() {
             _selectedVehicleIds.add(vehicleId);
           });
-          _loadData(); // Refresh to get the new compatibility with ID
+          await _loadData(); // Refresh to get the new compatibility with ID
         } else {
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result['error'] ?? 'Failed to add compatibility'),
@@ -142,11 +144,13 @@ class _ProductCompatibilityDialogState
           );
 
           if (result['success']) {
+            if (!mounted) return;
             setState(() {
               _selectedVehicleIds.remove(vehicleId);
             });
-            _loadData(); // Refresh the list
+            await _loadData(); // Refresh the list
           } else {
+            if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
@@ -159,12 +163,14 @@ class _ProductCompatibilityDialogState
         }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       setState(() {
         _isAddingNew = false;

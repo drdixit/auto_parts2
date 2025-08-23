@@ -93,7 +93,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         }
       }
     } catch (e) {
-      print('Error fixing missing primary images: $e');
+      debugPrint('Error fixing missing primary images: $e');
     }
   }
 
@@ -180,14 +180,16 @@ class _ProductsScreenState extends State<ProductsScreen> {
       final result = await _productService.toggleProductStatus(product.id!);
 
       if (result['success']) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result['message']),
             backgroundColor: Colors.green,
           ),
         );
-        _loadProducts();
+        await _loadProducts();
       } else {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result['error'] ?? 'Failed to update product status'),
@@ -196,6 +198,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
@@ -217,6 +220,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
       // Load existing inventory if any
       final inventory = await _productService.getProductInventory(product.id!);
 
+      if (!mounted) return;
+
       await showDialog(
         context: context,
         builder: (context) => ProductInventoryDialog(
@@ -226,9 +231,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
         ),
       );
 
+      if (!mounted) return;
       // Reload products to refresh any stock/pricing information
-      _loadProducts();
+      await _loadProducts();
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error loading inventory: ${e.toString()}'),
@@ -295,7 +302,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 return;
               }
 
-              Navigator.of(context).pop();
+              final messenger = ScaffoldMessenger.of(context);
+              final nav = Navigator.of(context);
+
+              nav.pop();
 
               final newQuantity = currentStock + addedStock;
 
@@ -307,16 +317,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     newQuantity,
                   );
 
+                  if (!mounted) return;
                   if (result['success']) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    messenger.showSnackBar(
                       SnackBar(
                         content: Text(result['message']),
                         backgroundColor: Colors.green,
                       ),
                     );
-                    _loadProducts(); // Refresh the list
+                    await _loadProducts(); // Refresh the list
                   } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    messenger.showSnackBar(
                       SnackBar(
                         content: Text(
                           result['error'] ?? 'Failed to update stock',
@@ -326,7 +337,19 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     );
                   }
                 } else {
-                  // No inventory exists - create one with the incoming stock using upsert
+                  // No inventory exists - if incoming quantity is zero, do nothing
+                  if (newQuantity == 0) {
+                    if (!mounted) return;
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('No stock to add'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                    return;
+                  }
+
+                  // Create inventory with the incoming stock using upsert
                   final inventory = ProductInventory(
                     productId: product.id!,
                     stockQuantity: newQuantity,
@@ -335,16 +358,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   final result = await _productService.upsertInventory(
                     inventory,
                   );
+                  if (!mounted) return;
                   if (result['success']) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    messenger.showSnackBar(
                       SnackBar(
                         content: Text(result['message'] ?? 'Inventory created'),
                         backgroundColor: Colors.green,
                       ),
                     );
-                    _loadProducts();
+                    await _loadProducts();
                   } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    messenger.showSnackBar(
                       SnackBar(
                         content: Text(
                           result['error'] ?? 'Failed to create inventory',
@@ -355,7 +379,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   }
                 }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                if (!mounted) return;
+                messenger.showSnackBar(
                   SnackBar(
                     content: Text('Error: ${e.toString()}'),
                     backgroundColor: Colors.red,
@@ -847,19 +872,19 @@ class _ProductsScreenState extends State<ProductsScreen> {
               height: 80,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) {
-                print('Error loading image from path: $imagePath');
-                print('Error details: $error');
+                debugPrint('Error loading image from path: $imagePath');
+                debugPrint('Error details: $error');
                 return _buildImagePlaceholder();
               },
             );
           } else {
-            print('Image file does not exist: $imagePath');
+            debugPrint('Image file does not exist: $imagePath');
             return _buildImagePlaceholder();
           }
         },
       );
     } else {
-      print('No image path provided for product');
+      debugPrint('No image path provided for product');
       return _buildImagePlaceholder();
     }
   }
@@ -1036,7 +1061,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             color: backgroundColor,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: foregroundColor.withOpacity(0.3),
+              color: foregroundColor.withAlpha((0.3 * 255).round()),
               width: 1,
             ),
           ),
