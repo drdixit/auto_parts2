@@ -4,6 +4,7 @@ import '../../models/product.dart';
 import '../../models/main_category.dart';
 import '../../models/sub_category.dart';
 import '../../models/vehicle_model.dart';
+import '../../models/manufacturer.dart';
 import '../../services/product_service.dart';
 import '../../services/main_category_service.dart';
 import '../../services/sub_category_service.dart';
@@ -35,6 +36,11 @@ class _PosScreenState extends State<PosScreen> {
   List<VehicleModel> _vehicles = [];
   List<SubCategory> _visibleSubCategories = [];
   List<VehicleModel> _visibleVehicles = [];
+  List<Manufacturer> _manufacturers = [];
+  // split lists for vehicle vs product manufacturers
+  List<Manufacturer> _vehicleManufacturers = [];
+  List<Manufacturer> _productManufacturers = [];
+  // legacy/unused: _visibleManufacturers removed (we use context-specific lists)
 
   List<Product> _allProducts = [];
   List<Product> _filteredProducts = [];
@@ -69,6 +75,16 @@ class _PosScreenState extends State<PosScreen> {
       final db = await DatabaseHelper().database;
       final vehicleMaps = await db.query('vehicle_models');
       final vehicles = vehicleMaps.map((m) => VehicleModel.fromMap(m)).toList();
+      // Load manufacturers directly from DB
+      List<Map<String, dynamic>> manuMaps = [];
+      try {
+        manuMaps = await db.query('manufacturers');
+      } catch (_) {
+        manuMaps = [];
+      }
+      final manufacturers = manuMaps
+          .map((m) => Manufacturer.fromMap(m))
+          .toList();
 
       final products = await _productService.getAllProducts();
 
@@ -76,6 +92,21 @@ class _PosScreenState extends State<PosScreen> {
         _mainCategories = mainCats;
         _subCategories = subCats;
         _vehicles = vehicles;
+        _manufacturers = manufacturers;
+        // split manufacturers into vehicle/product contexts using manufacturerType
+        _vehicleManufacturers = _manufacturers
+            .where(
+              (m) =>
+                  m.manufacturerType == 'vehicle' ||
+                  m.manufacturerType == 'both',
+            )
+            .toList();
+        _productManufacturers = _manufacturers
+            .where(
+              (m) =>
+                  m.manufacturerType == 'parts' || m.manufacturerType == 'both',
+            )
+            .toList();
         _allProducts = products;
         _visibleSubCategories = _subCategories;
         _visibleVehicles = _vehicles;
@@ -125,6 +156,15 @@ class _PosScreenState extends State<PosScreen> {
       }
     }
 
+    // If manufacturer selections exist, narrow visible vehicles to those manufacturers
+    if (_selectedVehicleManufacturerIds.isNotEmpty) {
+      _visibleVehicles = _visibleVehicles
+          .where(
+            (v) => _selectedVehicleManufacturerIds.contains(v.manufacturerId),
+          )
+          .toList();
+    }
+
     // If no vehicles found, fall back to empty list (UI will reflect)
     if (mounted) setState(() {});
   }
@@ -153,6 +193,13 @@ class _PosScreenState extends State<PosScreen> {
       // If specific subcategories selected, filter
       if (_selectedSubCategoryIds.isNotEmpty) {
         if (!_selectedSubCategoryIds.contains(p.subCategoryId)) continue;
+      }
+
+      // Manufacturer filter
+      if (_selectedProductManufacturerIds.isNotEmpty) {
+        if (!_selectedProductManufacturerIds.contains(p.manufacturerId)) {
+          continue;
+        }
       }
 
       // Vehicle filter: if none selected, include all. If selected, include universals or products that
@@ -218,6 +265,12 @@ class _PosScreenState extends State<PosScreen> {
     });
     _applyFilters();
   }
+
+  // Manufacturer toggle handled inline for vehicle/product contexts
+
+  // manufacturers selection: separate sets for vehicle vs product manufacturers
+  final Set<int> _selectedVehicleManufacturerIds = {};
+  final Set<int> _selectedProductManufacturerIds = {};
 
   void _selectMainCategory(int? id) {
     setState(() {
@@ -352,39 +405,155 @@ class _PosScreenState extends State<PosScreen> {
                                     ),
                                     const SizedBox(height: 12),
 
-                                    const Text('Sub Categories'),
-                                    const SizedBox(height: 6),
-                                    Wrap(
-                                      spacing: 6,
-                                      runSpacing: 6,
-                                      children: _visibleSubCategories.map((s) {
-                                        final selected = _selectedSubCategoryIds
-                                            .contains(s.id);
-                                        return FilterChip(
-                                          label: Text(s.name),
-                                          selected: selected,
-                                          onSelected: (_) =>
-                                              _toggleSubCategory(s.id!),
-                                        );
-                                      }).toList(),
+                                    // Collapsible Filters
+                                    ExpansionTile(
+                                      title: const Text('Sub Categories'),
+                                      initiallyExpanded: true,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12.0,
+                                            vertical: 6.0,
+                                          ),
+                                          child: Wrap(
+                                            spacing: 6,
+                                            runSpacing: 6,
+                                            children: _visibleSubCategories.map(
+                                              (s) {
+                                                final selected =
+                                                    _selectedSubCategoryIds
+                                                        .contains(s.id);
+                                                return FilterChip(
+                                                  label: Text(s.name),
+                                                  selected: selected,
+                                                  onSelected: (_) =>
+                                                      _toggleSubCategory(s.id!),
+                                                );
+                                              },
+                                            ).toList(),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(height: 12),
 
-                                    const Text('Vehicles'),
                                     const SizedBox(height: 6),
-                                    Wrap(
-                                      spacing: 6,
-                                      runSpacing: 6,
-                                      children: _visibleVehicles.map((v) {
-                                        final sel = _selectedVehicleIds
-                                            .contains(v.id);
-                                        return FilterChip(
-                                          label: Text(v.displayName),
-                                          selected: sel,
-                                          onSelected: (_) =>
-                                              _toggleVehicle(v.id!),
-                                        );
-                                      }).toList(),
+
+                                    ExpansionTile(
+                                      title: const Text(
+                                        'Vehicle Manufacturers',
+                                      ),
+                                      initiallyExpanded: false,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12.0,
+                                            vertical: 6.0,
+                                          ),
+                                          child: _vehicleManufacturers.isEmpty
+                                              ? const Text('No manufacturers')
+                                              : Wrap(
+                                                  spacing: 6,
+                                                  runSpacing: 6,
+                                                  children: _vehicleManufacturers.map((
+                                                    m,
+                                                  ) {
+                                                    final sel =
+                                                        _selectedVehicleManufacturerIds
+                                                            .contains(m.id);
+                                                    return FilterChip(
+                                                      label: Text(m.name),
+                                                      selected: sel,
+                                                      onSelected: (_) => setState(() {
+                                                        if (sel) {
+                                                          _selectedVehicleManufacturerIds
+                                                              .remove(m.id);
+                                                        } else {
+                                                          _selectedVehicleManufacturerIds
+                                                              .add(m.id!);
+                                                        }
+                                                        // refresh visible vehicles
+                                                        _updateVisibleForMainCategory();
+                                                        _applyFilters();
+                                                      }),
+                                                    );
+                                                  }).toList(),
+                                                ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    // Product Manufacturers tile moved to the end of filters
+                                    const SizedBox(height: 6),
+
+                                    ExpansionTile(
+                                      title: const Text('Vehicles'),
+                                      initiallyExpanded: false,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12.0,
+                                            vertical: 6.0,
+                                          ),
+                                          child: Wrap(
+                                            spacing: 6,
+                                            runSpacing: 6,
+                                            children: _visibleVehicles.map((v) {
+                                              final sel = _selectedVehicleIds
+                                                  .contains(v.id);
+                                              return FilterChip(
+                                                label: Text(v.displayName),
+                                                selected: sel,
+                                                onSelected: (_) =>
+                                                    _toggleVehicle(v.id!),
+                                              );
+                                            }).toList(),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    const SizedBox(height: 6),
+
+                                    ExpansionTile(
+                                      title: const Text(
+                                        'Product Manufacturers',
+                                      ),
+                                      initiallyExpanded: false,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12.0,
+                                            vertical: 6.0,
+                                          ),
+                                          child: _productManufacturers.isEmpty
+                                              ? const Text('No manufacturers')
+                                              : Wrap(
+                                                  spacing: 6,
+                                                  runSpacing: 6,
+                                                  children: _productManufacturers.map((
+                                                    m,
+                                                  ) {
+                                                    final sel =
+                                                        _selectedProductManufacturerIds
+                                                            .contains(m.id);
+                                                    return FilterChip(
+                                                      label: Text(m.name),
+                                                      selected: sel,
+                                                      onSelected: (_) => setState(() {
+                                                        if (sel) {
+                                                          _selectedProductManufacturerIds
+                                                              .remove(m.id);
+                                                        } else {
+                                                          _selectedProductManufacturerIds
+                                                              .add(m.id!);
+                                                        }
+                                                        _applyFilters();
+                                                      }),
+                                                    );
+                                                  }).toList(),
+                                                ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -577,108 +746,119 @@ class _PosScreenState extends State<PosScreen> {
                                                 ),
                                                 const SizedBox(height: 8),
 
-                                                // Second row: controls and totals
+                                                // Second row: controls and totals (responsive)
                                                 Row(
                                                   crossAxisAlignment:
                                                       CrossAxisAlignment.center,
                                                   children: [
-                                                    // Controls group
-                                                    Row(
-                                                      children: [
-                                                        IconButton(
-                                                          icon: const Icon(
-                                                            Icons.remove,
-                                                          ),
-                                                          iconSize: 24,
-                                                          splashRadius: 18,
-                                                          onPressed: () {
-                                                            setState(() {
-                                                              if (b.qty > 1) {
-                                                                b.qty -= 1;
-                                                              } else {
-                                                                _billing
-                                                                    .removeAt(
-                                                                      i,
-                                                                    );
-                                                              }
-                                                            });
-                                                          },
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 6,
-                                                        ),
-                                                        Container(
-                                                          padding:
-                                                              const EdgeInsets.symmetric(
-                                                                horizontal: 8,
-                                                                vertical: 4,
-                                                              ),
-                                                          decoration: BoxDecoration(
-                                                            color: Colors
-                                                                .grey
-                                                                .shade100,
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  6,
+                                                    // Controls group - allow it to size down
+                                                    Flexible(
+                                                      flex: 0,
+                                                      child: Row(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: [
+                                                          // Move delete to the front for easier access
+                                                          IconButton(
+                                                            icon: const Icon(
+                                                              Icons.delete,
+                                                            ),
+                                                            iconSize: 20,
+                                                            splashRadius: 18,
+                                                            onPressed: () =>
+                                                                setState(
+                                                                  () => _billing
+                                                                      .removeAt(
+                                                                        i,
+                                                                      ),
                                                                 ),
                                                           ),
-                                                          child: Text(
-                                                            '${b.qty}',
-                                                            style:
-                                                                const TextStyle(
-                                                                  fontSize: 14,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w600,
+                                                          const SizedBox(
+                                                            width: 6,
+                                                          ),
+                                                          IconButton(
+                                                            icon: const Icon(
+                                                              Icons.remove,
+                                                            ),
+                                                            iconSize: 24,
+                                                            splashRadius: 18,
+                                                            onPressed: () {
+                                                              setState(() {
+                                                                if (b.qty > 1) {
+                                                                  b.qty -= 1;
+                                                                } else {
+                                                                  _billing
+                                                                      .removeAt(
+                                                                        i,
+                                                                      );
+                                                                }
+                                                              });
+                                                            },
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 6,
+                                                          ),
+                                                          Container(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  horizontal: 8,
+                                                                  vertical: 4,
+                                                                ),
+                                                            decoration:
+                                                                BoxDecoration(
+                                                                  color: Colors
+                                                                      .grey
+                                                                      .shade100,
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        6,
+                                                                      ),
+                                                                ),
+                                                            child: Text(
+                                                              '${b.qty}',
+                                                              style: const TextStyle(
+                                                                fontSize: 14,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 6,
+                                                          ),
+                                                          IconButton(
+                                                            icon: const Icon(
+                                                              Icons.add,
+                                                            ),
+                                                            iconSize: 24,
+                                                            splashRadius: 18,
+                                                            onPressed: () =>
+                                                                setState(
+                                                                  () => b.qty +=
+                                                                      1,
                                                                 ),
                                                           ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 6,
-                                                        ),
-                                                        IconButton(
-                                                          icon: const Icon(
-                                                            Icons.add,
-                                                          ),
-                                                          iconSize: 24,
-                                                          splashRadius: 18,
-                                                          onPressed: () =>
-                                                              setState(
-                                                                () =>
-                                                                    b.qty += 1,
-                                                              ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 8,
-                                                        ),
-                                                        IconButton(
-                                                          icon: const Icon(
-                                                            Icons.delete,
-                                                          ),
-                                                          iconSize: 20,
-                                                          splashRadius: 18,
-                                                          onPressed: () =>
-                                                              setState(
-                                                                () => _billing
-                                                                    .removeAt(
-                                                                      i,
-                                                                    ),
-                                                              ),
-                                                        ),
-                                                      ],
-                                                    ),
-
-                                                    const SizedBox(width: 8),
-                                                    // Unit x qty
-                                                    Text(
-                                                      '₹${unit.toStringAsFixed(2)} x ${b.qty}',
-                                                      style: const TextStyle(
-                                                        fontSize: 13,
-                                                        color: Colors.black54,
+                                                        ],
                                                       ),
                                                     ),
 
-                                                    const Spacer(),
+                                                    const SizedBox(width: 8),
+
+                                                    // Unit x qty - allow truncation if space is tight
+                                                    Expanded(
+                                                      child: Text(
+                                                        '₹${unit.toStringAsFixed(2)} x ${b.qty}',
+                                                        style: const TextStyle(
+                                                          fontSize: 13,
+                                                          color: Colors.black54,
+                                                        ),
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                    ),
+
+                                                    const SizedBox(width: 8),
 
                                                     // Line total
                                                     Text(
