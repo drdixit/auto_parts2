@@ -76,4 +76,3 @@ class ProductCompatibility {
     return 'ProductCompatibility{id: $id, productId: $productId, vehicleModelId: $vehicleModelId, isOem: $isOem}';
   }
 }
-
