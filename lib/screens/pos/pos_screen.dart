@@ -380,40 +380,28 @@ class _PosScreenState extends State<PosScreen> {
                                   children: [
                                     const Text('Main Category'),
                                     const SizedBox(height: 6),
-                                    SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      child: Row(
-                                        children: [
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              right: 6.0,
-                                            ),
-                                            child: ChoiceChip(
-                                              label: const Text('All'),
-                                              selected:
-                                                  _selectedMainCategoryId ==
-                                                  null,
-                                              onSelected: (_) =>
-                                                  _selectMainCategory(null),
-                                            ),
-                                          ),
-                                          ..._mainCategories.map(
-                                            (c) => Padding(
-                                              padding: const EdgeInsets.only(
-                                                right: 6.0,
-                                              ),
-                                              child: ChoiceChip(
-                                                label: Text(c.name),
-                                                selected:
-                                                    _selectedMainCategoryId ==
-                                                    c.id,
-                                                onSelected: (_) =>
-                                                    _selectMainCategory(c.id),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                    // Use Wrap instead of horizontal scroll to match Sub Categories layout
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 6,
+                                      children: [
+                                        FilterChip(
+                                          label: const Text('All'),
+                                          selected:
+                                              _selectedMainCategoryId == null,
+                                          onSelected: (_) =>
+                                              _selectMainCategory(null),
+                                        ),
+                                        ..._mainCategories.map((c) {
+                                          return FilterChip(
+                                            label: Text(c.name),
+                                            selected:
+                                                _selectedMainCategoryId == c.id,
+                                            onSelected: (_) =>
+                                                _selectMainCategory(c.id),
+                                          );
+                                        }),
+                                      ],
                                     ),
                                     const SizedBox(height: 12),
 
