@@ -1,3 +1,6 @@
+// Backup: Sub Categories Screen
+// Moved out of lib/ and saved as plain text to avoid analyzer warnings.
+
 import 'package:flutter/material.dart';
 import 'dart:io';
 import '../../models/sub_category.dart';
@@ -469,8 +472,7 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
                                     ),
                                   ),
                                   PopupMenuItem(
-                                    onTap: () =>
-                                        _deleteSubCategory(subCategory),
+                                    onTap: () => _deleteSubCategory(subCategory),
                                     child: const Row(
                                       children: [
                                         Icon(Icons.delete, color: Colors.red),
@@ -542,192 +544,6 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
               ),
             ),
     );
-  }
-
-  Widget _buildCategoryDropdownItem(
-    MainCategory category, {
-    bool isSelected = false,
-    bool showInactiveState = false,
-  }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.grey[300]!),
-          ),
-          child: category.iconPath != null && category.iconPath!.isNotEmpty
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
-                  child: Image.file(
-                    File(category.iconPath!),
-                    width: 24,
-                    height: 24,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: Colors.grey[200],
-                        child: Icon(
-                          Icons.broken_image,
-                          size: 12,
-                          color: Colors.grey[400],
-                        ),
-                      );
-                    },
-                  ),
-                )
-              : Container(
-                  color: Colors.grey[100],
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.image_not_supported,
-                        size: 8,
-                        color: Colors.grey[400],
-                      ),
-                      Text(
-                        'No Image',
-                        style: TextStyle(fontSize: 4, color: Colors.grey[500]),
-                      ),
-                    ],
-                  ),
-                ),
-        ),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Row(
-            children: [
-              Flexible(
-                child: Text(
-                  category.name,
-                  style: TextStyle(
-                    color: showInactiveState
-                        ? Colors.grey[600]
-                        : (isSelected ? Colors.blue : null),
-                    fontWeight: isSelected ? FontWeight.w500 : null,
-                    decoration: showInactiveState
-                        ? TextDecoration.lineThrough
-                        : null,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (showInactiveState)
-                Container(
-                  margin: const EdgeInsets.only(left: 4),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.red[100],
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    'Inactive',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.red[700],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class AddEditSubCategoryDialog extends StatefulWidget {
-  final SubCategory? subCategory;
-  final List<MainCategory> mainCategories;
-  final VoidCallback onSaved;
-
-  const AddEditSubCategoryDialog({
-    super.key,
-    this.subCategory,
-    required this.mainCategories,
-    required this.onSaved,
-  });
-
-  @override
-  State<AddEditSubCategoryDialog> createState() =>
-      _AddEditSubCategoryDialogState();
-}
-
-class _AddEditSubCategoryDialogState extends State<AddEditSubCategoryDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _sortOrderController = TextEditingController();
-  bool _isActive = true;
-  bool _isLoading = false;
-  int? _selectedMainCategoryId;
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeForm();
-  }
-
-  void _initializeForm() {
-    if (widget.subCategory != null) {
-      _nameController.text = widget.subCategory!.name;
-      _descriptionController.text = widget.subCategory!.description ?? '';
-      _sortOrderController.text = widget.subCategory!.sortOrder.toString();
-      _isActive = widget.subCategory!.isActive;
-      _selectedMainCategoryId = widget.subCategory!.mainCategoryId;
-    } else {
-      _initializeForNewSubCategory();
-    }
-  }
-
-  Future<void> _initializeForNewSubCategory() async {
-    if (widget.mainCategories.isNotEmpty) {
-      // Use microtask to avoid potential timing issues
-      Future.microtask(() async {
-        if (mounted) {
-          await _updateSortOrder();
-        }
-      });
-    }
-  }
-
-  Future<void> _updateSortOrder() async {
-    if (_selectedMainCategoryId == null) return;
-
-    try {
-      final subCategoryService = SubCategoryService();
-      final nextSortOrder = await subCategoryService.getNextSortOrder(
-        _selectedMainCategoryId!,
-      );
-      if (mounted) {
-        setState(() {
-          _sortOrderController.text = nextSortOrder.toString();
-        });
-      }
-    } catch (e) {
-      // If error occurs, default to 1
-      if (mounted) {
-        setState(() {
-          _sortOrderController.text = '1';
-        });
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _descriptionController.dispose();
-    _sortOrderController.dispose();
-    super.dispose();
   }
 
   Widget _buildCategoryDropdownItem(

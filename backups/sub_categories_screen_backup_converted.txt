@@ -1,0 +1,2 @@
+// Placeholder backup file — original source moved here.
+// Do NOT keep executable Dart backup files under lib/. Use .txt files in backups/ instead.

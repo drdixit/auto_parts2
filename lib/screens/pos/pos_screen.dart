@@ -436,6 +436,14 @@ class _PosScreenState extends State<PosScreen> {
                                     itemBuilder: (context, i) {
                                       final p = _filteredProducts[i];
                                       final price = p.sellingPrice ?? 0.0;
+                                      // quantity in cart for this product
+                                      final existingBilling = _billing
+                                          .firstWhere(
+                                            (b) => b.product.id == p.id,
+                                            orElse: () =>
+                                                BillingItem(product: p, qty: 0),
+                                          );
+                                      final int inCartQty = existingBilling.qty;
                                       return ListTile(
                                         leading: SizedBox(
                                           width: 48,
@@ -470,6 +478,32 @@ class _PosScreenState extends State<PosScreen> {
                                               splashRadius: 22,
                                               onPressed: () =>
                                                   _removeFromBilling(p),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            // show number of items in cart for this product
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8.0,
+                                                    vertical: 4.0,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: inCartQty > 0
+                                                    ? Colors.blue.shade50
+                                                    : Colors.transparent,
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                '$inCartQty',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: inCartQty > 0
+                                                      ? Colors.blue.shade800
+                                                      : Colors.black,
+                                                ),
+                                              ),
                                             ),
                                             const SizedBox(width: 8),
                                             IconButton(
@@ -517,52 +551,148 @@ class _PosScreenState extends State<PosScreen> {
                                       itemCount: _billing.length,
                                       itemBuilder: (context, i) {
                                         final b = _billing[i];
-                                        return ListTile(
-                                          title: Text(b.product.name),
-                                          subtitle: Text(
-                                            '₹${(b.product.sellingPrice ?? 0).toStringAsFixed(2)} x ${b.qty}',
+                                        final unit =
+                                            b.product.sellingPrice ?? 0.0;
+                                        final lineTotal = unit * b.qty;
+                                        return Card(
+                                          margin: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 6,
                                           ),
-                                          trailing: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              IconButton(
-                                                icon: const Icon(Icons.remove),
-                                                iconSize: 28,
-                                                splashRadius: 20,
-                                                onPressed: () {
-                                                  setState(() {
-                                                    if (b.qty > 1) {
-                                                      b.qty -= 1;
-                                                    } else {
-                                                      _billing.removeAt(i);
-                                                    }
-                                                  });
-                                                },
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Text(
-                                                '${b.qty}',
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w600,
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(8.0),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                // First row: product name
+                                                Text(
+                                                  b.product.name,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
                                                 ),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              IconButton(
-                                                icon: const Icon(Icons.add),
-                                                iconSize: 28,
-                                                splashRadius: 20,
-                                                onPressed: () =>
-                                                    setState(() => b.qty += 1),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              IconButton(
-                                                icon: const Icon(Icons.delete),
-                                                onPressed: () => setState(
-                                                  () => _billing.removeAt(i),
+                                                const SizedBox(height: 8),
+
+                                                // Second row: controls and totals
+                                                Row(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.center,
+                                                  children: [
+                                                    // Controls group
+                                                    Row(
+                                                      children: [
+                                                        IconButton(
+                                                          icon: const Icon(
+                                                            Icons.remove,
+                                                          ),
+                                                          iconSize: 24,
+                                                          splashRadius: 18,
+                                                          onPressed: () {
+                                                            setState(() {
+                                                              if (b.qty > 1) {
+                                                                b.qty -= 1;
+                                                              } else {
+                                                                _billing
+                                                                    .removeAt(
+                                                                      i,
+                                                                    );
+                                                              }
+                                                            });
+                                                          },
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 6,
+                                                        ),
+                                                        Container(
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                horizontal: 8,
+                                                                vertical: 4,
+                                                              ),
+                                                          decoration: BoxDecoration(
+                                                            color: Colors
+                                                                .grey
+                                                                .shade100,
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  6,
+                                                                ),
+                                                          ),
+                                                          child: Text(
+                                                            '${b.qty}',
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontSize: 14,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 6,
+                                                        ),
+                                                        IconButton(
+                                                          icon: const Icon(
+                                                            Icons.add,
+                                                          ),
+                                                          iconSize: 24,
+                                                          splashRadius: 18,
+                                                          onPressed: () =>
+                                                              setState(
+                                                                () =>
+                                                                    b.qty += 1,
+                                                              ),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 8,
+                                                        ),
+                                                        IconButton(
+                                                          icon: const Icon(
+                                                            Icons.delete,
+                                                          ),
+                                                          iconSize: 20,
+                                                          splashRadius: 18,
+                                                          onPressed: () =>
+                                                              setState(
+                                                                () => _billing
+                                                                    .removeAt(
+                                                                      i,
+                                                                    ),
+                                                              ),
+                                                        ),
+                                                      ],
+                                                    ),
+
+                                                    const SizedBox(width: 8),
+                                                    // Unit x qty
+                                                    Text(
+                                                      '₹${unit.toStringAsFixed(2)} x ${b.qty}',
+                                                      style: const TextStyle(
+                                                        fontSize: 13,
+                                                        color: Colors.black54,
+                                                      ),
+                                                    ),
+
+                                                    const Spacer(),
+
+                                                    // Line total
+                                                    Text(
+                                                      '₹${lineTotal.toStringAsFixed(2)}',
+                                                      style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 14,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                              ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
                                         );
                                       },
