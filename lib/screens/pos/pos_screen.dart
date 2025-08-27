@@ -52,6 +52,7 @@ class _PosScreenState extends State<PosScreen> {
 
   // Search
   String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
 
   // Billing
   final List<BillingItem> _billing = [];
@@ -62,6 +63,12 @@ class _PosScreenState extends State<PosScreen> {
   void initState() {
     super.initState();
     _loadInitialData();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadInitialData() async {
@@ -286,10 +293,15 @@ class _PosScreenState extends State<PosScreen> {
       _selectedMainCategoryId = null;
       _selectedSubCategoryIds.clear();
       _selectedVehicleIds.clear();
+      _selectedVehicleManufacturerIds.clear();
+      _selectedProductManufacturerIds.clear();
       _visibleSubCategories = _subCategories;
       _visibleVehicles = _vehicles;
       _searchQuery = '';
+      _searchController.clear();
     });
+    // recompute visible vehicles in case manufacturer filters were cleared
+    _updateVisibleForMainCategory();
     _applyFilters();
   }
 
@@ -582,6 +594,7 @@ class _PosScreenState extends State<PosScreen> {
                               children: [
                                 Expanded(
                                   child: TextField(
+                                    controller: _searchController,
                                     decoration: const InputDecoration(
                                       hintText: 'Search products...',
                                       border: InputBorder.none,
