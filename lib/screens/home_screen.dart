@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'categories/main_categories_screen.dart';
-import 'categories/sub_categories_screen.dart';
-import 'products/products_screen.dart';
 import 'pos/pos_screen.dart';
 import '../database/database_helper.dart';
 
@@ -19,18 +17,10 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<Widget> _screens = [
     const DashboardTab(),
     const MainCategoriesScreen(),
-    const SubCategoriesScreen(),
-    const ProductsScreen(),
     const PosScreen(),
   ];
 
-  final List<String> _titles = [
-    'Dashboard',
-    'Main Categories',
-    'Sub Categories',
-    'Products',
-    'POS',
-  ];
+  // _titles removed because AppBar title is hidden to save vertical space
 
   @override
   void initState() {
@@ -81,11 +71,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_titles[_selectedIndex]),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        elevation: 0,
-      ),
       body: Row(
         children: [
           NavigationRail(
@@ -105,17 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
               NavigationRailDestination(
                 icon: Icon(Icons.category_outlined),
                 selectedIcon: Icon(Icons.category),
-                label: Text('Main Categories'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.subdirectory_arrow_right_outlined),
-                selectedIcon: Icon(Icons.subdirectory_arrow_right),
-                label: Text('Sub Categories'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.inventory_outlined),
-                selectedIcon: Icon(Icons.inventory),
-                label: Text('Products'),
+                label: Text('Catalog'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.point_of_sale_outlined),

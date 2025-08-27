@@ -4,6 +4,8 @@ import 'dart:io';
 import '../../models/main_category.dart';
 import '../../services/main_category_service.dart';
 import '../../database/database_helper.dart';
+import 'sub_categories_screen.dart';
+import '../products/products_screen.dart';
 
 class MainCategoriesScreen extends StatefulWidget {
   const MainCategoriesScreen({super.key});
@@ -114,120 +116,166 @@ class _MainCategoriesScreenState extends State<MainCategoriesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
+    return DefaultTabController(
+      length: 3,
       child: Column(
         children: [
-          // Header row with search and controls
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  decoration: const InputDecoration(
-                    hintText: 'Search categories...',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: _filterCategories,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Row(
-                children: [
-                  Checkbox(
-                    value: _showInactive,
-                    onChanged: (value) {
-                      setState(() {
-                        _showInactive = value ?? false;
-                      });
-                      _loadCategories();
-                    },
-                  ),
-                  const Text('Show Inactive'),
-                ],
-              ),
-              const SizedBox(width: 16),
-              ElevatedButton.icon(
-                onPressed: () => _showAddEditDialog(),
-                icon: const Icon(Icons.add),
-                label: const Text('Add Category'),
-              ),
-            ],
+          Container(
+            color: Colors.grey[50],
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TabBar(
+              labelColor: Theme.of(context).colorScheme.primary,
+              unselectedLabelColor: Colors.grey[600],
+              tabs: const [
+                Tab(text: 'Main Categories'),
+                Tab(text: 'Sub Categories'),
+                Tab(text: 'Products'),
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
-
-          // Categories table
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _filteredCategories.isEmpty
-                ? const Center(child: Text('No categories found'))
-                : Card(
-                    child: SingleChildScrollView(
-                      child: DataTable(
-                        columns: const [
-                          DataColumn(label: Text('Image')),
-                          DataColumn(label: Text('Name')),
-                          DataColumn(label: Text('Description')),
-                          DataColumn(label: Text('Sort Order')),
-                          DataColumn(label: Text('Status')),
-                          DataColumn(label: Text('Actions')),
-                        ],
-                        rows: _filteredCategories.map((category) {
-                          return DataRow(
-                            cells: [
-                              DataCell(_buildImagePreview(category.iconPath)),
-                              DataCell(Text(category.name)),
-                              DataCell(Text(category.description ?? '')),
-                              DataCell(Text(category.sortOrder.toString())),
-                              DataCell(
-                                Chip(
-                                  label: Text(
-                                    category.isActive ? 'Active' : 'Inactive',
-                                    style: TextStyle(
-                                      color: category.isActive
-                                          ? Colors.white
-                                          : Colors.black,
-                                    ),
-                                  ),
-                                  backgroundColor: category.isActive
-                                      ? Colors.green
-                                      : Colors.grey,
-                                ),
+            child: TabBarView(
+              children: [
+                // Existing main categories UI
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      // Header row with search and controls
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _searchController,
+                              decoration: const InputDecoration(
+                                hintText: 'Search categories...',
+                                prefixIcon: Icon(Icons.search),
+                                border: OutlineInputBorder(),
                               ),
-                              DataCell(
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit),
-                                      onPressed: () => _showAddEditDialog(
-                                        category: category,
-                                      ),
-                                      tooltip: 'Edit',
-                                    ),
-                                    IconButton(
-                                      icon: Icon(
-                                        category.isActive
-                                            ? Icons.visibility_off
-                                            : Icons.visibility,
-                                      ),
-                                      onPressed: () =>
-                                          _toggleCategoryStatus(category),
-                                      tooltip: category.isActive
-                                          ? 'Deactivate'
-                                          : 'Activate',
-                                    ),
-                                  ],
-                                ),
+                              onChanged: _filterCategories,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Row(
+                            children: [
+                              Checkbox(
+                                value: _showInactive,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _showInactive = value ?? false;
+                                  });
+                                  _loadCategories();
+                                },
                               ),
+                              const Text('Show Inactive'),
                             ],
-                          );
-                        }).toList(),
+                          ),
+                          const SizedBox(width: 16),
+                          ElevatedButton.icon(
+                            onPressed: () => _showAddEditDialog(),
+                            icon: const Icon(Icons.add),
+                            label: const Text('Add Category'),
+                          ),
+                        ],
                       ),
-                    ),
+                      const SizedBox(height: 16),
+
+                      // Categories table
+                      Expanded(
+                        child: _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : _filteredCategories.isEmpty
+                            ? const Center(child: Text('No categories found'))
+                            : Card(
+                                child: SingleChildScrollView(
+                                  child: DataTable(
+                                    columns: const [
+                                      DataColumn(label: Text('Image')),
+                                      DataColumn(label: Text('Name')),
+                                      DataColumn(label: Text('Description')),
+                                      DataColumn(label: Text('Sort Order')),
+                                      DataColumn(label: Text('Status')),
+                                      DataColumn(label: Text('Actions')),
+                                    ],
+                                    rows: _filteredCategories.map((category) {
+                                      return DataRow(
+                                        cells: [
+                                          DataCell(
+                                            _buildImagePreview(
+                                              category.iconPath,
+                                            ),
+                                          ),
+                                          DataCell(Text(category.name)),
+                                          DataCell(
+                                            Text(category.description ?? ''),
+                                          ),
+                                          DataCell(
+                                            Text(category.sortOrder.toString()),
+                                          ),
+                                          DataCell(
+                                            Chip(
+                                              label: Text(
+                                                category.isActive
+                                                    ? 'Active'
+                                                    : 'Inactive',
+                                                style: TextStyle(
+                                                  color: category.isActive
+                                                      ? Colors.white
+                                                      : Colors.black,
+                                                ),
+                                              ),
+                                              backgroundColor: category.isActive
+                                                  ? Colors.green
+                                                  : Colors.grey,
+                                            ),
+                                          ),
+                                          DataCell(
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                IconButton(
+                                                  icon: const Icon(Icons.edit),
+                                                  onPressed: () =>
+                                                      _showAddEditDialog(
+                                                        category: category,
+                                                      ),
+                                                  tooltip: 'Edit',
+                                                ),
+                                                IconButton(
+                                                  icon: Icon(
+                                                    category.isActive
+                                                        ? Icons.visibility_off
+                                                        : Icons.visibility,
+                                                  ),
+                                                  onPressed: () =>
+                                                      _toggleCategoryStatus(
+                                                        category,
+                                                      ),
+                                                  tooltip: category.isActive
+                                                      ? 'Deactivate'
+                                                      : 'Activate',
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                              ),
+                      ),
+                    ],
                   ),
+                ),
+
+                // Sub categories screen as-is
+                const SubCategoriesScreen(),
+
+                // Products screen (scaffolded) — reuse existing screen
+                const ProductsScreen(),
+              ],
+            ),
           ),
         ],
       ),
