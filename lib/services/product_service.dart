@@ -22,57 +22,81 @@ class ProductService {
     if (errors.isNotEmpty) {
       return {'success': false, 'errors': errors};
     }
-    // Check if inventory exists
-    final existing = await getProductInventory(inventory.productId);
-    if (existing == null) {
-      // Insert new inventory
-      final id = await db.insert('product_inventory', {
-        'product_id': inventory.productId,
-        'supplier_name': inventory.supplierName,
-        'supplier_contact': inventory.supplierContact,
-        'supplier_email': inventory.supplierEmail,
-        'cost_price': inventory.costPrice,
-        'selling_price': inventory.sellingPrice,
-        'mrp': inventory.mrp,
-        'stock_quantity': inventory.stockQuantity,
-        'minimum_stock_level': inventory.minimumStockLevel,
-        'maximum_stock_level': inventory.maximumStockLevel,
-        'location_rack': inventory.locationRack,
-        'last_restocked_date': inventory.lastRestockedDate?.toIso8601String(),
-        'last_sold_date': inventory.lastSoldDate?.toIso8601String(),
-        'is_active': inventory.isActive ? 1 : 0,
-        'created_at': DateTime.now().toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
+
+    // Use a transaction to avoid races and duplicate inventory rows
+    try {
+      return await db.transaction((txn) async {
+        // Check for any existing inventory row for this product (active or inactive)
+        final existingRows = await txn.query(
+          'product_inventory',
+          where: 'product_id = ?',
+          whereArgs: [inventory.productId],
+          limit: 1,
+        );
+
+        if (existingRows.isEmpty) {
+          // Insert new inventory
+          final id = await txn.insert('product_inventory', {
+            'product_id': inventory.productId,
+            'supplier_name': inventory.supplierName,
+            'supplier_contact': inventory.supplierContact,
+            'supplier_email': inventory.supplierEmail,
+            'cost_price': inventory.costPrice,
+            'selling_price': inventory.sellingPrice,
+            'mrp': inventory.mrp,
+            'stock_quantity': inventory.stockQuantity,
+            'minimum_stock_level': inventory.minimumStockLevel,
+            'maximum_stock_level': inventory.maximumStockLevel,
+            'location_rack': inventory.locationRack,
+            'last_restocked_date': inventory.lastRestockedDate
+                ?.toIso8601String(),
+            'last_sold_date': inventory.lastSoldDate?.toIso8601String(),
+            'is_active': inventory.isActive ? 1 : 0,
+            'created_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          });
+          return {'success': true, 'id': id, 'message': 'Inventory created'};
+        } else {
+          // Update existing inventory row (reactivate if needed)
+          final existing = existingRows.first;
+          final existingId = existing['id'] as int;
+
+          final rowsAffected = await txn.update(
+            'product_inventory',
+            {
+              'supplier_name': inventory.supplierName,
+              'supplier_contact': inventory.supplierContact,
+              'supplier_email': inventory.supplierEmail,
+              'cost_price': inventory.costPrice,
+              'selling_price': inventory.sellingPrice,
+              'mrp': inventory.mrp,
+              'stock_quantity': inventory.stockQuantity,
+              'minimum_stock_level': inventory.minimumStockLevel,
+              'maximum_stock_level': inventory.maximumStockLevel,
+              'location_rack': inventory.locationRack,
+              'last_restocked_date': inventory.lastRestockedDate
+                  ?.toIso8601String(),
+              'last_sold_date': inventory.lastSoldDate?.toIso8601String(),
+              // ensure we set active flag according to incoming data
+              'is_active': inventory.isActive ? 1 : 0,
+              'updated_at': DateTime.now().toIso8601String(),
+            },
+            where: 'id = ?',
+            whereArgs: [existingId],
+          );
+
+          if (rowsAffected > 0) {
+            return {'success': true, 'message': 'Inventory updated'};
+          } else {
+            return {'success': false, 'error': 'Failed to update inventory'};
+          }
+        }
       });
-      return {'success': true, 'id': id, 'message': 'Inventory created'};
-    } else {
-      // Update existing inventory
-      final rowsAffected = await db.update(
-        'product_inventory',
-        {
-          'supplier_name': inventory.supplierName,
-          'supplier_contact': inventory.supplierContact,
-          'supplier_email': inventory.supplierEmail,
-          'cost_price': inventory.costPrice,
-          'selling_price': inventory.sellingPrice,
-          'mrp': inventory.mrp,
-          'stock_quantity': inventory.stockQuantity,
-          'minimum_stock_level': inventory.minimumStockLevel,
-          'maximum_stock_level': inventory.maximumStockLevel,
-          'location_rack': inventory.locationRack,
-          'last_restocked_date': inventory.lastRestockedDate?.toIso8601String(),
-          'last_sold_date': inventory.lastSoldDate?.toIso8601String(),
-          'is_active': inventory.isActive ? 1 : 0,
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        where: 'product_id = ?',
-        whereArgs: [inventory.productId],
-      );
-      if (rowsAffected > 0) {
-        return {'success': true, 'message': 'Inventory updated'};
-      } else {
-        return {'success': false, 'error': 'Failed to update inventory'};
-      }
+    } catch (e) {
+      return {
+        'success': false,
+        'error': 'Failed to upsert inventory: ${e.toString()}',
+      };
     }
   }
 
@@ -1008,40 +1032,49 @@ class ProductService {
     int newQuantity, {
     String? notes,
   }) async {
+    final db = await _dbHelper.database;
     try {
-      final db = await _dbHelper.database;
+      // Use a transaction to read current quantity and update atomically
+      return await db.transaction((txn) async {
+        final rows = await txn.query(
+          'product_inventory',
+          columns: ['id', 'stock_quantity'],
+          where: 'product_id = ?',
+          whereArgs: [productId],
+          limit: 1,
+        );
 
-      // Check if inventory exists
-      final inventory = await getProductInventory(productId);
-      if (inventory == null) {
-        return {
-          'success': false,
-          'error': 'No inventory record found for this product',
-        };
-      }
+        if (rows.isEmpty) {
+          return {
+            'success': false,
+            'error': 'No inventory record found for this product',
+          };
+        }
 
-      // Update stock quantity
-      final rowsAffected = await db.update(
-        'product_inventory',
-        {
-          'stock_quantity': newQuantity,
-          'updated_at': DateTime.now().toIso8601String(),
-          if (newQuantity > 0)
-            'last_restocked_date': DateTime.now().toIso8601String(),
-        },
-        where: 'product_id = ? AND is_active = 1',
-        whereArgs: [productId],
-      );
+        final current = rows.first;
+        final currentQuantity = (current['stock_quantity'] as num).toInt();
+        final now = DateTime.now().toIso8601String();
 
-      if (rowsAffected > 0) {
+        final updated = {'stock_quantity': newQuantity, 'updated_at': now};
+
+        // Update last_restocked_date only when quantity increased
+        if (newQuantity > currentQuantity) {
+          updated['last_restocked_date'] = now;
+        }
+
+        await txn.update(
+          'product_inventory',
+          updated,
+          where: 'id = ?',
+          whereArgs: [current['id']],
+        );
+
         return {
           'success': true,
           'message': 'Stock quantity updated successfully',
           'newQuantity': newQuantity,
         };
-      } else {
-        return {'success': false, 'error': 'Failed to update stock quantity'};
-      }
+      });
     } catch (e) {
       return {
         'success': false,
@@ -1103,7 +1136,9 @@ class ProductService {
       errors['maximumStockLevel'] = 'Maximum stock level cannot be negative';
     }
 
-    if (inventory.minimumStockLevel >= inventory.maximumStockLevel) {
+    // Only validate minimum < maximum when a positive maximum is set
+    if (inventory.maximumStockLevel > 0 &&
+        inventory.minimumStockLevel >= inventory.maximumStockLevel) {
       errors['minimumStockLevel'] =
           'Minimum stock level should be less than maximum level';
     }
@@ -1202,43 +1237,39 @@ class ProductService {
   ) async {
     try {
       // Validate inventory data first
-      final validationErrors = await validateInventoryData(inventory);
-      if (validationErrors.isNotEmpty) {
-        return {
-          'success': false,
-          'error': 'Validation failed',
-          'fieldErrors': validationErrors,
-        };
+      final errors = await validateInventoryData(inventory);
+      if (errors.isNotEmpty) {
+        return {'success': false, 'errors': errors};
       }
 
       final db = await _dbHelper.database;
+      final now = DateTime.now().toIso8601String();
 
-      // Check for existing inventory record
-      final existingInventory = await getProductInventory(inventory.productId);
-
-      if (inventory.id == null && existingInventory != null) {
-        // Product already has inventory, update instead of create
-        final updatedInventory = inventory.copyWith(id: existingInventory.id);
-        return await saveProductInventory(updatedInventory);
-      }
+      final inventoryMap = {
+        'product_id': inventory.productId,
+        'supplier_name': inventory.supplierName,
+        'supplier_contact': inventory.supplierContact,
+        'supplier_email': inventory.supplierEmail,
+        'cost_price': inventory.costPrice,
+        'selling_price': inventory.sellingPrice,
+        'mrp': inventory.mrp,
+        'stock_quantity': inventory.stockQuantity,
+        'minimum_stock_level': inventory.minimumStockLevel,
+        'maximum_stock_level': inventory.maximumStockLevel,
+        'location_rack': inventory.locationRack,
+        'last_restocked_date': inventory.lastRestockedDate?.toIso8601String(),
+        'last_sold_date': inventory.lastSoldDate?.toIso8601String(),
+        'is_active': inventory.isActive ? 1 : 0,
+        'updated_at': now,
+      };
 
       if (inventory.id == null) {
-        // Create new inventory
-        final inventoryMap = inventory.toMap();
-        inventoryMap['created_at'] = DateTime.now().toIso8601String();
-        inventoryMap['updated_at'] = DateTime.now().toIso8601String();
-
+        // Insert new inventory
+        inventoryMap['created_at'] = now;
         final id = await db.insert('product_inventory', inventoryMap);
-        return {
-          'success': true,
-          'id': id,
-          'message': 'Inventory information saved successfully',
-        };
+        return {'success': true, 'id': id, 'message': 'Inventory created'};
       } else {
-        // Update existing inventory
-        final inventoryMap = inventory.toMap();
-        inventoryMap['updated_at'] = DateTime.now().toIso8601String();
-
+        // Update existing inventory by id
         final rowsAffected = await db.update(
           'product_inventory',
           inventoryMap,
