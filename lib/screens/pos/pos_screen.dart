@@ -126,8 +126,11 @@ class _PosScreenState extends State<PosScreen> {
               itemCount: _heldBills.length,
               itemBuilder: (context, i) {
                 final h = _heldBills[i];
+                final unique = h.items.length;
+                final totalQty = h.items.fold<int>(0, (s, it) => s + it.qty);
+
                 return ListTile(
-                  title: Text('Hold #${h.id} - ${h.items.length} items'),
+                  title: Text('$unique item - $totalQty'),
                   subtitle: Text(
                     'Created: ${h.createdAt.toLocal().toString().split('.').first}',
                   ),
@@ -159,6 +162,18 @@ class _PosScreenState extends State<PosScreen> {
           ),
           actions: [
             TextButton(
+              onPressed: _heldBills.isEmpty
+                  ? null
+                  : () {
+                      // Clear all holds and close
+                      setState(() {
+                        _heldBills.clear();
+                      });
+                      Navigator.of(context).pop(null);
+                    },
+              child: const Text('Clear All Holds'),
+            ),
+            TextButton(
               onPressed: () => Navigator.of(context).pop(null),
               child: const Text('Close'),
             ),
@@ -181,28 +196,30 @@ class _PosScreenState extends State<PosScreen> {
     }
     if (hold == null) return;
 
+    final holdLocal = hold;
+
     setState(() {
       _billing.clear();
-      for (final it in hold!.items) {
+      for (final it in holdLocal.items) {
         _billing.add(BillingItem(product: it.product, qty: it.qty));
       }
 
       // restore filters/search UI state
-      _searchQuery = hold.searchQuery;
-      _searchController.text = hold.searchQuery;
-      _selectedMainCategoryId = hold.selectedMainCategoryId;
+      _searchQuery = holdLocal.searchQuery;
+      _searchController.text = holdLocal.searchQuery;
+      _selectedMainCategoryId = holdLocal.selectedMainCategoryId;
       _selectedSubCategoryIds
         ..clear()
-        ..addAll(hold.selectedSubCategoryIds);
+        ..addAll(holdLocal.selectedSubCategoryIds);
       _selectedVehicleIds
         ..clear()
-        ..addAll(hold.selectedVehicleIds);
+        ..addAll(holdLocal.selectedVehicleIds);
       _selectedVehicleManufacturerIds
         ..clear()
-        ..addAll(hold.selectedVehicleManufacturerIds);
+        ..addAll(holdLocal.selectedVehicleManufacturerIds);
       _selectedProductManufacturerIds
         ..clear()
-        ..addAll(hold.selectedProductManufacturerIds);
+        ..addAll(holdLocal.selectedProductManufacturerIds);
     });
 
     // remove the hold after loading
