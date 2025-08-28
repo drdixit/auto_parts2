@@ -791,8 +791,10 @@ class _PosScreenState extends State<PosScreen> {
                                         subtitle: Text(
                                           '₹${price.toStringAsFixed(2)}',
                                         ),
-                                        trailing: Row(
-                                          mainAxisSize: MainAxisSize.min,
+                                        trailing: Wrap(
+                                          spacing: 8,
+                                          crossAxisAlignment:
+                                              WrapCrossAlignment.center,
                                           children: [
                                             IconButton(
                                               icon: const Icon(
@@ -803,7 +805,7 @@ class _PosScreenState extends State<PosScreen> {
                                               onPressed: () =>
                                                   _removeFromBilling(p),
                                             ),
-                                            const SizedBox(width: 8),
+
                                             // show number of items in cart for this product
                                             Container(
                                               padding:
@@ -829,7 +831,7 @@ class _PosScreenState extends State<PosScreen> {
                                                 ),
                                               ),
                                             ),
-                                            const SizedBox(width: 8),
+
                                             IconButton(
                                               icon: const Icon(
                                                 Icons.add_circle_outline,
@@ -909,9 +911,12 @@ class _PosScreenState extends State<PosScreen> {
                                                     // Controls group - allow it to size down
                                                     Flexible(
                                                       flex: 0,
-                                                      child: Row(
-                                                        mainAxisSize:
-                                                            MainAxisSize.min,
+                                                      child: Wrap(
+                                                        spacing: 6,
+                                                        runSpacing: 6,
+                                                        crossAxisAlignment:
+                                                            WrapCrossAlignment
+                                                                .center,
                                                         children: [
                                                           // Move delete to the front for easier access
                                                           IconButton(
@@ -927,9 +932,6 @@ class _PosScreenState extends State<PosScreen> {
                                                                         i,
                                                                       ),
                                                                 ),
-                                                          ),
-                                                          const SizedBox(
-                                                            width: 6,
                                                           ),
                                                           IconButton(
                                                             icon: const Icon(
@@ -949,9 +951,6 @@ class _PosScreenState extends State<PosScreen> {
                                                                 }
                                                               });
                                                             },
-                                                          ),
-                                                          const SizedBox(
-                                                            width: 6,
                                                           ),
                                                           Container(
                                                             padding:
@@ -978,9 +977,6 @@ class _PosScreenState extends State<PosScreen> {
                                                                         .w600,
                                                               ),
                                                             ),
-                                                          ),
-                                                          const SizedBox(
-                                                            width: 6,
                                                           ),
                                                           IconButton(
                                                             icon: const Icon(
@@ -1057,51 +1053,59 @@ class _PosScreenState extends State<PosScreen> {
                                 ],
                               ),
                             ),
-                            Row(
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                ElevatedButton(
-                                  onPressed: _billing.isEmpty
-                                      ? null
-                                      : () {
-                                          // Dummy add: pretend to save or proceed
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                'Invoice created (dummy)',
-                                              ),
+                                Row(
+                                  children: [
+                                    ElevatedButton(
+                                      onPressed: _billing.isEmpty
+                                          ? null
+                                          : () => _holdCurrentBill(),
+                                      child: const Text('Hold'),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    ElevatedButton(
+                                      onPressed: _heldBills.isEmpty
+                                          ? null
+                                          : () => _openHeldBills(),
+                                      child: Text(
+                                        'Holds (${_heldBills.length})',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    ElevatedButton(
+                                      onPressed: _billing.isEmpty
+                                          ? null
+                                          : () {
+                                              // Dummy add: pretend to save or proceed
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'Invoice created (dummy)',
+                                                  ),
+                                                ),
+                                              );
+                                              setState(() => _billing.clear());
+                                            },
+                                      child: const Text('Create Invoice'),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    ElevatedButton(
+                                      onPressed: _billing.isEmpty
+                                          ? null
+                                          : () => setState(
+                                              () => _billing.clear(),
                                             ),
-                                          );
-                                          setState(() => _billing.clear());
-                                        },
-                                  child: const Text('Create Invoice'),
-                                ),
-                                const SizedBox(width: 8),
-
-                                // Hold current bill in memory
-                                ElevatedButton(
-                                  onPressed: _billing.isEmpty
-                                      ? null
-                                      : () => _holdCurrentBill(),
-                                  child: const Text('Hold'),
-                                ),
-                                const SizedBox(width: 8),
-
-                                // Open held bills list
-                                ElevatedButton(
-                                  onPressed: _heldBills.isEmpty
-                                      ? null
-                                      : () => _openHeldBills(),
-                                  child: Text('Holds (${_heldBills.length})'),
-                                ),
-                                const SizedBox(width: 8),
-
-                                ElevatedButton(
-                                  onPressed: _billing.isEmpty
-                                      ? null
-                                      : () => setState(() => _billing.clear()),
-                                  child: const Text('Clear'),
+                                      child: const Text('Clear'),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
