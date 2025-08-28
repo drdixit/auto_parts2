@@ -19,7 +19,7 @@ class _MainCategoriesScreenState extends State<MainCategoriesScreen> {
   List<MainCategory> _categories = [];
   List<MainCategory> _filteredCategories = [];
   bool _isLoading = true;
-  bool _showInactive = false;
+  final bool _showInactive = false;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -282,7 +282,7 @@ class AddEditCategoryDialog extends StatefulWidget {
 
 // Kept-alive tab widget for Main Categories to reduce rebuild/lag when switching tabs
 class _MainCategoriesTab extends StatefulWidget {
-  const _MainCategoriesTab({Key? key}) : super(key: key);
+  const _MainCategoriesTab();
 
   @override
   State<_MainCategoriesTab> createState() => _MainCategoriesTabState();
