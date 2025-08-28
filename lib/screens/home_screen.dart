@@ -11,7 +11,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
+  int _selectedIndex = 2; // start on POS tab by default (web-like landing)
   bool _isLoading = true;
 
   final List<Widget> _screens = [

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:io';
 import '../../models/product.dart';
 import '../../models/main_category.dart';
@@ -9,6 +10,10 @@ import '../../services/product_service.dart';
 import '../../services/main_category_service.dart';
 import '../../services/sub_category_service.dart';
 import '../../database/database_helper.dart';
+
+class ResetIntent extends Intent {
+  const ResetIntent();
+}
 
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
@@ -515,631 +520,739 @@ class _PosScreenState extends State<PosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Row(
-                children: [
-                  // Left: Filters
-                  Expanded(
-                    flex: 2,
-                    child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Filters',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                TextButton(
-                                  onPressed: _resetAllFilters,
-                                  child: const Text('Reset'),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-
-                            // Make the filter content vertically scrollable to avoid RenderFlex overflow
-                            Expanded(
-                              child: SingleChildScrollView(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Main Category'),
-                                    const SizedBox(height: 6),
-                                    // Use Wrap instead of horizontal scroll to match Sub Categories layout
-                                    Wrap(
-                                      spacing: 6,
-                                      runSpacing: 6,
-                                      children: [
-                                        FilterChip(
-                                          label: const Text('All'),
-                                          selected:
-                                              _selectedMainCategoryId == null,
-                                          onSelected: (_) =>
-                                              _selectMainCategory(null),
-                                        ),
-                                        ..._mainCategories.map((c) {
-                                          return FilterChip(
-                                            label: Text(c.name),
-                                            selected:
-                                                _selectedMainCategoryId == c.id,
-                                            onSelected: (_) =>
-                                                _selectMainCategory(c.id),
-                                          );
-                                        }),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 12),
-
-                                    // Collapsible Filters
-                                    ExpansionTile(
-                                      title: const Text('Sub Categories'),
-                                      initiallyExpanded: true,
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12.0,
-                                            vertical: 6.0,
-                                          ),
-                                          child: Wrap(
-                                            spacing: 6,
-                                            runSpacing: 6,
-                                            children: _visibleSubCategories.map(
-                                              (s) {
-                                                final selected =
-                                                    _selectedSubCategoryIds
-                                                        .contains(s.id);
-                                                return FilterChip(
-                                                  label: Text(s.name),
-                                                  selected: selected,
-                                                  onSelected: (_) =>
-                                                      _toggleSubCategory(s.id!),
-                                                );
-                                              },
-                                            ).toList(),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-
-                                    const SizedBox(height: 6),
-
-                                    ExpansionTile(
-                                      title: const Text(
-                                        'Vehicle Manufacturers',
-                                      ),
-                                      initiallyExpanded: false,
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12.0,
-                                            vertical: 6.0,
-                                          ),
-                                          child: _vehicleManufacturers.isEmpty
-                                              ? const Text('No manufacturers')
-                                              : Wrap(
-                                                  spacing: 6,
-                                                  runSpacing: 6,
-                                                  children: _vehicleManufacturers.map((
-                                                    m,
-                                                  ) {
-                                                    final sel =
-                                                        _selectedVehicleManufacturerIds
-                                                            .contains(m.id);
-                                                    return FilterChip(
-                                                      label: Text(m.name),
-                                                      selected: sel,
-                                                      onSelected: (_) => setState(() {
-                                                        if (sel) {
-                                                          _selectedVehicleManufacturerIds
-                                                              .remove(m.id);
-                                                        } else {
-                                                          _selectedVehicleManufacturerIds
-                                                              .add(m.id!);
-                                                        }
-                                                        // refresh visible vehicles
-                                                        _updateVisibleForMainCategory();
-                                                        _applyFilters();
-                                                      }),
-                                                    );
-                                                  }).toList(),
-                                                ),
-                                        ),
-                                      ],
-                                    ),
-
-                                    // Product Manufacturers tile moved to the end of filters
-                                    const SizedBox(height: 6),
-
-                                    ExpansionTile(
-                                      title: const Text('Vehicles'),
-                                      initiallyExpanded: false,
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12.0,
-                                            vertical: 6.0,
-                                          ),
-                                          child: Wrap(
-                                            spacing: 6,
-                                            runSpacing: 6,
-                                            children: _visibleVehicles.map((v) {
-                                              final sel = _selectedVehicleIds
-                                                  .contains(v.id);
-                                              return FilterChip(
-                                                label: Text(v.displayName),
-                                                selected: sel,
-                                                onSelected: (_) =>
-                                                    _toggleVehicle(v.id!),
-                                              );
-                                            }).toList(),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-
-                                    const SizedBox(height: 6),
-
-                                    ExpansionTile(
-                                      title: const Text(
-                                        'Product Manufacturers',
-                                      ),
-                                      initiallyExpanded: false,
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12.0,
-                                            vertical: 6.0,
-                                          ),
-                                          child: _productManufacturers.isEmpty
-                                              ? const Text('No manufacturers')
-                                              : Wrap(
-                                                  spacing: 6,
-                                                  runSpacing: 6,
-                                                  children: _productManufacturers.map((
-                                                    m,
-                                                  ) {
-                                                    final sel =
-                                                        _selectedProductManufacturerIds
-                                                            .contains(m.id);
-                                                    return FilterChip(
-                                                      label: Text(m.name),
-                                                      selected: sel,
-                                                      onSelected: (_) => setState(() {
-                                                        if (sel) {
-                                                          _selectedProductManufacturerIds
-                                                              .remove(m.id);
-                                                        } else {
-                                                          _selectedProductManufacturerIds
-                                                              .add(m.id!);
-                                                        }
-                                                        _applyFilters();
-                                                      }),
-                                                    );
-                                                  }).toList(),
-                                                ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(width: 12),
-
-                  // Middle: Products + Search
-                  Expanded(
-                    flex: 5,
-                    child: Column(
+    return Shortcuts(
+      shortcuts: <LogicalKeySet, Intent>{
+        // Ctrl+Z to reset filters and clear search
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyZ):
+            const ResetIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          ResetIntent: CallbackAction<ResetIntent>(
+            onInvoke: (intent) {
+              // Reset filters and clear search
+              _resetAllFilters();
+              _searchController.text = '';
+              return null;
+            },
+          ),
+        },
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
+            body: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Row(
                       children: [
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8.0,
-                              vertical: 6.0,
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: _searchController,
-                                    decoration: const InputDecoration(
-                                      hintText: 'Search products...',
-                                      border: InputBorder.none,
-                                    ),
-                                    onChanged: _onSearchChanged,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text('${_filteredProducts.length} results'),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
+                        // Left: Filters
                         Expanded(
+                          flex: 2,
                           child: Card(
-                            child: _filteredProducts.isEmpty
-                                ? const Center(child: Text('No products'))
-                                : ListView.builder(
-                                    itemCount: _filteredProducts.length,
-                                    itemBuilder: (context, i) {
-                                      final p = _filteredProducts[i];
-                                      final price = p.sellingPrice ?? 0.0;
-                                      // quantity in cart for this product
-                                      final existingBilling = _billing
-                                          .firstWhere(
-                                            (b) => b.product.id == p.id,
-                                            orElse: () =>
-                                                BillingItem(product: p, qty: 0),
-                                          );
-                                      final int inCartQty = existingBilling.qty;
-                                      return ListTile(
-                                        leading: SizedBox(
-                                          width: 48,
-                                          height: 48,
-                                          child:
-                                              p.primaryImagePath != null &&
-                                                  p.primaryImagePath!.isNotEmpty
-                                              ? Image.file(
-                                                  File(p.primaryImagePath!),
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (_, __, ___) =>
-                                                      const Center(
-                                                        child: Text('No image'),
-                                                      ),
-                                                )
-                                              : const Center(
-                                                  child: Text('No image'),
-                                                ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text(
+                                        'Filters',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
                                         ),
-                                        title: Text(p.name),
-                                        subtitle: Text(
-                                          '₹${price.toStringAsFixed(2)}',
-                                        ),
-                                        trailing: Wrap(
-                                          spacing: 8,
-                                          crossAxisAlignment:
-                                              WrapCrossAlignment.center,
-                                          children: [
-                                            IconButton(
-                                              icon: const Icon(
-                                                Icons.remove_circle_outline,
-                                              ),
-                                              iconSize: 28,
-                                              splashRadius: 22,
-                                              onPressed: () =>
-                                                  _removeFromBilling(p),
-                                            ),
-
-                                            // show number of items in cart for this product
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 8.0,
-                                                    vertical: 4.0,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: inCartQty > 0
-                                                    ? Colors.blue.shade50
-                                                    : Colors.transparent,
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                              ),
-                                              child: Text(
-                                                '$inCartQty',
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: inCartQty > 0
-                                                      ? Colors.blue.shade800
-                                                      : Colors.black,
-                                                ),
-                                              ),
-                                            ),
-
-                                            IconButton(
-                                              icon: const Icon(
-                                                Icons.add_circle_outline,
-                                              ),
-                                              iconSize: 28,
-                                              splashRadius: 22,
-                                              onPressed: () => _addToBilling(p),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
+                                      ),
+                                      TextButton(
+                                        onPressed: _resetAllFilters,
+                                        child: const Text('Reset'),
+                                      ),
+                                    ],
                                   ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                                  const SizedBox(height: 8),
 
-                  const SizedBox(width: 12),
-
-                  // Right: Billing
-                  Expanded(
-                    flex: 3,
-                    child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Billing',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Expanded(
-                              child: _billing.isEmpty
-                                  ? const Center(child: Text('No items'))
-                                  : ListView.builder(
-                                      itemCount: _billing.length,
-                                      itemBuilder: (context, i) {
-                                        final b = _billing[i];
-                                        final unit =
-                                            b.product.sellingPrice ?? 0.0;
-                                        final lineTotal = unit * b.qty;
-                                        return Card(
-                                          margin: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 6,
+                                  // Make the filter content vertically scrollable to avoid RenderFlex overflow
+                                  Expanded(
+                                    child: SingleChildScrollView(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text('Main Category'),
+                                          const SizedBox(height: 6),
+                                          // Use Wrap instead of horizontal scroll to match Sub Categories layout
+                                          Wrap(
+                                            spacing: 6,
+                                            runSpacing: 6,
+                                            children: [
+                                              FilterChip(
+                                                label: const Text('All'),
+                                                selected:
+                                                    _selectedMainCategoryId ==
+                                                    null,
+                                                onSelected: (_) =>
+                                                    _selectMainCategory(null),
+                                              ),
+                                              ..._mainCategories.map((c) {
+                                                return FilterChip(
+                                                  label: Text(c.name),
+                                                  selected:
+                                                      _selectedMainCategoryId ==
+                                                      c.id,
+                                                  onSelected: (_) =>
+                                                      _selectMainCategory(c.id),
+                                                );
+                                              }),
+                                            ],
                                           ),
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(8.0),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                // First row: product name
-                                                Text(
-                                                  b.product.name,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 8),
+                                          const SizedBox(height: 12),
 
-                                                // Second row: controls and totals (responsive)
-                                                Row(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.center,
-                                                  children: [
-                                                    // Controls group - allow it to size down
-                                                    Flexible(
-                                                      flex: 0,
-                                                      child: Wrap(
+                                          // Collapsible Filters
+                                          ExpansionTile(
+                                            title: const Text('Sub Categories'),
+                                            initiallyExpanded: true,
+                                            children: [
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12.0,
+                                                      vertical: 6.0,
+                                                    ),
+                                                child: Wrap(
+                                                  spacing: 6,
+                                                  runSpacing: 6,
+                                                  children: _visibleSubCategories
+                                                      .map((s) {
+                                                        final selected =
+                                                            _selectedSubCategoryIds
+                                                                .contains(s.id);
+                                                        return FilterChip(
+                                                          label: Text(s.name),
+                                                          selected: selected,
+                                                          onSelected: (_) =>
+                                                              _toggleSubCategory(
+                                                                s.id!,
+                                                              ),
+                                                        );
+                                                      })
+                                                      .toList(),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+
+                                          const SizedBox(height: 6),
+
+                                          ExpansionTile(
+                                            title: const Text(
+                                              'Vehicle Manufacturers',
+                                            ),
+                                            initiallyExpanded: false,
+                                            children: [
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12.0,
+                                                      vertical: 6.0,
+                                                    ),
+                                                child:
+                                                    _vehicleManufacturers
+                                                        .isEmpty
+                                                    ? const Text(
+                                                        'No manufacturers',
+                                                      )
+                                                    : Wrap(
                                                         spacing: 6,
                                                         runSpacing: 6,
-                                                        crossAxisAlignment:
-                                                            WrapCrossAlignment
-                                                                .center,
-                                                        children: [
-                                                          // Move delete to the front for easier access
-                                                          IconButton(
-                                                            icon: const Icon(
-                                                              Icons.delete,
-                                                            ),
-                                                            iconSize: 20,
-                                                            splashRadius: 18,
-                                                            onPressed: () =>
-                                                                setState(
-                                                                  () => _billing
-                                                                      .removeAt(
-                                                                        i,
-                                                                      ),
-                                                                ),
-                                                          ),
-                                                          IconButton(
-                                                            icon: const Icon(
-                                                              Icons.remove,
-                                                            ),
-                                                            iconSize: 24,
-                                                            splashRadius: 18,
-                                                            onPressed: () {
-                                                              setState(() {
-                                                                if (b.qty > 1) {
-                                                                  b.qty -= 1;
-                                                                } else {
-                                                                  _billing
-                                                                      .removeAt(
-                                                                        i,
-                                                                      );
-                                                                }
-                                                              });
-                                                            },
-                                                          ),
-                                                          Container(
-                                                            padding:
-                                                                const EdgeInsets.symmetric(
-                                                                  horizontal: 8,
-                                                                  vertical: 4,
-                                                                ),
-                                                            decoration:
-                                                                BoxDecoration(
-                                                                  color: Colors
-                                                                      .grey
-                                                                      .shade100,
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        6,
-                                                                      ),
-                                                                ),
-                                                            child: Text(
-                                                              '${b.qty}',
-                                                              style: const TextStyle(
-                                                                fontSize: 14,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          IconButton(
-                                                            icon: const Icon(
-                                                              Icons.add,
-                                                            ),
-                                                            iconSize: 24,
-                                                            splashRadius: 18,
-                                                            onPressed: () =>
-                                                                setState(
-                                                                  () => b.qty +=
-                                                                      1,
-                                                                ),
-                                                          ),
-                                                        ],
+                                                        children: _vehicleManufacturers.map((
+                                                          m,
+                                                        ) {
+                                                          final sel =
+                                                              _selectedVehicleManufacturerIds
+                                                                  .contains(
+                                                                    m.id,
+                                                                  );
+                                                          return FilterChip(
+                                                            label: Text(m.name),
+                                                            selected: sel,
+                                                            onSelected: (_) => setState(() {
+                                                              if (sel) {
+                                                                _selectedVehicleManufacturerIds
+                                                                    .remove(
+                                                                      m.id,
+                                                                    );
+                                                              } else {
+                                                                _selectedVehicleManufacturerIds
+                                                                    .add(m.id!);
+                                                              }
+                                                              // refresh visible vehicles
+                                                              _updateVisibleForMainCategory();
+                                                              _applyFilters();
+                                                            }),
+                                                          );
+                                                        }).toList(),
                                                       ),
-                                                    ),
-
-                                                    const SizedBox(width: 8),
-
-                                                    // Unit x qty - allow truncation if space is tight
-                                                    Expanded(
-                                                      child: Text(
-                                                        '₹${unit.toStringAsFixed(2)} x ${b.qty}',
-                                                        style: const TextStyle(
-                                                          fontSize: 13,
-                                                          color: Colors.black54,
-                                                        ),
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                      ),
-                                                    ),
-
-                                                    const SizedBox(width: 8),
-
-                                                    // Line total
-                                                    Text(
-                                                      '₹${lineTotal.toStringAsFixed(2)}',
-                                                      style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        fontSize: 14,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
+                                              ),
+                                            ],
                                           ),
-                                        );
-                                      },
-                                    ),
-                            ),
-                            const Divider(),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 8.0,
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    'Total',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Text(
-                                    '₹${_billingTotal.toStringAsFixed(2)}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
+
+                                          // Product Manufacturers tile moved to the end of filters
+                                          const SizedBox(height: 6),
+
+                                          ExpansionTile(
+                                            title: const Text('Vehicles'),
+                                            initiallyExpanded: false,
+                                            children: [
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12.0,
+                                                      vertical: 6.0,
+                                                    ),
+                                                child: Wrap(
+                                                  spacing: 6,
+                                                  runSpacing: 6,
+                                                  children: _visibleVehicles
+                                                      .map((v) {
+                                                        final sel =
+                                                            _selectedVehicleIds
+                                                                .contains(v.id);
+                                                        return FilterChip(
+                                                          label: Text(
+                                                            v.displayName,
+                                                          ),
+                                                          selected: sel,
+                                                          onSelected: (_) =>
+                                                              _toggleVehicle(
+                                                                v.id!,
+                                                              ),
+                                                        );
+                                                      })
+                                                      .toList(),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+
+                                          const SizedBox(height: 6),
+
+                                          ExpansionTile(
+                                            title: const Text(
+                                              'Product Manufacturers',
+                                            ),
+                                            initiallyExpanded: false,
+                                            children: [
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12.0,
+                                                      vertical: 6.0,
+                                                    ),
+                                                child:
+                                                    _productManufacturers
+                                                        .isEmpty
+                                                    ? const Text(
+                                                        'No manufacturers',
+                                                      )
+                                                    : Wrap(
+                                                        spacing: 6,
+                                                        runSpacing: 6,
+                                                        children: _productManufacturers.map((
+                                                          m,
+                                                        ) {
+                                                          final sel =
+                                                              _selectedProductManufacturerIds
+                                                                  .contains(
+                                                                    m.id,
+                                                                  );
+                                                          return FilterChip(
+                                                            label: Text(m.name),
+                                                            selected: sel,
+                                                            onSelected: (_) =>
+                                                                setState(() {
+                                                                  if (sel) {
+                                                                    _selectedProductManufacturerIds
+                                                                        .remove(
+                                                                          m.id,
+                                                                        );
+                                                                  } else {
+                                                                    _selectedProductManufacturerIds
+                                                                        .add(
+                                                                          m.id!,
+                                                                        );
+                                                                  }
+                                                                  _applyFilters();
+                                                                }),
+                                                          );
+                                                        }).toList(),
+                                                      ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    ElevatedButton(
-                                      onPressed: _billing.isEmpty
-                                          ? null
-                                          : () => _holdCurrentBill(),
-                                      child: const Text('Hold'),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    ElevatedButton(
-                                      onPressed: _heldBills.isEmpty
-                                          ? null
-                                          : () => _openHeldBills(),
-                                      child: Text(
-                                        'Holds (${_heldBills.length})',
+                          ),
+                        ),
+
+                        const SizedBox(width: 12),
+
+                        // Middle: Products + Search
+                        Expanded(
+                          flex: 5,
+                          child: Column(
+                            children: [
+                              Card(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8.0,
+                                    vertical: 6.0,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextField(
+                                          controller: _searchController,
+                                          decoration: const InputDecoration(
+                                            hintText: 'Search products...',
+                                            border: InputBorder.none,
+                                          ),
+                                          onChanged: _onSearchChanged,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '${_filteredProducts.length} results',
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    ElevatedButton(
-                                      onPressed: _billing.isEmpty
-                                          ? null
-                                          : () {
-                                              // Dummy add: pretend to save or proceed
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    'Invoice created (dummy)',
+                              ),
+                              const SizedBox(height: 8),
+                              Expanded(
+                                child: Card(
+                                  child: _filteredProducts.isEmpty
+                                      ? const Center(child: Text('No products'))
+                                      : ListView.builder(
+                                          itemCount: _filteredProducts.length,
+                                          itemBuilder: (context, i) {
+                                            final p = _filteredProducts[i];
+                                            final price = p.sellingPrice ?? 0.0;
+                                            // quantity in cart for this product
+                                            final existingBilling = _billing
+                                                .firstWhere(
+                                                  (b) => b.product.id == p.id,
+                                                  orElse: () => BillingItem(
+                                                    product: p,
+                                                    qty: 0,
+                                                  ),
+                                                );
+                                            final int inCartQty =
+                                                existingBilling.qty;
+                                            return ListTile(
+                                              leading: SizedBox(
+                                                width: 48,
+                                                height: 48,
+                                                child:
+                                                    p.primaryImagePath !=
+                                                            null &&
+                                                        p
+                                                            .primaryImagePath!
+                                                            .isNotEmpty
+                                                    ? Image.file(
+                                                        File(
+                                                          p.primaryImagePath!,
+                                                        ),
+                                                        fit: BoxFit.cover,
+                                                        errorBuilder:
+                                                            (_, __, ___) =>
+                                                                const Center(
+                                                                  child: Text(
+                                                                    'No image',
+                                                                  ),
+                                                                ),
+                                                      )
+                                                    : const Center(
+                                                        child: Text('No image'),
+                                                      ),
+                                              ),
+                                              title: Text(p.name),
+                                              subtitle: Text(
+                                                '₹${price.toStringAsFixed(2)}',
+                                              ),
+                                              trailing: Wrap(
+                                                spacing: 8,
+                                                crossAxisAlignment:
+                                                    WrapCrossAlignment.center,
+                                                children: [
+                                                  IconButton(
+                                                    icon: const Icon(
+                                                      Icons
+                                                          .remove_circle_outline,
+                                                    ),
+                                                    iconSize: 28,
+                                                    splashRadius: 22,
+                                                    onPressed: () =>
+                                                        _removeFromBilling(p),
+                                                  ),
+
+                                                  // show number of items in cart for this product
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 8.0,
+                                                          vertical: 4.0,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: inCartQty > 0
+                                                          ? Colors.blue.shade50
+                                                          : Colors.transparent,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            6,
+                                                          ),
+                                                    ),
+                                                    child: Text(
+                                                      '$inCartQty',
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: inCartQty > 0
+                                                            ? Colors
+                                                                  .blue
+                                                                  .shade800
+                                                            : Colors.black,
+                                                      ),
+                                                    ),
+                                                  ),
+
+                                                  IconButton(
+                                                    icon: const Icon(
+                                                      Icons.add_circle_outline,
+                                                    ),
+                                                    iconSize: 28,
+                                                    splashRadius: 22,
+                                                    onPressed: () =>
+                                                        _addToBilling(p),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(width: 12),
+
+                        // Right: Billing
+                        Expanded(
+                          flex: 3,
+                          child: Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Billing',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Expanded(
+                                    child: _billing.isEmpty
+                                        ? const Center(child: Text('No items'))
+                                        : ListView.builder(
+                                            itemCount: _billing.length,
+                                            itemBuilder: (context, i) {
+                                              final b = _billing[i];
+                                              final unit =
+                                                  b.product.sellingPrice ?? 0.0;
+                                              final lineTotal = unit * b.qty;
+                                              return Card(
+                                                margin:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 6,
+                                                    ),
+                                                child: Padding(
+                                                  padding: const EdgeInsets.all(
+                                                    8.0,
+                                                  ),
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      // First row: product name
+                                                      Text(
+                                                        b.product.name,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 8),
+
+                                                      // Second row: controls and totals (responsive)
+                                                      Row(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .center,
+                                                        children: [
+                                                          // Controls group - allow it to size down
+                                                          Flexible(
+                                                            flex: 0,
+                                                            child: Wrap(
+                                                              spacing: 6,
+                                                              runSpacing: 6,
+                                                              crossAxisAlignment:
+                                                                  WrapCrossAlignment
+                                                                      .center,
+                                                              children: [
+                                                                // Move delete to the front for easier access
+                                                                IconButton(
+                                                                  icon: const Icon(
+                                                                    Icons
+                                                                        .delete,
+                                                                  ),
+                                                                  iconSize: 20,
+                                                                  splashRadius:
+                                                                      18,
+                                                                  onPressed: () =>
+                                                                      setState(
+                                                                        () => _billing
+                                                                            .removeAt(
+                                                                              i,
+                                                                            ),
+                                                                      ),
+                                                                ),
+                                                                IconButton(
+                                                                  icon: const Icon(
+                                                                    Icons
+                                                                        .remove,
+                                                                  ),
+                                                                  iconSize: 24,
+                                                                  splashRadius:
+                                                                      18,
+                                                                  onPressed: () {
+                                                                    setState(() {
+                                                                      if (b.qty >
+                                                                          1) {
+                                                                        b.qty -=
+                                                                            1;
+                                                                      } else {
+                                                                        _billing
+                                                                            .removeAt(
+                                                                              i,
+                                                                            );
+                                                                      }
+                                                                    });
+                                                                  },
+                                                                ),
+                                                                Container(
+                                                                  padding:
+                                                                      const EdgeInsets.symmetric(
+                                                                        horizontal:
+                                                                            8,
+                                                                        vertical:
+                                                                            4,
+                                                                      ),
+                                                                  decoration: BoxDecoration(
+                                                                    color: Colors
+                                                                        .grey
+                                                                        .shade100,
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          6,
+                                                                        ),
+                                                                  ),
+                                                                  child: Text(
+                                                                    '${b.qty}',
+                                                                    style: const TextStyle(
+                                                                      fontSize:
+                                                                          14,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w600,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                                IconButton(
+                                                                  icon:
+                                                                      const Icon(
+                                                                        Icons
+                                                                            .add,
+                                                                      ),
+                                                                  iconSize: 24,
+                                                                  splashRadius:
+                                                                      18,
+                                                                  onPressed: () =>
+                                                                      setState(
+                                                                        () => b.qty +=
+                                                                            1,
+                                                                      ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+
+                                                          const SizedBox(
+                                                            width: 8,
+                                                          ),
+
+                                                          // Unit x qty - allow truncation if space is tight
+                                                          Expanded(
+                                                            child: Text(
+                                                              '₹${unit.toStringAsFixed(2)} x ${b.qty}',
+                                                              style:
+                                                                  const TextStyle(
+                                                                    fontSize:
+                                                                        13,
+                                                                    color: Colors
+                                                                        .black54,
+                                                                  ),
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                            ),
+                                                          ),
+
+                                                          const SizedBox(
+                                                            width: 8,
+                                                          ),
+
+                                                          // Line total
+                                                          Text(
+                                                            '₹${lineTotal.toStringAsFixed(2)}',
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  fontSize: 14,
+                                                                ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
                                               );
-                                              setState(() => _billing.clear());
                                             },
-                                      child: const Text('Create Invoice'),
+                                          ),
+                                  ),
+                                  const Divider(),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8.0,
                                     ),
-                                    const SizedBox(width: 8),
-                                    ElevatedButton(
-                                      onPressed: _billing.isEmpty
-                                          ? null
-                                          : () => setState(
-                                              () => _billing.clear(),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text(
+                                          'Total',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          '₹${_billingTotal.toStringAsFixed(2)}',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          ElevatedButton(
+                                            onPressed: _billing.isEmpty
+                                                ? null
+                                                : () => _holdCurrentBill(),
+                                            child: const Text('Hold'),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          ElevatedButton(
+                                            onPressed: _heldBills.isEmpty
+                                                ? null
+                                                : () => _openHeldBills(),
+                                            child: Text(
+                                              'Holds (${_heldBills.length})',
                                             ),
-                                      child: const Text('Clear'),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          ElevatedButton(
+                                            onPressed: _billing.isEmpty
+                                                ? null
+                                                : () {
+                                                    // Dummy add: pretend to save or proceed
+                                                    ScaffoldMessenger.of(
+                                                      context,
+                                                    ).showSnackBar(
+                                                      const SnackBar(
+                                                        content: Text(
+                                                          'Invoice created (dummy)',
+                                                        ),
+                                                      ),
+                                                    );
+                                                    setState(
+                                                      () => _billing.clear(),
+                                                    );
+                                                  },
+                                            child: const Text('Create Invoice'),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          ElevatedButton(
+                                            onPressed: _billing.isEmpty
+                                                ? null
+                                                : () => setState(
+                                                    () => _billing.clear(),
+                                                  ),
+                                            child: const Text('Clear'),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
+          ),
+        ),
+      ),
     );
   }
 }
