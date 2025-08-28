@@ -26,6 +26,30 @@ class BillingItem {
   double get lineTotal => (product.sellingPrice ?? 0) * qty;
 }
 
+class HeldBill {
+  final int id;
+  final DateTime createdAt;
+  final List<BillingItem> items;
+  final String searchQuery;
+  final int? selectedMainCategoryId;
+  final Set<int> selectedSubCategoryIds;
+  final Set<int> selectedVehicleIds;
+  final Set<int> selectedVehicleManufacturerIds;
+  final Set<int> selectedProductManufacturerIds;
+
+  HeldBill({
+    required this.id,
+    required this.createdAt,
+    required this.items,
+    required this.searchQuery,
+    required this.selectedMainCategoryId,
+    required this.selectedSubCategoryIds,
+    required this.selectedVehicleIds,
+    required this.selectedVehicleManufacturerIds,
+    required this.selectedProductManufacturerIds,
+  });
+}
+
 class _PosScreenState extends State<PosScreen> {
   final ProductService _productService = ProductService();
   final MainCategoryService _mainCatService = MainCategoryService();
@@ -56,6 +80,136 @@ class _PosScreenState extends State<PosScreen> {
 
   // Billing
   final List<BillingItem> _billing = [];
+  // In-memory held bills (temporary, not persisted)
+  final List<HeldBill> _heldBills = [];
+  int _nextHoldId = 1;
+
+  void _holdCurrentBill() {
+    final copyItems = _billing
+        .map((b) => BillingItem(product: b.product, qty: b.qty))
+        .toList();
+
+    final hold = HeldBill(
+      id: _nextHoldId++,
+      createdAt: DateTime.now(),
+      items: copyItems,
+      searchQuery: _searchQuery,
+      selectedMainCategoryId: _selectedMainCategoryId,
+      selectedSubCategoryIds: Set.from(_selectedSubCategoryIds),
+      selectedVehicleIds: Set.from(_selectedVehicleIds),
+      selectedVehicleManufacturerIds: Set.from(_selectedVehicleManufacturerIds),
+      selectedProductManufacturerIds: Set.from(_selectedProductManufacturerIds),
+    );
+
+    setState(() {
+      _heldBills.add(hold);
+      _billing.clear(); // start a new bill
+    });
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Bill held (#${hold.id})')));
+  }
+
+  void _openHeldBills() async {
+    if (_heldBills.isEmpty) return;
+
+    final selected = await showDialog<int>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Held Bills'),
+          content: SizedBox(
+            width: 600,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: _heldBills.length,
+              itemBuilder: (context, i) {
+                final h = _heldBills[i];
+                return ListTile(
+                  title: Text('Hold #${h.id} - ${h.items.length} items'),
+                  subtitle: Text(
+                    'Created: ${h.createdAt.toLocal().toString().split('.').first}',
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop(h.id);
+                        },
+                        child: const Text('Load'),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () {
+                          // remove hold
+                          setState(() {
+                            _heldBills.removeWhere((hb) => hb.id == h.id);
+                          });
+                          Navigator.of(context).pop(null);
+                        },
+                        child: const Text('Delete'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(null),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (selected != null) {
+      _loadHeldBill(selected);
+    }
+  }
+
+  void _loadHeldBill(int id) {
+    HeldBill? hold;
+    try {
+      hold = _heldBills.firstWhere((h) => h.id == id);
+    } catch (_) {
+      hold = null;
+    }
+    if (hold == null) return;
+
+    setState(() {
+      _billing.clear();
+      for (final it in hold!.items) {
+        _billing.add(BillingItem(product: it.product, qty: it.qty));
+      }
+
+      // restore filters/search UI state
+      _searchQuery = hold.searchQuery;
+      _searchController.text = hold.searchQuery;
+      _selectedMainCategoryId = hold.selectedMainCategoryId;
+      _selectedSubCategoryIds
+        ..clear()
+        ..addAll(hold.selectedSubCategoryIds);
+      _selectedVehicleIds
+        ..clear()
+        ..addAll(hold.selectedVehicleIds);
+      _selectedVehicleManufacturerIds
+        ..clear()
+        ..addAll(hold.selectedVehicleManufacturerIds);
+      _selectedProductManufacturerIds
+        ..clear()
+        ..addAll(hold.selectedProductManufacturerIds);
+    });
+
+    // remove the hold after loading
+    setState(() {
+      _heldBills.removeWhere((h) => h.id == id);
+    });
+  }
 
   bool _isLoading = true;
 
@@ -924,6 +1078,25 @@ class _PosScreenState extends State<PosScreen> {
                                   child: const Text('Create Invoice'),
                                 ),
                                 const SizedBox(width: 8),
+
+                                // Hold current bill in memory
+                                ElevatedButton(
+                                  onPressed: _billing.isEmpty
+                                      ? null
+                                      : () => _holdCurrentBill(),
+                                  child: const Text('Hold'),
+                                ),
+                                const SizedBox(width: 8),
+
+                                // Open held bills list
+                                ElevatedButton(
+                                  onPressed: _heldBills.isEmpty
+                                      ? null
+                                      : () => _openHeldBills(),
+                                  child: Text('Holds (${_heldBills.length})'),
+                                ),
+                                const SizedBox(width: 8),
+
                                 ElevatedButton(
                                   onPressed: _billing.isEmpty
                                       ? null
