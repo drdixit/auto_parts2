@@ -136,138 +136,8 @@ class _MainCategoriesScreenState extends State<MainCategoriesScreen> {
           Expanded(
             child: TabBarView(
               children: [
-                // Existing main categories UI
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      // Header row with search and controls
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _searchController,
-                              decoration: const InputDecoration(
-                                hintText: 'Search categories...',
-                                prefixIcon: Icon(Icons.search),
-                                border: OutlineInputBorder(),
-                              ),
-                              onChanged: _filterCategories,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Row(
-                            children: [
-                              Checkbox(
-                                value: _showInactive,
-                                onChanged: (value) {
-                                  setState(() {
-                                    _showInactive = value ?? false;
-                                  });
-                                  _loadCategories();
-                                },
-                              ),
-                              const Text('Show Inactive'),
-                            ],
-                          ),
-                          const SizedBox(width: 16),
-                          ElevatedButton.icon(
-                            onPressed: () => _showAddEditDialog(),
-                            icon: const Icon(Icons.add),
-                            label: const Text('Add Category'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Categories table
-                      Expanded(
-                        child: _isLoading
-                            ? const Center(child: CircularProgressIndicator())
-                            : _filteredCategories.isEmpty
-                            ? const Center(child: Text('No categories found'))
-                            : Card(
-                                child: SingleChildScrollView(
-                                  child: DataTable(
-                                    columns: const [
-                                      DataColumn(label: Text('Image')),
-                                      DataColumn(label: Text('Name')),
-                                      DataColumn(label: Text('Description')),
-                                      DataColumn(label: Text('Sort Order')),
-                                      DataColumn(label: Text('Status')),
-                                      DataColumn(label: Text('Actions')),
-                                    ],
-                                    rows: _filteredCategories.map((category) {
-                                      return DataRow(
-                                        cells: [
-                                          DataCell(
-                                            _buildImagePreview(
-                                              category.iconPath,
-                                            ),
-                                          ),
-                                          DataCell(Text(category.name)),
-                                          DataCell(
-                                            Text(category.description ?? ''),
-                                          ),
-                                          DataCell(
-                                            Text(category.sortOrder.toString()),
-                                          ),
-                                          DataCell(
-                                            Chip(
-                                              label: Text(
-                                                category.isActive
-                                                    ? 'Active'
-                                                    : 'Inactive',
-                                                style: TextStyle(
-                                                  color: category.isActive
-                                                      ? Colors.white
-                                                      : Colors.black,
-                                                ),
-                                              ),
-                                              backgroundColor: category.isActive
-                                                  ? Colors.green
-                                                  : Colors.grey,
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                IconButton(
-                                                  icon: const Icon(Icons.edit),
-                                                  onPressed: () =>
-                                                      _showAddEditDialog(
-                                                        category: category,
-                                                      ),
-                                                  tooltip: 'Edit',
-                                                ),
-                                                IconButton(
-                                                  icon: Icon(
-                                                    category.isActive
-                                                        ? Icons.visibility_off
-                                                        : Icons.visibility,
-                                                  ),
-                                                  onPressed: () =>
-                                                      _toggleCategoryStatus(
-                                                        category,
-                                                      ),
-                                                  tooltip: category.isActive
-                                                      ? 'Deactivate'
-                                                      : 'Activate',
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      );
-                                    }).toList(),
-                                  ),
-                                ),
-                              ),
-                      ),
-                    ],
-                  ),
-                ),
+                // Use a kept-alive child widget for the heavy Main Categories UI
+                const _MainCategoriesTab(),
 
                 // Sub categories screen as-is
                 const SubCategoriesScreen(),
@@ -408,6 +278,291 @@ class AddEditCategoryDialog extends StatefulWidget {
 
   @override
   State<AddEditCategoryDialog> createState() => _AddEditCategoryDialogState();
+}
+
+// Kept-alive tab widget for Main Categories to reduce rebuild/lag when switching tabs
+class _MainCategoriesTab extends StatefulWidget {
+  const _MainCategoriesTab({Key? key}) : super(key: key);
+
+  @override
+  State<_MainCategoriesTab> createState() => _MainCategoriesTabState();
+}
+
+class _MainCategoriesTabState extends State<_MainCategoriesTab>
+    with AutomaticKeepAliveClientMixin {
+  final MainCategoryService _categoryService = MainCategoryService();
+  List<MainCategory> _categories = [];
+  List<MainCategory> _filteredCategories = [];
+  bool _isLoading = true;
+  bool _showInactive = false;
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadCategories() async {
+    setState(() => _isLoading = true);
+    try {
+      final cats = await _categoryService.getAllCategories(
+        includeInactive: _showInactive,
+      );
+      setState(() {
+        _categories = cats;
+        _filteredCategories = cats;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading categories: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _filterCategories(String searchTerm) {
+    setState(() {
+      if (searchTerm.isEmpty) {
+        _filteredCategories = _categories;
+      } else {
+        _filteredCategories = _categories.where((category) {
+          return category.name.toLowerCase().contains(
+                searchTerm.toLowerCase(),
+              ) ||
+              (category.description?.toLowerCase().contains(
+                    searchTerm.toLowerCase(),
+                  ) ??
+                  false);
+        }).toList();
+      }
+    });
+  }
+
+  Future<void> _toggleCategoryStatus(MainCategory category) async {
+    try {
+      await _categoryService.toggleCategoryStatus(
+        category.id!,
+        !category.isActive,
+      );
+      await _loadCategories();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Category ${category.isActive ? 'deactivated' : 'activated'} successfully',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating category status: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showAddEditDialog({MainCategory? category}) {
+    showDialog(
+      context: context,
+      builder: (context) => AddEditCategoryDialog(
+        category: category,
+        onSaved: () {
+          _loadCategories();
+          Navigator.of(context).pop();
+        },
+      ),
+    );
+  }
+
+  Widget _buildImagePreview(String? iconPath) {
+    if (iconPath == null || iconPath.isEmpty) {
+      return Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.image_not_supported, size: 20, color: Colors.grey),
+            Text('No Image', style: TextStyle(fontSize: 8, color: Colors.grey)),
+          ],
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: () {
+        showDialog(
+          context: context,
+          builder: (_) =>
+              Dialog(child: Image.file(File(iconPath), fit: BoxFit.contain)),
+        );
+      },
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: Image.file(
+            File(iconPath),
+            width: 50,
+            height: 50,
+            fit: BoxFit.cover,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: const InputDecoration(
+                    hintText: 'Search categories...',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: _filterCategories,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Row(
+                children: [
+                  Checkbox(
+                    value: _showInactive,
+                    onChanged: (value) {
+                      setState(() {
+                        _showInactive = value ?? false;
+                      });
+                      _loadCategories();
+                    },
+                  ),
+                  const Text('Show Inactive'),
+                ],
+              ),
+              const SizedBox(width: 16),
+              ElevatedButton.icon(
+                onPressed: () => _showAddEditDialog(),
+                icon: const Icon(Icons.add),
+                label: const Text('Add Category'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _filteredCategories.isEmpty
+                ? const Center(child: Text('No categories found'))
+                : Card(
+                    child: SingleChildScrollView(
+                      child: DataTable(
+                        columns: const [
+                          DataColumn(label: Text('Image')),
+                          DataColumn(label: Text('Name')),
+                          DataColumn(label: Text('Description')),
+                          DataColumn(label: Text('Sort Order')),
+                          DataColumn(label: Text('Status')),
+                          DataColumn(label: Text('Actions')),
+                        ],
+                        rows: _filteredCategories.map((category) {
+                          return DataRow(
+                            cells: [
+                              DataCell(_buildImagePreview(category.iconPath)),
+                              DataCell(Text(category.name)),
+                              DataCell(Text(category.description ?? '')),
+                              DataCell(Text(category.sortOrder.toString())),
+                              DataCell(
+                                Chip(
+                                  label: Text(
+                                    category.isActive ? 'Active' : 'Inactive',
+                                    style: TextStyle(
+                                      color: category.isActive
+                                          ? Colors.white
+                                          : Colors.black,
+                                    ),
+                                  ),
+                                  backgroundColor: category.isActive
+                                      ? Colors.green
+                                      : Colors.grey,
+                                ),
+                              ),
+                              DataCell(
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.edit),
+                                      onPressed: () => _showAddEditDialog(
+                                        category: category,
+                                      ),
+                                      tooltip: 'Edit',
+                                    ),
+                                    IconButton(
+                                      icon: Icon(
+                                        category.isActive
+                                            ? Icons.visibility_off
+                                            : Icons.visibility,
+                                      ),
+                                      onPressed: () =>
+                                          _toggleCategoryStatus(category),
+                                      tooltip: category.isActive
+                                          ? 'Deactivate'
+                                          : 'Activate',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  bool get wantKeepAlive => true;
 }
 
 class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {

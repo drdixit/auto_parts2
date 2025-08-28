@@ -12,7 +12,10 @@ class SubCategoriesScreen extends StatefulWidget {
   State<SubCategoriesScreen> createState() => _SubCategoriesScreenState();
 }
 
-class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
+class _SubCategoriesScreenState extends State<SubCategoriesScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   final SubCategoryService _subCategoryService = SubCategoryService();
   final MainCategoryService _mainCategoryService = MainCategoryService();
   List<SubCategory> _subCategories = [];
@@ -192,6 +195,7 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
