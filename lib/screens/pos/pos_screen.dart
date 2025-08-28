@@ -128,9 +128,15 @@ class _PosScreenState extends State<PosScreen> {
                 final h = _heldBills[i];
                 final unique = h.items.length;
                 final totalQty = h.items.fold<int>(0, (s, it) => s + it.qty);
+                final totalBill = h.items.fold<double>(
+                  0.0,
+                  (s, it) => s + (it.product.sellingPrice ?? 0) * it.qty,
+                );
 
                 return ListTile(
-                  title: Text('$unique item - $totalQty'),
+                  title: Text(
+                    '$unique items ($totalQty quantity ₹${totalBill.toStringAsFixed(2)})',
+                  ),
                   subtitle: Text(
                     'Created: ${h.createdAt.toLocal().toString().split('.').first}',
                   ),
