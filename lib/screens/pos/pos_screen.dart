@@ -15,6 +15,10 @@ class ResetIntent extends Intent {
   const ResetIntent();
 }
 
+class ClearBillIntent extends Intent {
+  const ClearBillIntent();
+}
+
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
 
@@ -525,6 +529,9 @@ class _PosScreenState extends State<PosScreen> {
         // Ctrl+Z to reset filters and clear search
         LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyZ):
             const ResetIntent(),
+        // Ctrl+X to clear current bill
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyX):
+            const ClearBillIntent(),
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
@@ -533,6 +540,17 @@ class _PosScreenState extends State<PosScreen> {
               // Reset filters and clear search
               _resetAllFilters();
               _searchController.text = '';
+              return null;
+            },
+          ),
+          ClearBillIntent: CallbackAction<ClearBillIntent>(
+            onInvoke: (intent) {
+              if (_billing.isNotEmpty) {
+                setState(() => _billing.clear());
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('Bill cleared')));
+              }
               return null;
             },
           ),
