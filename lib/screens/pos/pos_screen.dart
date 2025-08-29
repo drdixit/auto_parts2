@@ -98,6 +98,8 @@ class _PosScreenState extends State<PosScreen> {
   final List<BillingItem> _billing = [];
   final List<HeldBill> _heldBills = [];
   int _nextHoldId = 1;
+  // If non-null, we're editing/updating an existing held bill with this id.
+  int? _editingHoldId;
 
   // UI tokens
   final Color _accentColor = Colors.indigo;
@@ -287,12 +289,44 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   void _holdCurrentBill() {
+    // If we're editing an existing held bill, update it in-place; otherwise create a new hold.
+    final itemsCopy = List<BillingItem>.from(
+      _billing.map((b) => BillingItem(product: b.product, qty: b.qty)),
+    );
+    if (_editingHoldId != null) {
+      final idx = _heldBills.indexWhere((h) => h.id == _editingHoldId);
+      if (idx != -1) {
+        final existing = _heldBills[idx];
+        final updated = HeldBill(
+          id: existing.id,
+          createdAt: existing.createdAt,
+          items: itemsCopy,
+          searchQuery: _searchQuery,
+          selectedMainCategoryId: _selectedMainCategoryId,
+          selectedSubCategoryIds: Set.from(_selectedSubCategoryIds),
+          selectedVehicleIds: Set.from(_selectedVehicleIds),
+          selectedVehicleManufacturerIds: Set.from(
+            _selectedVehicleManufacturerIds,
+          ),
+          selectedProductManufacturerIds: Set.from(
+            _selectedProductManufacturerIds,
+          ),
+        );
+        setState(() {
+          _heldBills[idx] = updated;
+          _billing.clear();
+          _editingHoldId = null; // finished editing
+        });
+        return;
+      }
+      // If the previously editing hold disappeared (deleted), fall through and create a new one.
+      _editingHoldId = null;
+    }
+
     final hb = HeldBill(
       id: _nextHoldId++,
       createdAt: DateTime.now(),
-      items: List.from(
-        _billing.map((b) => BillingItem(product: b.product, qty: b.qty)),
-      ),
+      items: itemsCopy,
       searchQuery: _searchQuery,
       selectedMainCategoryId: _selectedMainCategoryId,
       selectedSubCategoryIds: Set.from(_selectedSubCategoryIds),
@@ -307,103 +341,105 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   void _openHeldBills() {
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Held Bills'),
-          content: SizedBox(
-            width: 560,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: _heldBills.length,
-              itemBuilder: (context, i) {
-                final hb = _heldBills[i];
-                final totalQty = hb.items.fold<int>(0, (s, it) => s + it.qty);
-                return ListTile(
-                  title: Text('Hold ${hb.id} - ${hb.items.length}-${totalQty}'),
-                  subtitle: Text('${hb.createdAt}'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _loadHeldBill(hb);
-                          });
-                          Navigator.of(context).pop();
-                        },
-                        child: const Text('Load'),
+      builder: (context) => AlertDialog(
+        title: const Text('Held Bills'),
+        content: SizedBox(
+          width: 560,
+          child: _heldBills.isEmpty
+              ? const Center(child: Text('No held bills'))
+              : ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _heldBills.length,
+                  itemBuilder: (context, i) {
+                    final hb = _heldBills[i];
+                    final totalQty = hb.items.fold<int>(
+                      0,
+                      (s, it) => s + it.qty,
+                    );
+                    return ListTile(
+                      title: Text(
+                        'Hold ${hb.id} - ${hb.items.length} - ${totalQty}',
                       ),
-                      TextButton(
-                        onPressed: () {
-                          setState(() => _heldBills.removeAt(i));
-                        },
-                        child: const Text('Delete'),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-            TextButton(
-              onPressed: _heldBills.isEmpty
-                  ? null
-                  : () async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (context) {
-                          return AlertDialog(
-                            title: const Text('Clear all holds?'),
-                            content: const Text(
-                              'This will remove all held bills. This action cannot be undone.',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () =>
-                                    Navigator.of(context).pop(false),
-                                child: const Text('Cancel'),
-                              ),
-                              TextButton(
-                                onPressed: () =>
-                                    Navigator.of(context).pop(true),
-                                child: const Text(
-                                  'Clear',
-                                  style: TextStyle(color: Colors.red),
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                      if (confirm == true) {
-                        setState(() => _heldBills.clear());
-                        Navigator.of(context).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('All held bills cleared'),
+                      subtitle: Text('${hb.createdAt}'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextButton(
+                            onPressed: () {
+                              setState(() => _loadHeldBill(hb));
+                              Navigator.of(context).pop();
+                            },
+                            child: const Text('Load'),
                           ),
-                        );
-                      }
-                    },
-              child: Text(
-                'Clear all holds',
-                style: TextStyle(
-                  color: _heldBills.isEmpty
-                      ? Colors.grey[400]
-                      : Colors.red[700],
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                final removed = _heldBills.removeAt(i);
+                                if (_editingHoldId == removed.id)
+                                  _editingHoldId = null;
+                              });
+                            },
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+          TextButton(
+            onPressed: _heldBills.isEmpty
+                ? null
+                : () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Clear all holds?'),
+                        content: const Text(
+                          'This will remove all held bills. This action cannot be undone.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            child: const Text(
+                              'Clear',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      setState(() {
+                        _heldBills.clear();
+                        _editingHoldId = null;
+                      });
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('All held bills cleared')),
+                      );
+                    }
+                  },
+            child: Text(
+              'Clear all holds',
+              style: TextStyle(
+                color: _heldBills.isEmpty ? Colors.grey[400] : Colors.red[700],
               ),
             ),
-          ],
-        );
-      },
+          ),
+        ],
+      ),
     );
   }
 
@@ -422,6 +458,8 @@ class _PosScreenState extends State<PosScreen> {
       _selectedProductManufacturerIds.clear();
       _selectedProductManufacturerIds.addAll(hb.selectedProductManufacturerIds);
       _applyFilters();
+      // mark that we're editing this held bill so a subsequent Hold action updates it
+      _editingHoldId = hb.id;
     });
   }
 
@@ -1464,24 +1502,16 @@ class _PosScreenState extends State<PosScreen> {
                                                           mainAxisSize:
                                                               MainAxisSize.min,
                                                           children: [
-                                                            Text(
-                                                              'H${hb.id}',
-                                                              style: const TextStyle(
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                                fontSize: 12,
-                                                              ),
-                                                            ),
-                                                            const SizedBox(
-                                                              height: 2,
-                                                            ),
+                                                            // show only the item-countpair on the quick-hold button
                                                             Text(
                                                               '${hb.items.length}-${totalQty}',
                                                               style: TextStyle(
-                                                                fontSize: 11,
+                                                                fontSize: 12,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
                                                                 color: Colors
-                                                                    .grey[700],
+                                                                    .grey[800],
                                                               ),
                                                             ),
                                                           ],
@@ -1531,10 +1561,15 @@ class _PosScreenState extends State<PosScreen> {
                                                             ),
                                                           );
                                                           if (confirm == true) {
-                                                            setState(
-                                                              () => _heldBills
-                                                                  .remove(hb),
-                                                            );
+                                                            setState(() {
+                                                              _heldBills.remove(
+                                                                hb,
+                                                              );
+                                                              if (_editingHoldId ==
+                                                                  hb.id)
+                                                                _editingHoldId =
+                                                                    null;
+                                                            });
                                                             ScaffoldMessenger.of(
                                                               context,
                                                             ).showSnackBar(
