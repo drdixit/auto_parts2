@@ -823,13 +823,9 @@ class _PosScreenState extends State<PosScreen> {
                                       child: LayoutBuilder(
                                         builder: (context, constraints) {
                                           final width = constraints.maxWidth;
-                                          // dynamic columns based on available center width
+                                          // Fixed 3-column layout (desktop-style). Card width will scale with available center width.
                                           final spacing = 10.0;
-                                          final minCardWidth = 240.0;
-                                          int crossAxisCount =
-                                              (width / (minCardWidth + spacing))
-                                                  .floor()
-                                                  .clamp(2, 8);
+                                          const int crossAxisCount = 3;
                                           // recalc card width and derive a childAspectRatio that keeps height sensible
                                           final cardWidth =
                                               (width -
