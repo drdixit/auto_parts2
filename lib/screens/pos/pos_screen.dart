@@ -921,144 +921,151 @@ class _PosScreenState extends State<PosScreen> {
                                                                 BorderRadius.circular(
                                                                   _cardRadius,
                                                                 ),
-                                                            child: InkWell(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    _cardRadius,
-                                                                  ),
-                                                              onTap: () =>
-                                                                  _addToBilling(
+                                                            child: GestureDetector(
+                                                              behavior:
+                                                                  HitTestBehavior
+                                                                      .translucent,
+                                                              onSecondaryTap: () =>
+                                                                  _removeFromBilling(
                                                                     p,
                                                                   ),
-                                                              child: Padding(
-                                                                padding:
-                                                                    const EdgeInsets.all(
-                                                                      10.0,
+                                                              child: InkWell(
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                      _cardRadius,
                                                                     ),
-                                                                child: Column(
-                                                                  crossAxisAlignment:
-                                                                      CrossAxisAlignment
-                                                                          .start,
-                                                                  children: [
-                                                                    SizedBox(
-                                                                      height:
-                                                                          88,
-                                                                      child: ClipRRect(
-                                                                        borderRadius: BorderRadius.circular(
-                                                                          _cardRadius -
-                                                                              4,
-                                                                        ),
-                                                                        child:
-                                                                            p.primaryImagePath !=
-                                                                                    null &&
-                                                                                p.primaryImagePath!.isNotEmpty
-                                                                            ? Image.file(
-                                                                                File(
-                                                                                  p.primaryImagePath!,
-                                                                                ),
-                                                                                fit: BoxFit.cover,
-                                                                                width: double.infinity,
-                                                                                errorBuilder:
-                                                                                    (
-                                                                                      _,
-                                                                                      __,
-                                                                                      ___,
-                                                                                    ) => Container(
-                                                                                      color: Colors.grey[100],
-                                                                                      alignment: Alignment.center,
-                                                                                      child: const Text(
-                                                                                        'No image',
-                                                                                      ),
-                                                                                    ),
-                                                                              )
-                                                                            : Container(
-                                                                                color: Colors.grey[100],
-                                                                                alignment: Alignment.center,
-                                                                                child: const Text(
-                                                                                  'No image',
-                                                                                ),
-                                                                              ),
+                                                                onTap: () =>
+                                                                    _addToBilling(
+                                                                      p,
+                                                                    ),
+                                                                child: Padding(
+                                                                  padding:
+                                                                      const EdgeInsets.all(
+                                                                        10.0,
                                                                       ),
-                                                                    ),
-                                                                    const SizedBox(
-                                                                      height: 6,
-                                                                    ),
-                                                                    Text(
-                                                                      p.name,
-                                                                      maxLines:
-                                                                          2,
-                                                                      overflow:
-                                                                          TextOverflow
-                                                                              .ellipsis,
-                                                                      style: const TextStyle(
-                                                                        fontWeight:
-                                                                            FontWeight.w600,
-                                                                      ),
-                                                                    ),
-                                                                    const SizedBox(
-                                                                      height: 4,
-                                                                    ),
-                                                                    Row(
-                                                                      mainAxisAlignment:
-                                                                          MainAxisAlignment
-                                                                              .spaceBetween,
-                                                                      children: [
-                                                                        Text(
-                                                                          '₹${price.toStringAsFixed(2)}',
-                                                                          style: TextStyle(
-                                                                            color:
-                                                                                Colors.grey[800],
-                                                                            fontWeight:
-                                                                                FontWeight.bold,
+                                                                  child: Column(
+                                                                    crossAxisAlignment:
+                                                                        CrossAxisAlignment
+                                                                            .start,
+                                                                    children: [
+                                                                      SizedBox(
+                                                                        height:
+                                                                            88,
+                                                                        child: ClipRRect(
+                                                                          borderRadius: BorderRadius.circular(
+                                                                            _cardRadius -
+                                                                                4,
                                                                           ),
+                                                                          child:
+                                                                              p.primaryImagePath !=
+                                                                                      null &&
+                                                                                  p.primaryImagePath!.isNotEmpty
+                                                                              ? Image.file(
+                                                                                  File(
+                                                                                    p.primaryImagePath!,
+                                                                                  ),
+                                                                                  fit: BoxFit.cover,
+                                                                                  width: double.infinity,
+                                                                                  errorBuilder:
+                                                                                      (
+                                                                                        _,
+                                                                                        __,
+                                                                                        ___,
+                                                                                      ) => Container(
+                                                                                        color: Colors.grey[100],
+                                                                                        alignment: Alignment.center,
+                                                                                        child: const Text(
+                                                                                          'No image',
+                                                                                        ),
+                                                                                      ),
+                                                                                )
+                                                                              : Container(
+                                                                                  color: Colors.grey[100],
+                                                                                  alignment: Alignment.center,
+                                                                                  child: const Text(
+                                                                                    'No image',
+                                                                                  ),
+                                                                                ),
                                                                         ),
-                                                                        Row(
-                                                                          children: [
-                                                                            IconButton(
-                                                                              icon: const Icon(
-                                                                                Icons.remove_circle_outline,
-                                                                              ),
-                                                                              onPressed: () => _removeFromBilling(
-                                                                                p,
-                                                                              ),
-                                                                              splashRadius: 18,
+                                                                      ),
+                                                                      const SizedBox(
+                                                                        height:
+                                                                            6,
+                                                                      ),
+                                                                      Text(
+                                                                        p.name,
+                                                                        maxLines:
+                                                                            2,
+                                                                        overflow:
+                                                                            TextOverflow.ellipsis,
+                                                                        style: const TextStyle(
+                                                                          fontWeight:
+                                                                              FontWeight.w600,
+                                                                        ),
+                                                                      ),
+                                                                      const SizedBox(
+                                                                        height:
+                                                                            4,
+                                                                      ),
+                                                                      Row(
+                                                                        mainAxisAlignment:
+                                                                            MainAxisAlignment.spaceBetween,
+                                                                        children: [
+                                                                          Text(
+                                                                            '₹${price.toStringAsFixed(2)}',
+                                                                            style: TextStyle(
+                                                                              color: Colors.grey[800],
+                                                                              fontWeight: FontWeight.bold,
                                                                             ),
-                                                                            Container(
-                                                                              padding: const EdgeInsets.symmetric(
-                                                                                horizontal: 8,
-                                                                                vertical: 4,
+                                                                          ),
+                                                                          Row(
+                                                                            children: [
+                                                                              IconButton(
+                                                                                icon: const Icon(
+                                                                                  Icons.remove_circle_outline,
+                                                                                ),
+                                                                                onPressed: () => _removeFromBilling(
+                                                                                  p,
+                                                                                ),
+                                                                                splashRadius: 18,
                                                                               ),
-                                                                              decoration: BoxDecoration(
-                                                                                color:
-                                                                                    inCart >
-                                                                                        0
-                                                                                    ? _chipSelectedColor
-                                                                                    : Colors.transparent,
-                                                                                borderRadius: BorderRadius.circular(
-                                                                                  6,
+                                                                              Container(
+                                                                                padding: const EdgeInsets.symmetric(
+                                                                                  horizontal: 8,
+                                                                                  vertical: 4,
+                                                                                ),
+                                                                                decoration: BoxDecoration(
+                                                                                  color:
+                                                                                      inCart >
+                                                                                          0
+                                                                                      ? _chipSelectedColor
+                                                                                      : Colors.transparent,
+                                                                                  borderRadius: BorderRadius.circular(
+                                                                                    6,
+                                                                                  ),
+                                                                                ),
+                                                                                child: Text(
+                                                                                  '$inCart',
+                                                                                  style: const TextStyle(
+                                                                                    fontWeight: FontWeight.w600,
+                                                                                  ),
                                                                                 ),
                                                                               ),
-                                                                              child: Text(
-                                                                                '$inCart',
-                                                                                style: const TextStyle(
-                                                                                  fontWeight: FontWeight.w600,
+                                                                              IconButton(
+                                                                                icon: const Icon(
+                                                                                  Icons.add_circle_outline,
                                                                                 ),
+                                                                                onPressed: () => _addToBilling(
+                                                                                  p,
+                                                                                ),
+                                                                                splashRadius: 18,
                                                                               ),
-                                                                            ),
-                                                                            IconButton(
-                                                                              icon: const Icon(
-                                                                                Icons.add_circle_outline,
-                                                                              ),
-                                                                              onPressed: () => _addToBilling(
-                                                                                p,
-                                                                              ),
-                                                                              splashRadius: 18,
-                                                                            ),
-                                                                          ],
-                                                                        ),
-                                                                      ],
-                                                                    ),
-                                                                  ],
+                                                                            ],
+                                                                          ),
+                                                                        ],
+                                                                      ),
+                                                                    ],
+                                                                  ),
                                                                 ),
                                                               ),
                                                             ),
