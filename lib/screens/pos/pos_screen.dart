@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../database/database_helper.dart';
 import '../../models/main_category.dart';
 import '../../models/manufacturer.dart';
 import '../../models/product.dart';
@@ -69,6 +68,8 @@ class _PosScreenState extends State<PosScreen> {
 
   List<MainCategory> _mainCategories = [];
   List<SubCategory> _subCategories = [];
+  // map subCategoryId -> mainCategoryId for fast lookup
+  final Map<int, int> _subToMain = {};
   List<VehicleModel> _vehicles = [];
   List<SubCategory> _visibleSubCategories = [];
   List<VehicleModel> _visibleVehicles = [];
@@ -77,6 +78,9 @@ class _PosScreenState extends State<PosScreen> {
 
   List<Product> _allProducts = [];
   List<Product> _filteredProducts = [];
+
+  // productId -> set of compatible vehicle ids
+  final Map<int, Set<int>> _productCompatibility = {};
 
   // Filters
   int? _selectedMainCategoryId;
@@ -88,192 +92,123 @@ class _PosScreenState extends State<PosScreen> {
   // Search
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
 
   // Billing
   final List<BillingItem> _billing = [];
   final List<HeldBill> _heldBills = [];
   int _nextHoldId = 1;
 
-  bool _isLoading = true;
+  // UI tokens
+  final Color _accentColor = Colors.indigo;
+  final Color _chipSelectedColor = const Color(0xFFE8ECFF);
+  final double _cardRadius = 12.0;
+  final double _panelRadius = 14.0;
+
+  // Hover state for product cards
+  int? _hoveredProductId;
+
+  double get _billingTotal => _billing.fold(0.0, (s, b) => s + b.lineTotal);
 
   @override
   void initState() {
     super.initState();
     _loadInitialData();
+    _searchController.addListener(() {
+      setState(() => _searchQuery = _searchController.text);
+      _onSearchChanged(_searchController.text);
+    });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
   Future<void> _loadInitialData() async {
-    setState(() => _isLoading = true);
-    try {
-      final mainCats = await _mainCatService.getAllCategories();
-      final subCats = await _subCatService.getAllSubCategories();
-      final products = await _productService.getAllProducts();
-
-      final db = await DatabaseHelper().database;
-      final vehicleMaps = await db.query('vehicle_models');
-      final vehicles = vehicleMaps.map((m) => VehicleModel.fromMap(m)).toList();
-
-      List<Map<String, dynamic>> manuMaps = [];
-      try {
-        manuMaps = await db.query('manufacturers');
-      } catch (_) {}
-      final manufacturers = manuMaps
-          .map((m) => Manufacturer.fromMap(m))
-          .toList();
-
-      setState(() {
-        _mainCategories = mainCats;
-        _subCategories = subCats;
-        _vehicles = vehicles;
-        _manufacturers = manufacturers;
-        _productManufacturers = _manufacturers
-            .where(
-              (m) =>
-                  m.manufacturerType == 'parts' || m.manufacturerType == 'both',
-            )
-            .toList();
-        _allProducts = products;
-        _visibleSubCategories = _subCategories;
-        _visibleVehicles = _vehicles;
-      });
-
-      _applyFilters();
-    } catch (_) {
-      // ignore
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    _mainCategories = await _mainCatService.getAllCategories();
+    _subCategories = await _subCatService.getAllSubCategories();
+    _vehicles = await _productService.getAllVehicleModels();
+    _manufacturers = await _productService.getPartsManufacturers();
+    _productManufacturers = List.from(_manufacturers);
+    _allProducts = await _productService.getAllProducts();
+    // preload compatibility for products to enable exact vehicle filtering
+    for (final p in _allProducts) {
+      if (p.id == null) continue;
+      final comps = await _productService.getProductCompatibility(p.id!);
+      _productCompatibility[p.id!] = comps
+          .map((c) => c.vehicleModelId)
+          .whereType<int>()
+          .toSet();
     }
+    setState(() {
+      _visibleSubCategories = List.from(_subCategories);
+      _visibleVehicles = List.from(_vehicles);
+      _filteredProducts = List.from(_allProducts);
+    });
+    // build sub->main map
+    for (final s in _subCategories) {
+      if (s.id != null) _subToMain[s.id!] = s.mainCategoryId;
+    }
+
+    setState(() {
+      _visibleSubCategories = List.from(_subCategories);
+      _visibleVehicles = List.from(_vehicles);
+      _filteredProducts = List.from(_allProducts);
+    });
   }
 
-  Future<void> _updateVisibleForMainCategory() async {
+  void _updateVisibleForMainCategory() {
     if (_selectedMainCategoryId == null) {
-      _visibleSubCategories = _subCategories;
-      _visibleVehicles = _vehicles;
+      _visibleSubCategories = List.from(_subCategories);
+      _visibleVehicles = List.from(_vehicles);
     } else {
       _visibleSubCategories = _subCategories
           .where((s) => s.mainCategoryId == _selectedMainCategoryId)
           .toList();
-
-      final productIds = _allProducts
-          .where(
-            (p) => _visibleSubCategories.any((s) => s.id == p.subCategoryId),
-          )
-          .map((p) => p.id)
-          .whereType<int>()
-          .toList();
-
-      if (productIds.isEmpty) {
-        _visibleVehicles = [];
-      } else {
-        final db = await DatabaseHelper().database;
-        final placeholders = List.filled(productIds.length, '?').join(',');
-        final rows = await db.rawQuery(
-          'SELECT DISTINCT vehicle_model_id FROM product_compatibility WHERE product_id IN ($placeholders)',
-          productIds,
-        );
-        final ids = rows
-            .map((r) => r['vehicle_model_id'] as int?)
-            .whereType<int>()
-            .toSet();
-        _visibleVehicles = _vehicles.where((v) => ids.contains(v.id)).toList();
-      }
+      // Vehicles aren't linked to main categories in current schema; keep all
+      _visibleVehicles = List.from(_vehicles);
     }
-
-    if (_selectedVehicleManufacturerIds.isNotEmpty) {
-      _visibleVehicles = _visibleVehicles
-          .where(
-            (v) => _selectedVehicleManufacturerIds.contains(v.manufacturerId),
-          )
-          .toList();
-    }
-
-    if (mounted) setState(() {});
   }
 
   void _applyFilters() {
-    final List<Product> results = [];
-
-    for (final p in _allProducts) {
+    _filteredProducts = _allProducts.where((p) {
+      if (_selectedSubCategoryIds.isNotEmpty &&
+          !_selectedSubCategoryIds.contains(p.subCategoryId))
+        return false;
       if (_selectedMainCategoryId != null) {
-        if (p.subCategoryId == 0) continue;
-
-        final sub = _subCategories.firstWhere(
-          (s) => s.id == p.subCategoryId,
-          orElse: () => SubCategory(id: -1, name: '', mainCategoryId: 0),
-        );
-
-        if (sub.id == -1 || sub.mainCategoryId != _selectedMainCategoryId) {
-          continue;
-        }
+        final mainForProduct = _subToMain[p.subCategoryId];
+        if (mainForProduct != _selectedMainCategoryId) return false;
       }
-
-      if (_selectedSubCategoryIds.isNotEmpty) {
-        if (!_selectedSubCategoryIds.contains(p.subCategoryId)) continue;
+      // Apply vehicle compatibility using preloaded map.
+      if (_selectedVehicleIds.isNotEmpty && !p.isUniversal) {
+        final compat = p.id != null
+            ? _productCompatibility[p.id!] ?? <int>{}
+            : <int>{};
+        // if no compat entries, be conservative and allow the product
+        if (compat.isNotEmpty &&
+            compat.intersection(_selectedVehicleIds).isEmpty)
+          return false;
       }
-
-      if (_selectedProductManufacturerIds.isNotEmpty) {
-        if (!_selectedProductManufacturerIds.contains(p.manufacturerId)) {
-          continue;
-        }
-      }
-
-      if (_selectedVehicleIds.isNotEmpty) {
-        if (p.isUniversal == true) {
-          // pass
-        } else {
-          // keep as-is
-        }
-      }
-
-      if (_searchQuery.isNotEmpty) {
-        if (!_fuzzyMatch(p.name, _searchQuery)) continue;
-      }
-
-      results.add(p);
-    }
-
-    setState(() {
-      _filteredProducts = results;
-    });
+      if (_selectedProductManufacturerIds.isNotEmpty &&
+          !_selectedProductManufacturerIds.contains(p.manufacturerId))
+        return false;
+      if (_searchQuery.isNotEmpty && !_fuzzyMatch(p.name, _searchQuery))
+        return false;
+      return true;
+    }).toList();
+    setState(() {});
   }
 
-  bool _fuzzyMatch(String? text, String query) {
+  bool _fuzzyMatch(String? text, String q) {
     if (text == null) return false;
-    final s = text.toLowerCase();
-    final q = query.toLowerCase();
-    int i = 0;
-    for (int j = 0; j < s.length && i < q.length; j++) {
-      if (s[j] == q[i]) i++;
-    }
-    if (i == q.length) return true;
-    return s.contains(q);
+    return text.toLowerCase().contains(q.toLowerCase());
   }
 
-  void _toggleSubCategory(int id) {
-    setState(() {
-      if (_selectedSubCategoryIds.contains(id)) {
-        _selectedSubCategoryIds.remove(id);
-      } else {
-        _selectedSubCategoryIds.add(id);
-      }
-    });
-    _applyFilters();
-  }
-
-  void _toggleVehicle(int id) {
-    setState(() {
-      if (_selectedVehicleIds.contains(id)) {
-        _selectedVehicleIds.remove(id);
-      } else {
-        _selectedVehicleIds.add(id);
-      }
-    });
+  void _onSearchChanged(String q) {
+    _searchQuery = q;
     _applyFilters();
   }
 
@@ -281,9 +216,30 @@ class _PosScreenState extends State<PosScreen> {
     setState(() {
       _selectedMainCategoryId = id;
       _selectedSubCategoryIds.clear();
+      _selectedVehicleIds.clear();
+      _updateVisibleForMainCategory();
+      _applyFilters();
     });
-    _updateVisibleForMainCategory();
-    _applyFilters();
+  }
+
+  void _toggleSubCategory(int id) {
+    setState(() {
+      if (_selectedSubCategoryIds.contains(id))
+        _selectedSubCategoryIds.remove(id);
+      else
+        _selectedSubCategoryIds.add(id);
+      _applyFilters();
+    });
+  }
+
+  void _toggleVehicle(int id) {
+    setState(() {
+      if (_selectedVehicleIds.contains(id))
+        _selectedVehicleIds.remove(id);
+      else
+        _selectedVehicleIds.add(id);
+      _applyFilters();
+    });
   }
 
   void _resetAllFilters() {
@@ -291,57 +247,52 @@ class _PosScreenState extends State<PosScreen> {
       _selectedMainCategoryId = null;
       _selectedSubCategoryIds.clear();
       _selectedVehicleIds.clear();
-      _selectedVehicleManufacturerIds.clear();
       _selectedProductManufacturerIds.clear();
-      _visibleSubCategories = _subCategories;
-      _visibleVehicles = _vehicles;
-      _searchQuery = '';
       _searchController.clear();
+      _applyFilters();
     });
-    _updateVisibleForMainCategory();
-    _applyFilters();
-  }
-
-  void _onSearchChanged(String q) {
-    setState(() => _searchQuery = q);
-    _applyFilters();
   }
 
   void _addToBilling(Product p) {
-    final existing = _billing.firstWhere(
-      (b) => b.product.id == p.id,
-      orElse: () => BillingItem(product: p, qty: 0),
-    );
-    if (existing.qty == 0) {
-      setState(() => _billing.add(BillingItem(product: p, qty: 1)));
-    } else {
-      setState(() => existing.qty += 1);
-    }
+    setState(() {
+      final existing = _billing.firstWhere(
+        (b) => b.product.id == p.id,
+        orElse: () => BillingItem(product: p, qty: 0),
+      );
+      if (existing.qty == 0) {
+        _billing.add(BillingItem(product: p));
+      } else {
+        existing.qty += 1;
+      }
+    });
   }
 
   void _removeFromBilling(Product p) {
-    final existing = _billing.firstWhere(
-      (b) => b.product.id == p.id,
-      orElse: () => BillingItem(product: p, qty: 0),
-    );
-    if (existing.qty <= 1) {
-      setState(() => _billing.removeWhere((b) => b.product.id == p.id));
-    } else {
-      setState(() => existing.qty -= 1);
-    }
+    setState(() {
+      final existing = _billing.firstWhere(
+        (b) => b.product.id == p.id,
+        orElse: () => BillingItem(product: p, qty: 0),
+      );
+      if (existing.qty <= 1)
+        _billing.removeWhere((b) => b.product.id == p.id);
+      else
+        existing.qty -= 1;
+    });
   }
 
-  double get _billingTotal => _billing.fold(0.0, (t, b) => t + b.lineTotal);
+  void _deleteFromBilling(Product p) {
+    setState(() {
+      _billing.removeWhere((b) => b.product.id == p.id);
+    });
+  }
 
   void _holdCurrentBill() {
-    final copyItems = _billing
-        .map((b) => BillingItem(product: b.product, qty: b.qty))
-        .toList();
-
-    final hold = HeldBill(
+    final hb = HeldBill(
       id: _nextHoldId++,
       createdAt: DateTime.now(),
-      items: copyItems,
+      items: List.from(
+        _billing.map((b) => BillingItem(product: b.product, qty: b.qty)),
+      ),
       searchQuery: _searchQuery,
       selectedMainCategoryId: _selectedMainCategoryId,
       selectedSubCategoryIds: Set.from(_selectedSubCategoryIds),
@@ -349,62 +300,43 @@ class _PosScreenState extends State<PosScreen> {
       selectedVehicleManufacturerIds: Set.from(_selectedVehicleManufacturerIds),
       selectedProductManufacturerIds: Set.from(_selectedProductManufacturerIds),
     );
-
     setState(() {
-      _heldBills.add(hold);
+      _heldBills.add(hb);
       _billing.clear();
     });
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Bill held (#${hold.id})')));
   }
 
-  void _openHeldBills() async {
-    if (_heldBills.isEmpty) return;
-
-    final selected = await showDialog<int>(
+  void _openHeldBills() {
+    showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Held Bills'),
           content: SizedBox(
-            width: 600,
+            width: 560,
             child: ListView.builder(
               shrinkWrap: true,
               itemCount: _heldBills.length,
               itemBuilder: (context, i) {
-                final h = _heldBills[i];
-                final unique = h.items.length;
-                final totalQty = h.items.fold<int>(0, (s, it) => s + it.qty);
-                final totalBill = h.items.fold<double>(
-                  0.0,
-                  (s, it) => s + (it.product.sellingPrice ?? 0) * it.qty,
-                );
-
+                final hb = _heldBills[i];
                 return ListTile(
-                  title: Text(
-                    '$unique items ($totalQty quantity ₹${totalBill.toStringAsFixed(2)})',
-                  ),
-                  subtitle: Text(
-                    'Created: ${h.createdAt.toLocal().toString().split('.').first}',
-                  ),
+                  title: Text('Hold ${hb.id} - ${hb.items.length} items'),
+                  subtitle: Text('${hb.createdAt}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       TextButton(
                         onPressed: () {
-                          Navigator.of(context).pop(h.id);
+                          setState(() {
+                            _loadHeldBill(hb);
+                          });
+                          Navigator.of(context).pop();
                         },
                         child: const Text('Load'),
                       ),
-                      const SizedBox(width: 8),
                       TextButton(
                         onPressed: () {
-                          setState(
-                            () => _heldBills.removeWhere((hb) => hb.id == h.id),
-                          );
-                          Navigator.of(context).pop(null);
+                          setState(() => _heldBills.removeAt(i));
                         },
                         child: const Text('Delete'),
                       ),
@@ -416,86 +348,106 @@ class _PosScreenState extends State<PosScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: _heldBills.isEmpty
-                  ? null
-                  : () {
-                      setState(() => _heldBills.clear());
-                      Navigator.of(context).pop(null);
-                    },
-              child: const Text('Clear All Holds'),
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
             ),
             TextButton(
-              onPressed: () => Navigator.of(context).pop(null),
-              child: const Text('Close'),
+              onPressed: _heldBills.isEmpty
+                  ? null
+                  : () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (context) {
+                          return AlertDialog(
+                            title: const Text('Clear all holds?'),
+                            content: const Text(
+                              'This will remove all held bills. This action cannot be undone.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.of(context).pop(false),
+                                child: const Text('Cancel'),
+                              ),
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.of(context).pop(true),
+                                child: const Text(
+                                  'Clear',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                      if (confirm == true) {
+                        setState(() => _heldBills.clear());
+                        Navigator.of(context).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('All held bills cleared'),
+                          ),
+                        );
+                      }
+                    },
+              child: Text(
+                'Clear all holds',
+                style: TextStyle(
+                  color: _heldBills.isEmpty
+                      ? Colors.grey[400]
+                      : Colors.red[700],
+                ),
+              ),
             ),
           ],
         );
       },
     );
-
-    if (selected != null) _loadHeldBill(selected);
   }
 
-  void _loadHeldBill(int id) {
-    HeldBill? hold;
-    try {
-      hold = _heldBills.firstWhere((h) => h.id == id);
-    } catch (_) {
-      hold = null;
-    }
-
-    if (hold == null) return;
-
-    final h = hold;
-
+  void _loadHeldBill(HeldBill hb) {
     setState(() {
       _billing.clear();
       _billing.addAll(
-        h.items.map((b) => BillingItem(product: b.product, qty: b.qty)),
+        hb.items.map((i) => BillingItem(product: i.product, qty: i.qty)),
       );
-      _searchQuery = h.searchQuery;
-      _searchController.text = h.searchQuery;
-      _selectedMainCategoryId = h.selectedMainCategoryId;
+      _searchController.text = hb.searchQuery;
+      _selectedMainCategoryId = hb.selectedMainCategoryId;
       _selectedSubCategoryIds.clear();
-      _selectedSubCategoryIds.addAll(h.selectedSubCategoryIds);
+      _selectedSubCategoryIds.addAll(hb.selectedSubCategoryIds);
       _selectedVehicleIds.clear();
-      _selectedVehicleIds.addAll(h.selectedVehicleIds);
-      _selectedVehicleManufacturerIds.clear();
-      _selectedVehicleManufacturerIds.addAll(h.selectedVehicleManufacturerIds);
+      _selectedVehicleIds.addAll(hb.selectedVehicleIds);
       _selectedProductManufacturerIds.clear();
-      _selectedProductManufacturerIds.addAll(h.selectedProductManufacturerIds);
+      _selectedProductManufacturerIds.addAll(hb.selectedProductManufacturerIds);
+      _applyFilters();
     });
+  }
 
-    _updateVisibleForMainCategory();
-    _applyFilters();
+  void _clearBill() {
+    setState(() => _billing.clear());
   }
 
   @override
   Widget build(BuildContext context) {
     return Shortcuts(
-      shortcuts: <LogicalKeySet, Intent>{
+      shortcuts: {
         LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyZ):
             const ResetIntent(),
         LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyX):
             const ClearBillIntent(),
       },
       child: Actions(
-        actions: <Type, Action<Intent>>{
+        actions: {
           ResetIntent: CallbackAction<ResetIntent>(
-            onInvoke: (intent) {
+            onInvoke: (_) {
               _resetAllFilters();
-              _searchController.clear();
               return null;
             },
           ),
           ClearBillIntent: CallbackAction<ClearBillIntent>(
-            onInvoke: (intent) {
-              if (_billing.isNotEmpty) {
-                setState(() => _billing.clear());
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('Bill cleared')));
-              }
+            onInvoke: (_) {
+              _clearBill();
               return null;
             },
           ),
@@ -504,616 +456,976 @@ class _PosScreenState extends State<PosScreen> {
           autofocus: true,
           child: Scaffold(
             backgroundColor: Colors.grey[50],
-            body: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : Column(
-                    children: [
-                      _buildTopBar(context),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.all(18.0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // Left: Narrow filter column (desktop-style)
-                              ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 320,
-                                ),
-                                child: Container(
-                                  decoration: _panelDecoration,
-                                  padding: const EdgeInsets.all(12),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.tune,
-                                            color: Colors.grey[700],
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            'Filters',
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .titleMedium
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                          ),
-                                          const Spacer(),
-                                          IconButton(
-                                            onPressed: _resetAllFilters,
-                                            icon: const Icon(Icons.refresh),
-                                            tooltip: 'Reset filters',
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      TextField(
-                                        controller: _searchController,
-                                        onChanged: _onSearchChanged,
-                                        decoration: InputDecoration(
-                                          prefixIcon: const Icon(Icons.search),
-                                          hintText: 'Search products...',
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Expanded(
-                                        child: SingleChildScrollView(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              const Text(
-                                                'Main Category',
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Wrap(
-                                                spacing: 6,
-                                                runSpacing: 6,
-                                                children: [
-                                                  FilterChip(
-                                                    label: const Text('All'),
-                                                    selected:
-                                                        _selectedMainCategoryId ==
-                                                        null,
-                                                    onSelected: (_) =>
-                                                        _selectMainCategory(
-                                                          null,
-                                                        ),
-                                                  ),
-                                                  ..._mainCategories.map(
-                                                    (c) => FilterChip(
-                                                      label: Text(c.name),
-                                                      selected:
-                                                          _selectedMainCategoryId ==
-                                                          c.id,
-                                                      onSelected: (_) =>
-                                                          _selectMainCategory(
-                                                            c.id,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 12),
-                                              const Divider(),
-                                              const SizedBox(height: 8),
-                                              const Text(
-                                                'Sub Categories',
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Wrap(
-                                                spacing: 6,
-                                                runSpacing: 6,
-                                                children: _visibleSubCategories
-                                                    .map(
-                                                      (s) => FilterChip(
-                                                        label: Text(s.name),
-                                                        selected:
-                                                            _selectedSubCategoryIds
-                                                                .contains(s.id),
-                                                        onSelected: (_) =>
-                                                            _toggleSubCategory(
-                                                              s.id!,
-                                                            ),
-                                                      ),
-                                                    )
-                                                    .toList(),
-                                              ),
-                                              const SizedBox(height: 12),
-                                              const Text(
-                                                'Vehicles',
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Wrap(
-                                                spacing: 6,
-                                                runSpacing: 6,
-                                                children: _visibleVehicles
-                                                    .map(
-                                                      (v) => FilterChip(
-                                                        label: Text(
-                                                          v.displayName,
-                                                        ),
-                                                        selected:
-                                                            _selectedVehicleIds
-                                                                .contains(v.id),
-                                                        onSelected: (_) =>
-                                                            _toggleVehicle(
-                                                              v.id!,
-                                                            ),
-                                                      ),
-                                                    )
-                                                    .toList(),
-                                              ),
-                                              const SizedBox(height: 12),
-                                              const Text(
-                                                'Manufacturers',
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Wrap(
-                                                spacing: 6,
-                                                runSpacing: 6,
-                                                children: _productManufacturers
-                                                    .map(
-                                                      (m) => FilterChip(
-                                                        label: Text(m.name),
-                                                        selected:
-                                                            _selectedProductManufacturerIds
-                                                                .contains(m.id),
-                                                        onSelected: (_) => setState(() {
-                                                          if (_selectedProductManufacturerIds
-                                                              .contains(m.id)) {
-                                                            _selectedProductManufacturerIds
-                                                                .remove(m.id);
-                                                          } else {
-                                                            _selectedProductManufacturerIds
-                                                                .add(m.id!);
-                                                          }
-                                                          _applyFilters();
-                                                        }),
-                                                      ),
-                                                    )
-                                                    .toList(),
-                                              ),
-                                              const SizedBox(height: 12),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-
-                              const SizedBox(width: 16),
-
-                              // Center: Product grid
-                              Expanded(
-                                flex: 5,
+            body: Column(
+              children: [
+                _buildTopBar(context),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 18.0),
+                    child: LayoutBuilder(
+                      builder: (context, outer) {
+                        final outerWidth = outer.maxWidth;
+                        final leftWidth = outerWidth < 1000
+                            ? 320.0
+                            : (outerWidth * 0.22).clamp(320.0, 420.0);
+                        final rightWidth = outerWidth < 1000
+                            ? 360.0
+                            : (outerWidth * 0.20).clamp(360.0, 520.0);
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              width: leftWidth,
+                              child: Container(
+                                decoration: _panelDecoration,
+                                padding: const EdgeInsets.all(12),
                                 child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 8.0,
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.tune,
+                                          color: Colors.grey[700],
                                         ),
-                                        child: Text(
-                                          '${_filteredProducts.length} products',
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Filters',
                                           style: Theme.of(context)
                                               .textTheme
-                                              .bodyLarge
+                                              .titleMedium
                                               ?.copyWith(
-                                                color: Colors.grey[700],
+                                                fontWeight: FontWeight.bold,
                                               ),
                                         ),
-                                      ),
+                                        const Spacer(),
+                                        IconButton(
+                                          onPressed: _resetAllFilters,
+                                          icon: const Icon(Icons.refresh),
+                                          tooltip: 'Reset filters',
+                                        ),
+                                      ],
                                     ),
+                                    const SizedBox(height: 6),
                                     Expanded(
-                                      child: Container(
-                                        padding: const EdgeInsets.all(6),
-                                        decoration: _panelDecoration,
-                                        child: LayoutBuilder(
-                                          builder: (context, constraints) {
-                                            final width = constraints.maxWidth;
-                                            final crossAxisCount = (width / 240)
-                                                .floor()
-                                                .clamp(2, 5);
-                                            return _filteredProducts.isEmpty
-                                                ? const Center(
-                                                    child: Text('No products'),
-                                                  )
-                                                : GridView.builder(
-                                                    gridDelegate:
-                                                        SliverGridDelegateWithFixedCrossAxisCount(
-                                                          crossAxisCount:
-                                                              crossAxisCount,
-                                                          crossAxisSpacing: 8,
-                                                          mainAxisSpacing: 8,
-                                                          childAspectRatio: 1.2,
+                                      child: SingleChildScrollView(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'Main Category',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Wrap(
+                                              spacing: 6,
+                                              runSpacing: 6,
+                                              children: [
+                                                FilterChip(
+                                                  label: const Text('All'),
+                                                  selected:
+                                                      _selectedMainCategoryId ==
+                                                      null,
+                                                  onSelected: (_) =>
+                                                      _selectMainCategory(null),
+                                                  backgroundColor:
+                                                      Colors.transparent,
+                                                  selectedColor:
+                                                      _chipSelectedColor,
+                                                  checkmarkColor: _accentColor,
+                                                  labelStyle: TextStyle(
+                                                    color:
+                                                        _selectedMainCategoryId ==
+                                                            null
+                                                        ? _accentColor
+                                                        : Colors.grey[800],
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
                                                         ),
-                                                    itemCount: _filteredProducts
-                                                        .length,
-                                                    itemBuilder: (context, i) {
-                                                      final p =
-                                                          _filteredProducts[i];
-                                                      final price =
-                                                          p.sellingPrice ?? 0.0;
-                                                      final inCart = _billing
-                                                          .where(
-                                                            (b) =>
-                                                                b.product.id ==
-                                                                p.id,
-                                                          )
-                                                          .fold<int>(
-                                                            0,
-                                                            (s, b) => s + b.qty,
-                                                          );
-                                                      return Material(
-                                                        color: Colors.white,
-                                                        elevation: 0,
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              10,
-                                                            ),
-                                                        child: InkWell(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                10,
-                                                              ),
-                                                          onTap: () =>
-                                                              _addToBilling(p),
-                                                          child: Padding(
-                                                            padding:
-                                                                const EdgeInsets.all(
-                                                                  8.0,
+                                                    side: BorderSide(
+                                                      color:
+                                                          _selectedMainCategoryId ==
+                                                              null
+                                                          ? _accentColor
+                                                                .withOpacity(
+                                                                  0.18,
+                                                                )
+                                                          : Colors.grey
+                                                                .withOpacity(
+                                                                  0.18,
                                                                 ),
-                                                            child: Column(
-                                                              crossAxisAlignment:
-                                                                  CrossAxisAlignment
-                                                                      .start,
-                                                              children: [
-                                                                Expanded(
-                                                                  child: ClipRRect(
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                          8,
-                                                                        ),
-                                                                    child:
-                                                                        p.primaryImagePath !=
-                                                                                null &&
-                                                                            p.primaryImagePath!.isNotEmpty
-                                                                        ? Image.file(
-                                                                            File(
-                                                                              p.primaryImagePath!,
-                                                                            ),
-                                                                            fit:
-                                                                                BoxFit.cover,
-                                                                            width:
-                                                                                double.infinity,
-                                                                            errorBuilder:
-                                                                                (
-                                                                                  _,
-                                                                                  __,
-                                                                                  ___,
-                                                                                ) => Container(
-                                                                                  color: Colors.grey[100],
-                                                                                  alignment: Alignment.center,
-                                                                                  child: const Text(
-                                                                                    'No image',
-                                                                                  ),
-                                                                                ),
-                                                                          )
-                                                                        : Container(
-                                                                            color:
-                                                                                Colors.grey[100],
-                                                                            alignment:
-                                                                                Alignment.center,
-                                                                            child: const Text(
-                                                                              'No image',
-                                                                            ),
-                                                                          ),
-                                                                  ),
-                                                                ),
-                                                                const SizedBox(
-                                                                  height: 8,
-                                                                ),
-                                                                Text(
-                                                                  p.name,
-                                                                  maxLines: 2,
-                                                                  overflow:
-                                                                      TextOverflow
-                                                                          .ellipsis,
-                                                                  style: const TextStyle(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w600,
-                                                                  ),
-                                                                ),
-                                                                const SizedBox(
-                                                                  height: 6,
-                                                                ),
-                                                                Row(
-                                                                  mainAxisAlignment:
-                                                                      MainAxisAlignment
-                                                                          .spaceBetween,
-                                                                  children: [
-                                                                    Text(
-                                                                      '₹${price.toStringAsFixed(2)}',
-                                                                      style: TextStyle(
-                                                                        color: Colors
-                                                                            .green[700],
-                                                                        fontWeight:
-                                                                            FontWeight.bold,
-                                                                      ),
-                                                                    ),
-                                                                    Row(
-                                                                      children: [
-                                                                        IconButton(
-                                                                          icon: const Icon(
-                                                                            Icons.remove_circle_outline,
-                                                                          ),
-                                                                          onPressed: () =>
-                                                                              _removeFromBilling(
-                                                                                p,
-                                                                              ),
-                                                                          splashRadius:
-                                                                              18,
-                                                                        ),
-                                                                        Container(
-                                                                          padding: const EdgeInsets.symmetric(
-                                                                            horizontal:
-                                                                                8,
-                                                                            vertical:
-                                                                                4,
-                                                                          ),
-                                                                          decoration: BoxDecoration(
-                                                                            color:
-                                                                                inCart >
-                                                                                    0
-                                                                                ? Colors.blue.shade50
-                                                                                : Colors.transparent,
-                                                                            borderRadius: BorderRadius.circular(
-                                                                              6,
-                                                                            ),
-                                                                          ),
-                                                                          child: Text(
-                                                                            '$inCart',
-                                                                            style: const TextStyle(
-                                                                              fontWeight: FontWeight.w600,
-                                                                            ),
-                                                                          ),
-                                                                        ),
-                                                                        IconButton(
-                                                                          icon: const Icon(
-                                                                            Icons.add_circle_outline,
-                                                                          ),
-                                                                          onPressed: () =>
-                                                                              _addToBilling(
-                                                                                p,
-                                                                              ),
-                                                                          splashRadius:
-                                                                              18,
-                                                                        ),
-                                                                      ],
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              ],
-                                                            ),
+                                                    ),
+                                                  ),
+                                                  showCheckmark: true,
+                                                ),
+                                                ..._mainCategories.map((c) {
+                                                  final sel =
+                                                      _selectedMainCategoryId ==
+                                                      c.id;
+                                                  return FilterChip(
+                                                    label: Text(c.name),
+                                                    selected: sel,
+                                                    onSelected: (_) =>
+                                                        _selectMainCategory(
+                                                          c.id,
+                                                        ),
+                                                    backgroundColor:
+                                                        Colors.transparent,
+                                                    selectedColor:
+                                                        _chipSelectedColor,
+                                                    checkmarkColor:
+                                                        _accentColor,
+                                                    labelStyle: TextStyle(
+                                                      color: sel
+                                                          ? _accentColor
+                                                          : Colors.grey[800],
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            12,
                                                           ),
-                                                        ),
-                                                      );
-                                                    },
+                                                      side: BorderSide(
+                                                        color: sel
+                                                            ? _accentColor
+                                                                  .withOpacity(
+                                                                    0.18,
+                                                                  )
+                                                            : Colors.grey
+                                                                  .withOpacity(
+                                                                    0.12,
+                                                                  ),
+                                                      ),
+                                                    ),
+                                                    showCheckmark: true,
                                                   );
-                                          },
+                                                }),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 12),
+                                            const Divider(),
+                                            const SizedBox(height: 8),
+                                            const Text(
+                                              'Sub Categories',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Wrap(
+                                              spacing: 6,
+                                              runSpacing: 6,
+                                              children: _visibleSubCategories.map((
+                                                s,
+                                              ) {
+                                                final sel =
+                                                    _selectedSubCategoryIds
+                                                        .contains(s.id);
+                                                return FilterChip(
+                                                  label: Text(s.name),
+                                                  selected: sel,
+                                                  onSelected: (_) =>
+                                                      _toggleSubCategory(s.id!),
+                                                  backgroundColor:
+                                                      Colors.transparent,
+                                                  selectedColor:
+                                                      _chipSelectedColor,
+                                                  checkmarkColor: _accentColor,
+                                                  labelStyle: TextStyle(
+                                                    color: sel
+                                                        ? _accentColor
+                                                        : Colors.grey[800],
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
+                                                    side: BorderSide(
+                                                      color: sel
+                                                          ? _accentColor
+                                                                .withOpacity(
+                                                                  0.18,
+                                                                )
+                                                          : Colors.grey
+                                                                .withOpacity(
+                                                                  0.12,
+                                                                ),
+                                                    ),
+                                                  ),
+                                                  showCheckmark: true,
+                                                );
+                                              }).toList(),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            const Text(
+                                              'Vehicles',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Wrap(
+                                              spacing: 6,
+                                              runSpacing: 6,
+                                              children: _visibleVehicles.map((
+                                                v,
+                                              ) {
+                                                final sel = _selectedVehicleIds
+                                                    .contains(v.id);
+                                                return FilterChip(
+                                                  label: Text(v.displayName),
+                                                  selected: sel,
+                                                  onSelected: (_) =>
+                                                      _toggleVehicle(v.id!),
+                                                  backgroundColor:
+                                                      Colors.transparent,
+                                                  selectedColor:
+                                                      _chipSelectedColor,
+                                                  checkmarkColor: _accentColor,
+                                                  labelStyle: TextStyle(
+                                                    color: sel
+                                                        ? _accentColor
+                                                        : Colors.grey[800],
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
+                                                    side: BorderSide(
+                                                      color: sel
+                                                          ? _accentColor
+                                                                .withOpacity(
+                                                                  0.18,
+                                                                )
+                                                          : Colors.grey
+                                                                .withOpacity(
+                                                                  0.12,
+                                                                ),
+                                                    ),
+                                                  ),
+                                                  showCheckmark: true,
+                                                );
+                                              }).toList(),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            const Text(
+                                              'Manufacturers',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Wrap(
+                                              spacing: 6,
+                                              runSpacing: 6,
+                                              children: _productManufacturers.map((
+                                                m,
+                                              ) {
+                                                final sel =
+                                                    _selectedProductManufacturerIds
+                                                        .contains(m.id);
+                                                return FilterChip(
+                                                  label: Text(m.name),
+                                                  selected: sel,
+                                                  onSelected: (_) => setState(() {
+                                                    if (_selectedProductManufacturerIds
+                                                        .contains(m.id)) {
+                                                      _selectedProductManufacturerIds
+                                                          .remove(m.id);
+                                                    } else {
+                                                      _selectedProductManufacturerIds
+                                                          .add(m.id!);
+                                                    }
+                                                    _applyFilters();
+                                                  }),
+                                                  backgroundColor:
+                                                      Colors.transparent,
+                                                  selectedColor:
+                                                      _chipSelectedColor,
+                                                  checkmarkColor: _accentColor,
+                                                  labelStyle: TextStyle(
+                                                    color: sel
+                                                        ? _accentColor
+                                                        : Colors.grey[800],
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
+                                                    side: BorderSide(
+                                                      color: sel
+                                                          ? _accentColor
+                                                                .withOpacity(
+                                                                  0.18,
+                                                                )
+                                                          : Colors.grey
+                                                                .withOpacity(
+                                                                  0.12,
+                                                                ),
+                                                    ),
+                                                  ),
+                                                  showCheckmark: true,
+                                                );
+                                              }).toList(),
+                                            ),
+                                            const SizedBox(height: 12),
+                                          ],
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
+                            ),
 
-                              const SizedBox(width: 16),
+                            const SizedBox(width: 16),
 
-                              // Right: Billing summary (prominent)
-                              ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 360,
-                                ),
-                                child: Container(
-                                  decoration: _panelDecoration,
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'Billing',
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .titleLarge
-                                                    ?.copyWith(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                '${_billing.length} items',
-                                                style: Theme.of(
-                                                  context,
-                                                ).textTheme.bodySmall,
-                                              ),
-                                            ],
-                                          ),
-                                        ],
+                            // Center: Product grid
+                            Expanded(
+                              flex: 5,
+                              child: Column(
+                                children: [
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 8.0,
                                       ),
-                                      const SizedBox(height: 12),
-                                      Expanded(
-                                        child: _billing.isEmpty
-                                            ? const Center(
-                                                child: Text('No items'),
-                                              )
-                                            : ListView.builder(
-                                                itemCount: _billing.length,
-                                                itemBuilder: (context, i) {
-                                                  final b = _billing[i];
-                                                  return ListTile(
-                                                    contentPadding:
-                                                        EdgeInsets.zero,
-                                                    title: Text(
-                                                      b.product.name,
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    ),
-                                                    subtitle: Text(
-                                                      '₹${(b.product.sellingPrice ?? 0).toStringAsFixed(2)} x ${b.qty}',
-                                                    ),
-                                                    trailing: Text(
-                                                      '₹${(b.lineTotal).toStringAsFixed(2)}',
-                                                      style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold,
+                                      child: Text(
+                                        '${_filteredProducts.length} products',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyLarge
+                                            ?.copyWith(color: Colors.grey[700]),
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: _panelDecoration,
+                                      child: LayoutBuilder(
+                                        builder: (context, constraints) {
+                                          final width = constraints.maxWidth;
+                                          // dynamic columns based on available center width
+                                          final spacing = 10.0;
+                                          final minCardWidth = 240.0;
+                                          int crossAxisCount =
+                                              (width / (minCardWidth + spacing))
+                                                  .floor()
+                                                  .clamp(2, 8);
+                                          // recalc card width and derive a childAspectRatio that keeps height sensible
+                                          final cardWidth =
+                                              (width -
+                                                  (crossAxisCount - 1) *
+                                                      spacing) /
+                                              crossAxisCount;
+                                          final desiredCardHeight =
+                                              220.0; // visual target
+                                          final childAspectRatio =
+                                              cardWidth / desiredCardHeight;
+                                          return _filteredProducts.isEmpty
+                                              ? const Center(
+                                                  child: Text('No products'),
+                                                )
+                                              : GridView.builder(
+                                                  gridDelegate:
+                                                      SliverGridDelegateWithFixedCrossAxisCount(
+                                                        crossAxisCount:
+                                                            crossAxisCount,
+                                                        crossAxisSpacing:
+                                                            spacing,
+                                                        mainAxisSpacing:
+                                                            spacing,
+                                                        childAspectRatio:
+                                                            childAspectRatio
+                                                                .clamp(
+                                                                  0.7,
+                                                                  1.5,
+                                                                ),
                                                       ),
-                                                    ),
-                                                  );
-                                                },
-                                              ),
-                                      ),
-                                      const Divider(),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            'Total',
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .titleMedium
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                          ),
-                                          Text(
-                                            '₹${_billingTotal.toStringAsFixed(2)}',
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .titleMedium
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.green[800],
-                                                ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: ElevatedButton.icon(
-                                              onPressed: _billing.isEmpty
-                                                  ? null
-                                                  : _holdCurrentBill,
-                                              icon: const Icon(
-                                                Icons.pause_circle,
-                                              ),
-                                              label: const Text('Hold'),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: ElevatedButton.icon(
-                                              onPressed: _heldBills.isEmpty
-                                                  ? null
-                                                  : _openHeldBills,
-                                              icon: const Icon(
-                                                Icons.folder_open,
-                                              ),
-                                              label: Text(
-                                                'Holds (${_heldBills.length})',
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: OutlinedButton(
-                                              onPressed: _billing.isEmpty
-                                                  ? null
-                                                  : () {
-                                                      ScaffoldMessenger.of(
-                                                        context,
-                                                      ).showSnackBar(
-                                                        const SnackBar(
-                                                          content: Text(
-                                                            'Invoice created (dummy)',
+                                                  itemCount:
+                                                      _filteredProducts.length,
+                                                  itemBuilder: (context, i) {
+                                                    final p =
+                                                        _filteredProducts[i];
+                                                    final price =
+                                                        p.sellingPrice ?? 0.0;
+                                                    final inCart = _billing
+                                                        .where(
+                                                          (b) =>
+                                                              b.product.id ==
+                                                              p.id,
+                                                        )
+                                                        .fold<int>(
+                                                          0,
+                                                          (s, b) => s + b.qty,
+                                                        );
+                                                    return MouseRegion(
+                                                      onEnter: (_) => setState(
+                                                        () =>
+                                                            _hoveredProductId =
+                                                                p.id,
+                                                      ),
+                                                      onExit: (_) => setState(
+                                                        () =>
+                                                            _hoveredProductId =
+                                                                null,
+                                                      ),
+                                                      child: AnimatedPhysicalModel(
+                                                        duration:
+                                                            const Duration(
+                                                              milliseconds: 180,
+                                                            ),
+                                                        curve: Curves.easeOut,
+                                                        elevation:
+                                                            _hoveredProductId ==
+                                                                p.id
+                                                            ? 8
+                                                            : 2,
+                                                        shape:
+                                                            BoxShape.rectangle,
+                                                        shadowColor:
+                                                            Colors.black54,
+                                                        color: Colors.white,
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              _cardRadius,
+                                                            ),
+                                                        child: Transform.scale(
+                                                          scale:
+                                                              _hoveredProductId ==
+                                                                  p.id
+                                                              ? 1.02
+                                                              : 1.0,
+                                                          child: Material(
+                                                            color: Colors.white,
+                                                            elevation: 0,
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  _cardRadius,
+                                                                ),
+                                                            child: InkWell(
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    _cardRadius,
+                                                                  ),
+                                                              onTap: () =>
+                                                                  _addToBilling(
+                                                                    p,
+                                                                  ),
+                                                              child: Padding(
+                                                                padding:
+                                                                    const EdgeInsets.all(
+                                                                      10.0,
+                                                                    ),
+                                                                child: Column(
+                                                                  crossAxisAlignment:
+                                                                      CrossAxisAlignment
+                                                                          .start,
+                                                                  children: [
+                                                                    SizedBox(
+                                                                      height:
+                                                                          88,
+                                                                      child: ClipRRect(
+                                                                        borderRadius: BorderRadius.circular(
+                                                                          _cardRadius -
+                                                                              4,
+                                                                        ),
+                                                                        child:
+                                                                            p.primaryImagePath !=
+                                                                                    null &&
+                                                                                p.primaryImagePath!.isNotEmpty
+                                                                            ? Image.file(
+                                                                                File(
+                                                                                  p.primaryImagePath!,
+                                                                                ),
+                                                                                fit: BoxFit.cover,
+                                                                                width: double.infinity,
+                                                                                errorBuilder:
+                                                                                    (
+                                                                                      _,
+                                                                                      __,
+                                                                                      ___,
+                                                                                    ) => Container(
+                                                                                      color: Colors.grey[100],
+                                                                                      alignment: Alignment.center,
+                                                                                      child: const Text(
+                                                                                        'No image',
+                                                                                      ),
+                                                                                    ),
+                                                                              )
+                                                                            : Container(
+                                                                                color: Colors.grey[100],
+                                                                                alignment: Alignment.center,
+                                                                                child: const Text(
+                                                                                  'No image',
+                                                                                ),
+                                                                              ),
+                                                                      ),
+                                                                    ),
+                                                                    const SizedBox(
+                                                                      height: 6,
+                                                                    ),
+                                                                    Text(
+                                                                      p.name,
+                                                                      maxLines:
+                                                                          2,
+                                                                      overflow:
+                                                                          TextOverflow
+                                                                              .ellipsis,
+                                                                      style: const TextStyle(
+                                                                        fontWeight:
+                                                                            FontWeight.w600,
+                                                                      ),
+                                                                    ),
+                                                                    const SizedBox(
+                                                                      height: 4,
+                                                                    ),
+                                                                    Row(
+                                                                      mainAxisAlignment:
+                                                                          MainAxisAlignment
+                                                                              .spaceBetween,
+                                                                      children: [
+                                                                        Text(
+                                                                          '₹${price.toStringAsFixed(2)}',
+                                                                          style: TextStyle(
+                                                                            color:
+                                                                                Colors.grey[800],
+                                                                            fontWeight:
+                                                                                FontWeight.bold,
+                                                                          ),
+                                                                        ),
+                                                                        Row(
+                                                                          children: [
+                                                                            IconButton(
+                                                                              icon: const Icon(
+                                                                                Icons.remove_circle_outline,
+                                                                              ),
+                                                                              onPressed: () => _removeFromBilling(
+                                                                                p,
+                                                                              ),
+                                                                              splashRadius: 18,
+                                                                            ),
+                                                                            Container(
+                                                                              padding: const EdgeInsets.symmetric(
+                                                                                horizontal: 8,
+                                                                                vertical: 4,
+                                                                              ),
+                                                                              decoration: BoxDecoration(
+                                                                                color:
+                                                                                    inCart >
+                                                                                        0
+                                                                                    ? _chipSelectedColor
+                                                                                    : Colors.transparent,
+                                                                                borderRadius: BorderRadius.circular(
+                                                                                  6,
+                                                                                ),
+                                                                              ),
+                                                                              child: Text(
+                                                                                '$inCart',
+                                                                                style: const TextStyle(
+                                                                                  fontWeight: FontWeight.w600,
+                                                                                ),
+                                                                              ),
+                                                                            ),
+                                                                            IconButton(
+                                                                              icon: const Icon(
+                                                                                Icons.add_circle_outline,
+                                                                              ),
+                                                                              onPressed: () => _addToBilling(
+                                                                                p,
+                                                                              ),
+                                                                              splashRadius: 18,
+                                                                            ),
+                                                                          ],
+                                                                        ),
+                                                                      ],
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                            ),
                                                           ),
                                                         ),
-                                                      );
-                                                      setState(
-                                                        () => _billing.clear(),
-                                                      );
-                                                    },
-                                              child: const Text(
-                                                'Create Invoice',
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: OutlinedButton(
-                                              onPressed: _billing.isEmpty
-                                                  ? null
-                                                  : () => setState(
-                                                      () => _billing.clear(),
-                                                    ),
-                                              child: const Text('Clear'),
-                                            ),
-                                          ),
-                                        ],
+                                                      ),
+                                                    );
+                                                  },
+                                                );
+                                        },
                                       ),
-                                    ],
+                                    ),
                                   ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(width: 16),
+
+                            SizedBox(
+                              width: rightWidth,
+                              child: Container(
+                                decoration: _panelDecoration,
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Billing',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleLarge
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: _accentColor,
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              '${_billing.length} items',
+                                              style: Theme.of(
+                                                context,
+                                              ).textTheme.bodySmall,
+                                            ),
+                                          ],
+                                        ),
+                                        const Spacer(),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Expanded(
+                                      child: _billing.isEmpty
+                                          ? const Center(
+                                              child: Text('No items'),
+                                            )
+                                          : ListView.builder(
+                                              itemCount: _billing.length,
+                                              itemBuilder: (context, i) {
+                                                final b = _billing[i];
+                                                return Card(
+                                                  elevation: 0,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          10,
+                                                        ),
+                                                  ),
+                                                  margin:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 6,
+                                                      ),
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 8,
+                                                        ),
+                                                    child: Row(
+                                                      children: [
+                                                        // Delete at front
+                                                        InkWell(
+                                                          onTap: () =>
+                                                              _deleteFromBilling(
+                                                                b.product,
+                                                              ),
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                8,
+                                                              ),
+                                                          child: Container(
+                                                            padding:
+                                                                const EdgeInsets.all(
+                                                                  8,
+                                                                ),
+                                                            decoration:
+                                                                BoxDecoration(
+                                                                  color: Colors
+                                                                      .red[50],
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        8,
+                                                                      ),
+                                                                ),
+                                                            child: Icon(
+                                                              Icons
+                                                                  .delete_outline,
+                                                              size: 18,
+                                                              color: Colors
+                                                                  .red[700],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 12,
+                                                        ),
+                                                        Expanded(
+                                                          child: Column(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              Text(
+                                                                b.product.name,
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                                style: const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                ),
+                                                              ),
+                                                              const SizedBox(
+                                                                height: 4,
+                                                              ),
+                                                              Text(
+                                                                '₹${(b.product.sellingPrice ?? 0).toStringAsFixed(2)} each',
+                                                                style: Theme.of(
+                                                                  context,
+                                                                ).textTheme.bodySmall,
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 8,
+                                                        ),
+                                                        // Quantity controls
+                                                        Container(
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                horizontal: 6,
+                                                                vertical: 4,
+                                                              ),
+                                                          decoration: BoxDecoration(
+                                                            color:
+                                                                Colors.grey[50],
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  8,
+                                                                ),
+                                                            border: Border.all(
+                                                              color: Colors
+                                                                  .grey[200]!,
+                                                            ),
+                                                          ),
+                                                          child: Row(
+                                                            children: [
+                                                              InkWell(
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                      6,
+                                                                    ),
+                                                                onTap: () =>
+                                                                    _removeFromBilling(
+                                                                      b.product,
+                                                                    ),
+                                                                child: const Padding(
+                                                                  padding:
+                                                                      EdgeInsets.symmetric(
+                                                                        horizontal:
+                                                                            6,
+                                                                        vertical:
+                                                                            4,
+                                                                      ),
+                                                                  child: Icon(
+                                                                    Icons
+                                                                        .remove,
+                                                                    size: 18,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              const SizedBox(
+                                                                width: 6,
+                                                              ),
+                                                              Text(
+                                                                '${b.qty}',
+                                                                style: const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                ),
+                                                              ),
+                                                              const SizedBox(
+                                                                width: 6,
+                                                              ),
+                                                              InkWell(
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                      6,
+                                                                    ),
+                                                                onTap: () =>
+                                                                    _addToBilling(
+                                                                      b.product,
+                                                                    ),
+                                                                child: const Padding(
+                                                                  padding:
+                                                                      EdgeInsets.symmetric(
+                                                                        horizontal:
+                                                                            6,
+                                                                        vertical:
+                                                                            4,
+                                                                      ),
+                                                                  child: Icon(
+                                                                    Icons.add,
+                                                                    size: 18,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 8,
+                                                        ),
+                                                        // Line total
+                                                        Text(
+                                                          '₹${(b.lineTotal).toStringAsFixed(2)}',
+                                                          style:
+                                                              const TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                              ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                    ),
+                                    const Divider(),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Total',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                        ),
+                                        Text(
+                                          '₹${_billingTotal.toStringAsFixed(2)}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                                color: _accentColor,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              elevation: 0,
+                                              backgroundColor: Colors.grey[200],
+                                              foregroundColor: Colors.black87,
+                                            ),
+                                            onPressed: _billing.isEmpty
+                                                ? null
+                                                : _holdCurrentBill,
+                                            icon: const Icon(
+                                              Icons.pause_circle,
+                                            ),
+                                            label: const Text('Hold'),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: ElevatedButton.icon(
+                                            onPressed: _heldBills.isEmpty
+                                                ? null
+                                                : _openHeldBills,
+                                            icon: const Icon(Icons.folder_open),
+                                            label: Text(
+                                              'Holds (${_heldBills.length})',
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: ElevatedButton(
+                                            onPressed: _billing.isEmpty
+                                                ? null
+                                                : () {
+                                                    ScaffoldMessenger.of(
+                                                      context,
+                                                    ).showSnackBar(
+                                                      const SnackBar(
+                                                        content: Text(
+                                                          'Invoice created (dummy)',
+                                                        ),
+                                                      ),
+                                                    );
+                                                    setState(
+                                                      () => _billing.clear(),
+                                                    );
+                                                  },
+                                            child: const Text('Create Invoice'),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: OutlinedButton(
+                                            onPressed: _billing.isEmpty
+                                                ? null
+                                                : () => setState(
+                                                    () => _billing.clear(),
+                                                  ),
+                                            child: const Text('Clear'),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                   ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1122,28 +1434,29 @@ class _PosScreenState extends State<PosScreen> {
 
   Widget _buildTopBar(BuildContext context) {
     return Container(
-      height: 72,
+      height: 76,
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: const Color.fromRGBO(0, 0, 0, 0.06),
-            blurRadius: 8,
+            color: const Color.fromRGBO(0, 0, 0, 0.05),
+            blurRadius: 10,
             offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Row(
         children: [
+          // Logo / title
           Row(
             children: [
               Container(
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade700,
-                  borderRadius: BorderRadius.circular(8),
+                  color: _accentColor,
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.store, color: Colors.white),
               ),
@@ -1168,7 +1481,50 @@ class _PosScreenState extends State<PosScreen> {
               ),
             ],
           ),
-          const Spacer(),
+
+          // Centered search bar (desktop, understated)
+          Expanded(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 680),
+                child: Container(
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey.withOpacity(0.12)),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: TextField(
+                    focusNode: _searchFocusNode,
+                    controller: _searchController,
+                    onChanged: _onSearchChanged,
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      hintText: 'Search products...',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      prefixIconConstraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                      border: InputBorder.none,
+                      isDense: true,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(
+                          color: _accentColor.withOpacity(0.18),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Shortcuts hint
           Row(
             children: [
               Container(
@@ -1191,11 +1547,6 @@ class _PosScreenState extends State<PosScreen> {
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
-              CircleAvatar(
-                backgroundColor: Colors.grey[200],
-                child: const Icon(Icons.person, color: Colors.black87),
-              ),
             ],
           ),
         ],
@@ -1205,7 +1556,7 @@ class _PosScreenState extends State<PosScreen> {
 
   BoxDecoration get _panelDecoration => BoxDecoration(
     color: Colors.white,
-    borderRadius: BorderRadius.circular(12.0),
+    borderRadius: BorderRadius.circular(_panelRadius),
     boxShadow: [
       BoxShadow(
         color: const Color.fromRGBO(0, 0, 0, 0.04),
