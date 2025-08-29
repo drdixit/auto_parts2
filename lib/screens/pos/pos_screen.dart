@@ -347,47 +347,49 @@ class _PosScreenState extends State<PosScreen> {
         title: const Text('Held Bills'),
         content: SizedBox(
           width: 560,
-          child: _heldBills.isEmpty
-              ? const Center(child: Text('No held bills'))
-              : ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: _heldBills.length,
-                  itemBuilder: (context, i) {
-                    final hb = _heldBills[i];
-                    final totalQty = hb.items.fold<int>(
-                      0,
-                      (s, it) => s + it.qty,
-                    );
-                    return ListTile(
-                      title: Text(
-                        'Hold ${hb.id} - ${hb.items.length} - ${totalQty}',
-                      ),
-                      subtitle: Text('${hb.createdAt}'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          TextButton(
-                            onPressed: () {
-                              setState(() => _loadHeldBill(hb));
-                              Navigator.of(context).pop();
-                            },
-                            child: const Text('Load'),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              setState(() {
-                                final removed = _heldBills.removeAt(i);
-                                if (_editingHoldId == removed.id)
-                                  _editingHoldId = null;
-                              });
-                            },
-                            child: const Text('Delete'),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+          child: StatefulBuilder(
+            builder: (context, dialogSetState) {
+              if (_heldBills.isEmpty)
+                return const Center(child: Text('No held bills'));
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: _heldBills.length,
+                itemBuilder: (context, i) {
+                  final hb = _heldBills[i];
+                  final totalQty = hb.items.fold<int>(0, (s, it) => s + it.qty);
+                  return ListTile(
+                    title: Text(
+                      'Hold ${hb.id} - ${hb.items.length} - ${totalQty}',
+                    ),
+                    subtitle: Text('${hb.createdAt}'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            // load in parent state and close dialog
+                            setState(() => _loadHeldBill(hb));
+                            Navigator.of(context).pop();
+                          },
+                          child: const Text('Load'),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            dialogSetState(() {
+                              final removed = _heldBills.removeAt(i);
+                              if (_editingHoldId == removed.id)
+                                _editingHoldId = null;
+                            });
+                          },
+                          child: const Text('Delete'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          ),
         ),
         actions: [
           TextButton(
