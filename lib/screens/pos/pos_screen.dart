@@ -847,9 +847,15 @@ class _PosScreenState extends State<PosScreen> {
                                                   (crossAxisCount - 1) *
                                                       spacing) /
                                               crossAxisCount;
-                                          // Increase desired card height so two-line titles fit without overflow
+                                          // Make image smaller than full card width so the
+                                          // remaining text/buttons fit without overflow.
+                                          final imageHeight =
+                                              cardWidth *
+                                              0.50; // 50% of card width
+                                          // card height = image area + space for title, price and buttons
+                                          // add a slightly larger safety margin to avoid pixel rounding overflow
                                           final desiredCardHeight =
-                                              220.0; // visual target
+                                              imageHeight + 80.0;
                                           final childAspectRatio =
                                               cardWidth / desiredCardHeight;
                                           // small bottom padding for visual balance
@@ -876,8 +882,8 @@ class _PosScreenState extends State<PosScreen> {
                                                         childAspectRatio:
                                                             childAspectRatio
                                                                 .clamp(
-                                                                  0.7,
-                                                                  1.5,
+                                                                  0.6,
+                                                                  1.6,
                                                                 ),
                                                       ),
                                                   itemCount:
@@ -959,12 +965,13 @@ class _PosScreenState extends State<PosScreen> {
                                                                       p,
                                                                     ),
                                                                 child: Padding(
-                                                                  padding: const EdgeInsets.symmetric(
-                                                                    horizontal:
-                                                                        10.0,
-                                                                    vertical:
-                                                                        8.0,
-                                                                  ),
+                                                                  padding:
+                                                                      const EdgeInsets.symmetric(
+                                                                        horizontal:
+                                                                            8.0,
+                                                                        vertical:
+                                                                            4.0,
+                                                                      ),
                                                                   child: Column(
                                                                     crossAxisAlignment:
                                                                         CrossAxisAlignment
@@ -972,7 +979,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                     children: [
                                                                       SizedBox(
                                                                         height:
-                                                                            64,
+                                                                            imageHeight,
                                                                         child: ClipRRect(
                                                                           borderRadius: BorderRadius.circular(
                                                                             _cardRadius -
@@ -1013,7 +1020,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                       // tighten vertical spacing and allow title two lines
                                                                       const SizedBox(
                                                                         height:
-                                                                            6,
+                                                                            4,
                                                                       ),
                                                                       Text(
                                                                         p.name,
@@ -1022,15 +1029,16 @@ class _PosScreenState extends State<PosScreen> {
                                                                         overflow:
                                                                             TextOverflow.ellipsis,
                                                                         style: const TextStyle(
+                                                                          fontSize:
+                                                                              13.0,
                                                                           fontWeight:
                                                                               FontWeight.w600,
                                                                         ),
                                                                       ),
                                                                       const SizedBox(
                                                                         height:
-                                                                            6,
+                                                                            2,
                                                                       ),
-                                                                      const Spacer(),
                                                                       Row(
                                                                         mainAxisAlignment:
                                                                             MainAxisAlignment.spaceBetween,
@@ -1045,6 +1053,11 @@ class _PosScreenState extends State<PosScreen> {
                                                                           Row(
                                                                             children: [
                                                                               IconButton(
+                                                                                iconSize: 18,
+                                                                                padding: const EdgeInsets.all(
+                                                                                  4,
+                                                                                ),
+                                                                                constraints: const BoxConstraints(),
                                                                                 icon: const Icon(
                                                                                   Icons.remove_circle_outline,
                                                                                 ),
@@ -1076,6 +1089,11 @@ class _PosScreenState extends State<PosScreen> {
                                                                                 ),
                                                                               ),
                                                                               IconButton(
+                                                                                iconSize: 18,
+                                                                                padding: const EdgeInsets.all(
+                                                                                  4,
+                                                                                ),
+                                                                                constraints: const BoxConstraints(),
                                                                                 icon: const Icon(
                                                                                   Icons.add_circle_outline,
                                                                                 ),
