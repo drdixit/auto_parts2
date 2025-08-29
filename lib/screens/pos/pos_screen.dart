@@ -847,15 +847,24 @@ class _PosScreenState extends State<PosScreen> {
                                                   (crossAxisCount - 1) *
                                                       spacing) /
                                               crossAxisCount;
+                                          // Increase desired card height so two-line titles fit without overflow
                                           final desiredCardHeight =
-                                              180.0; // visual target (reduced to allow denser layout)
+                                              220.0; // visual target
                                           final childAspectRatio =
                                               cardWidth / desiredCardHeight;
+                                          // small bottom padding for visual balance
                                           return _filteredProducts.isEmpty
                                               ? const Center(
                                                   child: Text('No products'),
                                                 )
                                               : GridView.builder(
+                                                  padding: EdgeInsets.only(
+                                                    bottom: 12,
+                                                    top: spacing,
+                                                  ),
+                                                  physics:
+                                                      const AlwaysScrollableScrollPhysics(),
+                                                  shrinkWrap: false,
                                                   gridDelegate:
                                                       SliverGridDelegateWithFixedCrossAxisCount(
                                                         crossAxisCount:
@@ -950,10 +959,12 @@ class _PosScreenState extends State<PosScreen> {
                                                                       p,
                                                                     ),
                                                                 child: Padding(
-                                                                  padding:
-                                                                      const EdgeInsets.all(
+                                                                  padding: const EdgeInsets.symmetric(
+                                                                    horizontal:
                                                                         10.0,
-                                                                      ),
+                                                                    vertical:
+                                                                        8.0,
+                                                                  ),
                                                                   child: Column(
                                                                     crossAxisAlignment:
                                                                         CrossAxisAlignment
@@ -961,7 +972,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                     children: [
                                                                       SizedBox(
                                                                         height:
-                                                                            88,
+                                                                            64,
                                                                         child: ClipRRect(
                                                                           borderRadius: BorderRadius.circular(
                                                                             _cardRadius -
@@ -999,6 +1010,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                                 ),
                                                                         ),
                                                                       ),
+                                                                      // tighten vertical spacing and allow title two lines
                                                                       const SizedBox(
                                                                         height:
                                                                             6,
@@ -1016,8 +1028,9 @@ class _PosScreenState extends State<PosScreen> {
                                                                       ),
                                                                       const SizedBox(
                                                                         height:
-                                                                            4,
+                                                                            6,
                                                                       ),
+                                                                      const Spacer(),
                                                                       Row(
                                                                         mainAxisAlignment:
                                                                             MainAxisAlignment.spaceBetween,
