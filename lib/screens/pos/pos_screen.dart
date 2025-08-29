@@ -989,24 +989,33 @@ class _PosScreenState extends State<PosScreen> {
                                                                               p.primaryImagePath !=
                                                                                       null &&
                                                                                   p.primaryImagePath!.isNotEmpty
-                                                                              ? Image.file(
-                                                                                  File(
-                                                                                    p.primaryImagePath!,
-                                                                                  ),
-                                                                                  fit: BoxFit.cover,
-                                                                                  width: double.infinity,
-                                                                                  errorBuilder:
-                                                                                      (
-                                                                                        _,
-                                                                                        __,
-                                                                                        ___,
-                                                                                      ) => Container(
-                                                                                        color: Colors.grey[100],
-                                                                                        alignment: Alignment.center,
-                                                                                        child: const Text(
-                                                                                          'No image',
+                                                                              ? Container(
+                                                                                  color: Colors.grey[100],
+                                                                                  alignment: Alignment.center,
+                                                                                  child: Image.file(
+                                                                                    File(
+                                                                                      p.primaryImagePath!,
+                                                                                    ),
+                                                                                    fit: BoxFit.contain,
+                                                                                    width:
+                                                                                        cardWidth *
+                                                                                        0.9,
+                                                                                    height:
+                                                                                        imageHeight *
+                                                                                        0.9,
+                                                                                    errorBuilder:
+                                                                                        (
+                                                                                          _,
+                                                                                          __,
+                                                                                          ___,
+                                                                                        ) => Container(
+                                                                                          color: Colors.grey[100],
+                                                                                          alignment: Alignment.center,
+                                                                                          child: const Text(
+                                                                                            'No image',
+                                                                                          ),
                                                                                         ),
-                                                                                      ),
+                                                                                  ),
                                                                                 )
                                                                               : Container(
                                                                                   color: Colors.grey[100],
@@ -1538,11 +1547,6 @@ class _PosScreenState extends State<PosScreen> {
                 constraints: const BoxConstraints(maxWidth: 680),
                 child: Container(
                   height: 42,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.grey.withOpacity(0.12)),
-                  ),
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: TextField(
                     focusNode: _searchFocusNode,
@@ -1557,9 +1561,19 @@ class _PosScreenState extends State<PosScreen> {
                         minHeight: 36,
                       ),
                       contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                      border: InputBorder.none,
                       isDense: true,
-                      enabledBorder: InputBorder.none,
+                      filled: true,
+                      fillColor: Colors.grey[100],
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.transparent),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(
+                          color: Colors.grey.withOpacity(0.12),
+                        ),
+                      ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: BorderSide(
