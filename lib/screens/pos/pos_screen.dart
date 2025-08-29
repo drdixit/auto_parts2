@@ -319,8 +319,9 @@ class _PosScreenState extends State<PosScreen> {
               itemCount: _heldBills.length,
               itemBuilder: (context, i) {
                 final hb = _heldBills[i];
+                final totalQty = hb.items.fold<int>(0, (s, it) => s + it.qty);
                 return ListTile(
-                  title: Text('Hold ${hb.id} - ${hb.items.length} items'),
+                  title: Text('Hold ${hb.id} - ${hb.items.length}-${totalQty}'),
                   subtitle: Text('${hb.createdAt}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -823,9 +824,23 @@ class _PosScreenState extends State<PosScreen> {
                                       child: LayoutBuilder(
                                         builder: (context, constraints) {
                                           final width = constraints.maxWidth;
-                                          // Fixed 3-column layout (desktop-style). Card width will scale with available center width.
-                                          final spacing = 10.0;
-                                          const int crossAxisCount = 3;
+                                          // Responsive columns: compute how many columns fit by a minimum card width,
+                                          // but limit to 2 or 3 columns only (desktop-focused). This ensures 3 columns
+                                          // on wide displays (e.g. a maximized 1080p window) while using 2 columns on narrow panes.
+                                          final spacing = 8.0;
+                                          const int minCols = 2;
+                                          const int maxCols = 3;
+                                          // Minimum practical card width for our layout. Reduced so 3 columns fit on common 1080p center widths.
+                                          const double minCardWidth = 220.0;
+                                          final computedCols =
+                                              ((width + spacing) /
+                                                      (minCardWidth + spacing))
+                                                  .floor();
+                                          final int crossAxisCount =
+                                              computedCols.clamp(
+                                                minCols,
+                                                maxCols,
+                                              );
                                           // recalc card width and derive a childAspectRatio that keeps height sensible
                                           final cardWidth =
                                               (width -
@@ -833,7 +848,7 @@ class _PosScreenState extends State<PosScreen> {
                                                       spacing) /
                                               crossAxisCount;
                                           final desiredCardHeight =
-                                              220.0; // visual target
+                                              180.0; // visual target (reduced to allow denser layout)
                                           final childAspectRatio =
                                               cardWidth / desiredCardHeight;
                                           return _filteredProducts.isEmpty
