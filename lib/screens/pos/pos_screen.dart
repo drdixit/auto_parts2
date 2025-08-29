@@ -1403,37 +1403,245 @@ class _PosScreenState extends State<PosScreen> {
                                       ],
                                     ),
                                     const SizedBox(height: 12),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: ElevatedButton.icon(
-                                            style: ElevatedButton.styleFrom(
-                                              elevation: 0,
-                                              backgroundColor: Colors.grey[200],
-                                              foregroundColor: Colors.black87,
+                                    // Quick access held bills: show up to 5 recent holds as buttons
+                                    const SizedBox(height: 8),
+                                    Builder(
+                                      builder: (context) {
+                                        final displayHolds = _heldBills.reversed
+                                            .take(5)
+                                            .toList();
+                                        return Wrap(
+                                          spacing: 8,
+                                          runSpacing: 6,
+                                          crossAxisAlignment:
+                                              WrapCrossAlignment.center,
+                                          children: [
+                                            // Hold current bill button
+                                            ElevatedButton.icon(
+                                              style: ElevatedButton.styleFrom(
+                                                elevation: 0,
+                                                backgroundColor:
+                                                    Colors.grey[200],
+                                                foregroundColor: Colors.black87,
+                                              ),
+                                              onPressed: _billing.isEmpty
+                                                  ? null
+                                                  : _holdCurrentBill,
+                                              icon: const Icon(
+                                                Icons.pause_circle,
+                                              ),
+                                              label: const Text('Hold'),
                                             ),
-                                            onPressed: _billing.isEmpty
-                                                ? null
-                                                : _holdCurrentBill,
-                                            icon: const Icon(
-                                              Icons.pause_circle,
+                                            // Quick-held buttons (recent first) - fixed width, with delete
+                                            ...displayHolds.map((hb) {
+                                              final totalQty = hb.items
+                                                  .fold<int>(
+                                                    0,
+                                                    (s, it) => s + it.qty,
+                                                  );
+                                              return SizedBox(
+                                                width: 92,
+                                                child: OutlinedButton(
+                                                  onPressed: () =>
+                                                      _loadHeldBill(hb),
+                                                  style: OutlinedButton.styleFrom(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 6,
+                                                        ),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
+                                                    children: [
+                                                      Expanded(
+                                                        child: Column(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
+                                                          children: [
+                                                            Text(
+                                                              'H${hb.id}',
+                                                              style: const TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                fontSize: 12,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(
+                                                              height: 2,
+                                                            ),
+                                                            Text(
+                                                              '${hb.items.length}-${totalQty}',
+                                                              style: TextStyle(
+                                                                fontSize: 11,
+                                                                color: Colors
+                                                                    .grey[700],
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      // per-button delete
+                                                      InkWell(
+                                                        onTap: () async {
+                                                          final confirm = await showDialog<bool>(
+                                                            context: context,
+                                                            builder: (context) => AlertDialog(
+                                                              title: const Text(
+                                                                'Delete hold?',
+                                                              ),
+                                                              content: const Text(
+                                                                'Remove this held bill?',
+                                                              ),
+                                                              actions: [
+                                                                TextButton(
+                                                                  onPressed: () =>
+                                                                      Navigator.of(
+                                                                        context,
+                                                                      ).pop(
+                                                                        false,
+                                                                      ),
+                                                                  child:
+                                                                      const Text(
+                                                                        'Cancel',
+                                                                      ),
+                                                                ),
+                                                                TextButton(
+                                                                  onPressed: () =>
+                                                                      Navigator.of(
+                                                                        context,
+                                                                      ).pop(
+                                                                        true,
+                                                                      ),
+                                                                  child: const Text(
+                                                                    'Delete',
+                                                                    style: TextStyle(
+                                                                      color: Colors
+                                                                          .red,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          );
+                                                          if (confirm == true) {
+                                                            setState(
+                                                              () => _heldBills
+                                                                  .remove(hb),
+                                                            );
+                                                            ScaffoldMessenger.of(
+                                                              context,
+                                                            ).showSnackBar(
+                                                              const SnackBar(
+                                                                content: Text(
+                                                                  'Held bill removed',
+                                                                ),
+                                                              ),
+                                                            );
+                                                          }
+                                                        },
+                                                        child: Padding(
+                                                          padding:
+                                                              const EdgeInsets.only(
+                                                                left: 6,
+                                                              ),
+                                                          child: Icon(
+                                                            Icons.close,
+                                                            size: 16,
+                                                            color:
+                                                                Colors.red[400],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              );
+                                            }).toList(),
+                                            // If there are more than 5 holds, show a 'More' button to open full list
+                                            if (_heldBills.length > 5)
+                                              OutlinedButton(
+                                                onPressed: _openHeldBills,
+                                                child: Text(
+                                                  'More (${_heldBills.length})',
+                                                ),
+                                              ),
+                                            // Clear all holds button
+                                            OutlinedButton.icon(
+                                              onPressed: _heldBills.isEmpty
+                                                  ? null
+                                                  : () async {
+                                                      final confirm = await showDialog<bool>(
+                                                        context: context,
+                                                        builder: (context) {
+                                                          return AlertDialog(
+                                                            title: const Text(
+                                                              'Clear all holds?',
+                                                            ),
+                                                            content: const Text(
+                                                              'This will remove all held bills. This action cannot be undone.',
+                                                            ),
+                                                            actions: [
+                                                              TextButton(
+                                                                onPressed: () =>
+                                                                    Navigator.of(
+                                                                      context,
+                                                                    ).pop(
+                                                                      false,
+                                                                    ),
+                                                                child:
+                                                                    const Text(
+                                                                      'Cancel',
+                                                                    ),
+                                                              ),
+                                                              TextButton(
+                                                                onPressed: () =>
+                                                                    Navigator.of(
+                                                                      context,
+                                                                    ).pop(true),
+                                                                child: const Text(
+                                                                  'Clear',
+                                                                  style: TextStyle(
+                                                                    color: Colors
+                                                                        .red,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          );
+                                                        },
+                                                      );
+                                                      if (confirm == true) {
+                                                        setState(
+                                                          () => _heldBills
+                                                              .clear(),
+                                                        );
+                                                        ScaffoldMessenger.of(
+                                                          context,
+                                                        ).showSnackBar(
+                                                          const SnackBar(
+                                                            content: Text(
+                                                              'All held bills cleared',
+                                                            ),
+                                                          ),
+                                                        );
+                                                      }
+                                                    },
+                                              icon: const Icon(
+                                                Icons.delete_outline,
+                                                color: Colors.redAccent,
+                                              ),
+                                              label: const Text('Clear all'),
                                             ),
-                                            label: const Text('Hold'),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: ElevatedButton.icon(
-                                            onPressed: _heldBills.isEmpty
-                                                ? null
-                                                : _openHeldBills,
-                                            icon: const Icon(Icons.folder_open),
-                                            label: Text(
-                                              'Holds (${_heldBills.length})',
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                          ],
+                                        );
+                                      },
                                     ),
                                     const SizedBox(height: 8),
                                     Row(
