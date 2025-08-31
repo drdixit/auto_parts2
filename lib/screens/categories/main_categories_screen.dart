@@ -26,7 +26,7 @@ class _MainCategoriesScreenState extends State<MainCategoriesScreen> {
         children: [
           Container(
             color: AppColors.surfaceLight,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: TabBar(
               labelColor: Theme.of(context).colorScheme.primary,
               unselectedLabelColor: AppColors.textSecondary,

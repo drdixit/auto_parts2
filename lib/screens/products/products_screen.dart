@@ -467,7 +467,10 @@ class _ProductsScreenState extends State<ProductsScreen>
         children: [
           // Header (icon + title + add button) to match Sub-Categories style
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12.0,
+              vertical: 12.0,
+            ),
             child: Row(
               children: [
                 const Icon(Icons.inventory_2_outlined, size: 24),
@@ -487,7 +490,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                   onPressed: _loadProducts,
                   tooltip: 'Refresh',
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 ElevatedButton.icon(
                   onPressed: _showAddProductDialog,
                   icon: const Icon(Icons.add),
@@ -498,7 +501,7 @@ class _ProductsScreenState extends State<ProductsScreen>
           ),
           // Search and Filter Section
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             color: AppColors.surfaceLight,
             child: Column(
               children: [
@@ -526,7 +529,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                   ),
                   onChanged: _onSearchChanged,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 // Filter Chips
                 Row(
                   children: [
