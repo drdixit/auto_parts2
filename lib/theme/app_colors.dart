@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 /// Centralized semantic color tokens for the app.
 class AppColors {
   // Surfaces
-  static const Color surface = Color(0xFFFFFFFF); // white
+  // Off-white surface used instead of pure white to avoid harsh contrast.
+  // Hex: #F7FAFC
+  static const Color surface = Color(0xFFF7FAFC);
   static const Color surfaceMuted = Color(0xFFF3F4F6); // light gray
-  static const Color surfaceLight = Color(0xFFFAFAFA);
+  // Use the same off-white as surface for light backgrounds to keep visuals consistent.
+  static const Color surfaceLight = Color(0xFFF7FAFC);
 
   // Text
   static const Color textPrimary = Color(0xFF111827);
