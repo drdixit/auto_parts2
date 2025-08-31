@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
+import 'package:auto_parts2/theme/app_colors.dart';
 
 /// Widget that safely loads a local file image and falls back to a placeholder
 /// if the file does not exist or fails to load.

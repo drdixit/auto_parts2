@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
-import '../../../models/sub_category.dart';
-import '../../../models/main_category.dart';
-import '../../../services/sub_category_service.dart';
-import '../../../services/main_category_service.dart';
+import 'package:auto_parts2/models/sub_category.dart';
+import 'package:auto_parts2/models/main_category.dart';
+import 'package:auto_parts2/services/sub_category_service.dart';
+import 'package:auto_parts2/services/main_category_service.dart';
 
 class SubCategoriesScreen extends StatefulWidget {
   const SubCategoriesScreen({super.key});

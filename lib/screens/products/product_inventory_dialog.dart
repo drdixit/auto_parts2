@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../models/product_inventory.dart';
-import '../../services/product_service.dart';
+import 'package:auto_parts2/models/product_inventory.dart';
+import 'package:auto_parts2/services/product_service.dart';
 
 class ProductInventoryDialog extends StatefulWidget {
   final int productId;

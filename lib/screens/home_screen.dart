@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'categories/main_categories_screen.dart';
 import 'pos/pos_screen.dart';
-import '../database/database_helper.dart';
+import 'package:auto_parts2/database/database_helper.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

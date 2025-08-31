@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'screens/home_screen.dart';
-import 'database/database_helper.dart';
+import 'package:auto_parts2/screens/home_screen.dart';
+import 'package:auto_parts2/database/database_helper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

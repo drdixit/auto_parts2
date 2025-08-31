@@ -1,6 +1,6 @@
-import '../database/database_helper.dart';
-import '../models/sub_category.dart';
-import 'product_service.dart';
+import 'package:auto_parts2/database/database_helper.dart';
+import 'package:auto_parts2/models/sub_category.dart';
+import 'package:auto_parts2/services/product_service.dart';
 
 class SubCategoryService {
   final DatabaseHelper _dbHelper = DatabaseHelper();

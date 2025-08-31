@@ -2,13 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
-import '../../models/product.dart';
-import '../../models/manufacturer.dart';
-import '../../models/sub_category.dart';
-import '../../models/product_image.dart';
-import '../../models/vehicle_model.dart';
-import '../../models/product_compatibility.dart';
-import '../../services/product_service.dart';
+import 'package:auto_parts2/models/models.dart';
+import 'package:auto_parts2/services/services.dart';
 
 class ProductFormDialog extends StatefulWidget {
   final Product? product;

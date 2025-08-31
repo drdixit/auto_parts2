@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../models/product.dart';
-import '../../models/product_compatibility.dart';
-import '../../models/vehicle_model.dart';
-import '../../services/product_service.dart';
+import 'package:auto_parts2/models/product.dart';
+import 'package:auto_parts2/models/product_compatibility.dart';
+import 'package:auto_parts2/models/vehicle_model.dart';
+import 'package:auto_parts2/services/product_service.dart';
 
 class ProductCompatibilityDialog extends StatefulWidget {
   final Product product;

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
-import '../../models/main_category.dart';
-import '../../services/main_category_service.dart';
-import '../../database/database_helper.dart';
-import 'sub_categories_screen.dart';
-import '../products/products_screen.dart';
+import 'package:auto_parts2/models/main_category.dart';
+import 'package:auto_parts2/services/main_category_service.dart';
+import 'package:auto_parts2/database/database_helper.dart';
+import 'package:auto_parts2/screens/categories/sub_categories_screen.dart';
+import 'package:auto_parts2/screens/products/products_screen.dart';
 
 class MainCategoriesScreen extends StatefulWidget {
   const MainCategoriesScreen({super.key});
@@ -15,105 +15,7 @@ class MainCategoriesScreen extends StatefulWidget {
 }
 
 class _MainCategoriesScreenState extends State<MainCategoriesScreen> {
-  final MainCategoryService _categoryService = MainCategoryService();
-  List<MainCategory> _categories = [];
-  List<MainCategory> _filteredCategories = [];
-  bool _isLoading = true;
-  final bool _showInactive = false;
-  final TextEditingController _searchController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _loadCategories();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadCategories() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final categories = await _categoryService.getAllCategories(
-        includeInactive: _showInactive,
-      );
-      setState(() {
-        _categories = categories;
-        _filteredCategories = categories;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      _showErrorSnackBar('Error loading categories: $e');
-    }
-  }
-
-  void _filterCategories(String searchTerm) {
-    setState(() {
-      if (searchTerm.isEmpty) {
-        _filteredCategories = _categories;
-      } else {
-        _filteredCategories = _categories.where((category) {
-          return category.name.toLowerCase().contains(
-                searchTerm.toLowerCase(),
-              ) ||
-              (category.description?.toLowerCase().contains(
-                    searchTerm.toLowerCase(),
-                  ) ??
-                  false);
-        }).toList();
-      }
-    });
-  }
-
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
-    );
-  }
-
-  void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.green),
-    );
-  }
-
-  Future<void> _toggleCategoryStatus(MainCategory category) async {
-    try {
-      await _categoryService.toggleCategoryStatus(
-        category.id!,
-        !category.isActive,
-      );
-      _loadCategories();
-      _showSuccessSnackBar(
-        'Category ${category.isActive ? 'deactivated' : 'activated'} successfully',
-      );
-    } catch (e) {
-      _showErrorSnackBar('Error updating category status: $e');
-    }
-  }
-
-  void _showAddEditDialog({MainCategory? category}) {
-    showDialog(
-      context: context,
-      builder: (context) => AddEditCategoryDialog(
-        category: category,
-        onSaved: () {
-          _loadCategories();
-          Navigator.of(context).pop();
-        },
-      ),
-    );
-  }
-
+  // Top-level wrapper only; heavy UI lives in `_MainCategoriesTab` below.
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -136,132 +38,14 @@ class _MainCategoriesScreenState extends State<MainCategoriesScreen> {
           Expanded(
             child: TabBarView(
               children: [
-                // Use a kept-alive child widget for the heavy Main Categories UI
                 const _MainCategoriesTab(),
-
-                // Sub categories screen as-is
                 const SubCategoriesScreen(),
-
-                // Products screen (scaffolded) — reuse existing screen
                 const ProductsScreen(),
               ],
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildImagePreview(String? iconPath) {
-    if (iconPath == null || iconPath.isEmpty) {
-      return Container(
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: Colors.grey[300]!),
-        ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.image_not_supported, size: 20, color: Colors.grey),
-            Text('No Image', style: TextStyle(fontSize: 8, color: Colors.grey)),
-          ],
-        ),
-      );
-    }
-
-    return Tooltip(
-      message: 'Click to view full image',
-      child: GestureDetector(
-        onTap: () => _showImageDialog(iconPath),
-        child: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.grey[300]!),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: Image.file(
-              File(iconPath),
-              width: 50,
-              height: 50,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: Colors.grey[200],
-                  child: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.broken_image, size: 20, color: Colors.red),
-                      Text(
-                        'Error',
-                        style: TextStyle(fontSize: 8, color: Colors.red),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showImageDialog(String imagePath) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 600, maxHeight: 600),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppBar(
-                  title: const Text('Image Preview'),
-                  leading: IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Image.file(
-                      File(imagePath),
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.broken_image,
-                                size: 64,
-                                color: Colors.red,
-                              ),
-                              SizedBox(height: 16),
-                              Text(
-                                'Failed to load image',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 }

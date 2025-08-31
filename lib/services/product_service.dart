@@ -1,11 +1,5 @@
-import '../database/database_helper.dart';
-import '../models/product.dart';
-import '../models/manufacturer.dart';
-import '../models/sub_category.dart';
-import '../models/vehicle_model.dart';
-import '../models/product_compatibility.dart';
-import '../models/product_image.dart';
-import '../models/product_inventory.dart';
+import 'package:auto_parts2/database/database_helper.dart';
+import 'package:auto_parts2/models/models.dart';
 import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:flutter/foundation.dart';

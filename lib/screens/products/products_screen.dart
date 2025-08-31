@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
-import '../../models/product.dart';
-import '../../models/product_inventory.dart';
-import '../../services/product_service.dart';
+import 'package:auto_parts2/models/product.dart';
+import 'package:auto_parts2/models/product_inventory.dart';
+import 'package:auto_parts2/services/product_service.dart';
 import 'product_form_dialog.dart';
 import 'product_compatibility_dialog.dart';
 import 'product_inventory_dialog.dart';
@@ -162,7 +162,8 @@ class _ProductsScreenState extends State<ProductsScreen>
     );
 
     if (result == true) {
-      _loadProducts();
+      if (!mounted) return;
+      await _loadProducts();
     }
   }
 
@@ -174,7 +175,8 @@ class _ProductsScreenState extends State<ProductsScreen>
     );
 
     if (result == true) {
-      _loadProducts();
+      if (!mounted) return;
+      await _loadProducts();
     }
   }
 
