@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'categories/main_categories_screen.dart';
 import 'pos/pos_screen.dart';
+import 'customers/customers_screen.dart';
+import 'customers/customer_bills_screen.dart';
 import 'package:auto_parts2/database/database_helper.dart';
 import 'package:auto_parts2/theme/app_colors.dart';
 
@@ -19,6 +21,8 @@ class _HomeScreenState extends State<HomeScreen> {
     const DashboardTab(),
     const MainCategoriesScreen(),
     const PosScreen(),
+    const CustomersScreen(),
+    const CustomerBillsScreen(),
   ];
 
   // _titles removed because AppBar title is hidden to save vertical space
@@ -97,6 +101,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: Icon(Icons.point_of_sale_outlined),
                 selectedIcon: Icon(Icons.point_of_sale),
                 label: Text('POS'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.people_outline),
+                selectedIcon: Icon(Icons.people),
+                label: Text('Customers'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.receipt_long_outlined),
+                selectedIcon: Icon(Icons.receipt_long),
+                label: Text('Bills'),
               ),
             ],
           ),

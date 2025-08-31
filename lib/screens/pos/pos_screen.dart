@@ -11,6 +11,8 @@ import 'package:auto_parts2/models/vehicle_model.dart';
 import 'package:auto_parts2/services/main_category_service.dart';
 import 'package:auto_parts2/services/product_service.dart';
 import 'package:auto_parts2/services/sub_category_service.dart';
+import 'package:auto_parts2/services/customer_service.dart';
+import 'package:auto_parts2/models/customer.dart';
 import 'package:auto_parts2/theme/app_colors.dart';
 
 // Intents for keyboard shortcuts
@@ -18,8 +20,14 @@ class ResetIntent extends Intent {
   const ResetIntent();
 }
 
-class ClearBillIntent extends Intent {
-  const ClearBillIntent();
+// customer selection UI is rendered inside the billing panel below (see build)
+/// Minimal billing item used by POS in-memory state.
+class BillingItem {
+  final Product? product;
+  int qty;
+  BillingItem({this.product, this.qty = 1});
+
+  double get lineTotal => (product?.sellingPrice ?? 0.0) * qty;
 }
 
 class PosScreen extends StatefulWidget {
@@ -29,19 +37,16 @@ class PosScreen extends StatefulWidget {
   State<PosScreen> createState() => _PosScreenState();
 }
 
-class BillingItem {
-  final Product product;
-  int qty;
-
-  BillingItem({required this.product, this.qty = 1});
-
-  double get lineTotal => (product.sellingPrice ?? 0) * qty;
+class ClearBillIntent extends Intent {
+  const ClearBillIntent();
 }
 
 class HeldBill {
   final int id;
   final DateTime createdAt;
   final List<BillingItem> items;
+  final int? customerId;
+  final String? customerName;
   final String searchQuery;
   final int? selectedMainCategoryId;
   final Set<int> selectedSubCategoryIds;
@@ -53,6 +58,8 @@ class HeldBill {
     required this.id,
     required this.createdAt,
     required this.items,
+    this.customerId,
+    this.customerName,
     required this.searchQuery,
     required this.selectedMainCategoryId,
     required this.selectedSubCategoryIds,
@@ -66,6 +73,7 @@ class _PosScreenState extends State<PosScreen> {
   final ProductService _productService = ProductService();
   final MainCategoryService _mainCatService = MainCategoryService();
   final SubCategoryService _subCatService = SubCategoryService();
+  final CustomerService _customerService = CustomerService();
 
   List<MainCategory> _mainCategories = [];
   List<SubCategory> _subCategories = [];
@@ -98,11 +106,16 @@ class _PosScreenState extends State<PosScreen> {
   // Billing
   final List<BillingItem> _billing = [];
   final List<HeldBill> _heldBills = [];
-  int _nextHoldId = 1;
+  List<Customer> _customers = [];
+  int? _selectedCustomerId;
+  // persisted holds: no local sequence id required
   // If non-null, we're editing/updating an existing held bill with this id.
   int? _editingHoldId;
   // Version notifier to help dialogs / UI listen for held-bill changes.
   final ValueNotifier<int> _holdsVersion = ValueNotifier<int>(0);
+
+  // Cached DB-held bills (maps as returned by service)
+  List<Map<String, dynamic>> _dbHeldBills = [];
 
   void _bumpHoldsVersion() => _holdsVersion.value += 1;
 
@@ -149,6 +162,8 @@ class _PosScreenState extends State<PosScreen> {
     _manufacturers = await _productService.getPartsManufacturers();
     _productManufacturers = List.from(_manufacturers);
     _allProducts = await _productService.getAllProducts();
+    // load customers
+    _customers = await _customerService.getAllCustomers();
     // preload compatibility for products to enable exact vehicle filtering
     for (final p in _allProducts) {
       if (p.id == null) continue;
@@ -163,6 +178,8 @@ class _PosScreenState extends State<PosScreen> {
       _visibleVehicles = List.from(_vehicles);
       _filteredProducts = List.from(_allProducts);
     });
+    // load persisted holds from DB
+    _dbHeldBills = await _customerService.getHeldBills();
     // build sub->main map
     for (final s in _subCategories) {
       if (s.id != null) _subToMain[s.id!] = s.mainCategoryId;
@@ -281,7 +298,7 @@ class _PosScreenState extends State<PosScreen> {
   void _addToBilling(Product p) {
     setState(() {
       final existing = _billing.firstWhere(
-        (b) => b.product.id == p.id,
+        (b) => b.product!.id == p.id,
         orElse: () => BillingItem(product: p, qty: 0),
       );
       if (existing.qty == 0) {
@@ -295,11 +312,11 @@ class _PosScreenState extends State<PosScreen> {
   void _removeFromBilling(Product p) {
     setState(() {
       final existing = _billing.firstWhere(
-        (b) => b.product.id == p.id,
+        (b) => b.product!.id == p.id,
         orElse: () => BillingItem(product: p, qty: 0),
       );
       if (existing.qty <= 1) {
-        _billing.removeWhere((b) => b.product.id == p.id);
+        _billing.removeWhere((b) => b.product!.id == p.id);
       } else {
         existing.qty -= 1;
       }
@@ -308,7 +325,7 @@ class _PosScreenState extends State<PosScreen> {
 
   void _deleteFromBilling(Product p) {
     setState(() {
-      _billing.removeWhere((b) => b.product.id == p.id);
+      _billing.removeWhere((b) => b.product!.id == p.id);
     });
   }
 
@@ -325,6 +342,13 @@ class _PosScreenState extends State<PosScreen> {
           id: existing.id,
           createdAt: existing.createdAt,
           items: itemsCopy,
+          customerId: _selectedCustomerId,
+          customerName: _customers
+              .firstWhere(
+                (c) => c.id == _selectedCustomerId,
+                orElse: () => Customer(name: '', address: '', mobile: ''),
+              )
+              .name,
           searchQuery: _searchQuery,
           selectedMainCategoryId: _selectedMainCategoryId,
           selectedSubCategoryIds: Set.from(_selectedSubCategoryIds),
@@ -348,10 +372,124 @@ class _PosScreenState extends State<PosScreen> {
       _editingHoldId = null;
     }
 
+    // Ensure a customer is selected - DB requires customer_id NOT NULL.
+    if (_selectedCustomerId == null) {
+      // Prompt the user to select or create a customer
+      showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('No customer selected'),
+          content: const Text(
+            'Please select an existing customer or create a new customer before holding a bill.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                // Create a simple new-customer dialog (same flow as the New button)
+                final nameCtrl = TextEditingController();
+                final addrCtrl = TextEditingController();
+                final mobileCtrl = TextEditingController();
+                final openingBalanceCtrl = TextEditingController(text: '0.0');
+                final created = await showDialog<Customer?>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Create customer'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(
+                          controller: nameCtrl,
+                          decoration: const InputDecoration(labelText: 'Name'),
+                        ),
+                        TextField(
+                          controller: addrCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Address',
+                          ),
+                        ),
+                        TextField(
+                          controller: mobileCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Mobile',
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: openingBalanceCtrl,
+                          keyboardType: TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: const InputDecoration(
+                            labelText: 'Starting balance (optional)',
+                            hintText: '0.0',
+                          ),
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(null),
+                        child: const Text('Cancel'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () async {
+                          if (nameCtrl.text.trim().isEmpty) return;
+                          final c = Customer(
+                            name: nameCtrl.text.trim(),
+                            address: addrCtrl.text.trim(),
+                            mobile: mobileCtrl.text.trim(),
+                          );
+                          // parse opening balance
+                          final ob =
+                              double.tryParse(openingBalanceCtrl.text) ?? 0.0;
+                          c.openingBalance = ob;
+                          c.balance = ob;
+                          // capture navigator to avoid using BuildContext after await
+                          final nav = Navigator.of(context);
+                          final id = await _customerService.createCustomer(c);
+                          c.id = id;
+                          nav.pop(c);
+                        },
+                        child: const Text('Create'),
+                      ),
+                    ],
+                  ),
+                );
+                if (created != null) {
+                  _customers = await _customerService.getAllCustomers();
+                  if (!mounted) return;
+                  setState(() => _selectedCustomerId = created.id);
+                  // After creation, retry holding the bill automatically
+                  _holdCurrentBill();
+                }
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // Create an in-memory (temporary) hold that lives for this app session.
+    // Use a negative id to avoid colliding with DB ids (DB ids are positive).
+    final tempId = -DateTime.now().millisecondsSinceEpoch;
     final hb = HeldBill(
-      id: _nextHoldId++,
+      id: tempId,
       createdAt: DateTime.now(),
       items: itemsCopy,
+      customerId: _selectedCustomerId,
+      customerName: _customers
+          .firstWhere(
+            (c) => c.id == _selectedCustomerId,
+            orElse: () => Customer(name: '', address: '', mobile: ''),
+          )
+          .name,
       searchQuery: _searchQuery,
       selectedMainCategoryId: _selectedMainCategoryId,
       selectedSubCategoryIds: Set.from(_selectedSubCategoryIds),
@@ -359,9 +497,11 @@ class _PosScreenState extends State<PosScreen> {
       selectedVehicleManufacturerIds: Set.from(_selectedVehicleManufacturerIds),
       selectedProductManufacturerIds: Set.from(_selectedProductManufacturerIds),
     );
+
     setState(() {
       _heldBills.add(hb);
       _billing.clear();
+      _editingHoldId = null;
       _bumpHoldsVersion();
     });
   }
@@ -375,47 +515,159 @@ class _PosScreenState extends State<PosScreen> {
           width: 560,
           child: StatefulBuilder(
             builder: (context, dialogSetState) {
-              if (_heldBills.isEmpty) {
+              final hasDb = _dbHeldBills.isNotEmpty;
+              final hasTemp = _heldBills.isNotEmpty;
+              if (!hasDb && !hasTemp) {
                 return const Center(child: Text('No held bills'));
               }
-              return ListView.builder(
+
+              return ListView(
                 shrinkWrap: true,
-                itemCount: _heldBills.length,
-                itemBuilder: (context, i) {
-                  final hb = _heldBills[i];
-                  final totalQty = hb.items.fold<int>(0, (s, it) => s + it.qty);
-                  return ListTile(
-                    title: Text(
-                      'Hold ${hb.id} - ${hb.items.length} - $totalQty',
-                    ),
-                    subtitle: Text('$hb.createdAt'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            // load in parent state and close dialog
-                            setState(() => _loadHeldBill(hb));
-                            Navigator.of(context).pop();
-                          },
-                          child: const Text('Load'),
+                children: [
+                  if (hasTemp) ...[
+                    const ListTile(title: Text('Temporary holds')),
+                    ..._heldBills.map((hb) {
+                      final items = hb.items;
+                      final totalQty = items.fold<int>(
+                        0,
+                        (s, it) => s + it.qty,
+                      );
+                      return ListTile(
+                        title: Text(
+                          (hb.customerName?.isNotEmpty ?? false)
+                              ? 'Temp ${hb.id} (${hb.customerName}) - ${items.length} - $totalQty'
+                              : 'Temp ${hb.id} - ${items.length} - $totalQty',
                         ),
-                        TextButton(
-                          onPressed: () {
-                            dialogSetState(() {
-                              final removed = _heldBills.removeAt(i);
-                              if (_editingHoldId == removed.id) {
-                                _editingHoldId = null;
-                              }
-                              _bumpHoldsVersion();
-                            });
-                          },
-                          child: const Text('Delete'),
+                        subtitle: Text('${hb.createdAt}'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                _loadHeldBill(hb);
+                                Navigator.of(context).pop();
+                              },
+                              child: const Text('Load'),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('Delete temp hold?'),
+                                    content: const Text(
+                                      'Remove this temporary held bill?',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(true),
+                                        child: const Text('Delete'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm == true) {
+                                  dialogSetState(() async {
+                                    _heldBills.removeWhere(
+                                      (h) => h.id == hb.id,
+                                    );
+                                    _bumpHoldsVersion();
+                                    if (!mounted) return;
+                                    setState(() {});
+                                  });
+                                }
+                              },
+                              child: const Text('Delete'),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  );
-                },
+                      );
+                    }),
+                  ],
+
+                  if (hasDb) ...[
+                    const Divider(),
+                    const ListTile(title: Text('Persisted holds')),
+                    ..._dbHeldBills.map((hb) {
+                      final items = (hb['items'] as List)
+                          .cast<Map<String, dynamic>>();
+                      final totalQty = items.fold<int>(
+                        0,
+                        (s, it) => s + (it['qty'] as int? ?? 0),
+                      );
+                      final customer = _customers.firstWhere(
+                        (c) => c.id == (hb['customer_id'] as int?),
+                        orElse: () =>
+                            Customer(name: '', address: '', mobile: ''),
+                      );
+                      return ListTile(
+                        title: Text(
+                          (customer.name.isNotEmpty)
+                              ? 'Hold ${hb['id']} (${customer.name}) - ${items.length} - $totalQty'
+                              : 'Hold ${hb['id']} - ${items.length} - $totalQty',
+                        ),
+                        subtitle: Text('${hb['created_at']}'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                // load in parent state and close dialog
+                                _loadDbHeldBill(hb);
+                                Navigator.of(context).pop();
+                              },
+                              child: const Text('Load'),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('Delete hold?'),
+                                    content: const Text(
+                                      'Remove this held bill?',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(true),
+                                        child: const Text('Delete'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm == true) {
+                                  await _customerService.deleteHeldBill(
+                                    hb['id'] as int,
+                                  );
+                                  dialogSetState(() async {
+                                    _dbHeldBills = await _customerService
+                                        .getHeldBills();
+                                    _bumpHoldsVersion();
+                                    if (!mounted) return;
+                                    setState(() {});
+                                  });
+                                }
+                              },
+                              child: const Text('Delete'),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ],
               );
             },
           ),
@@ -460,8 +712,10 @@ class _PosScreenState extends State<PosScreen> {
                         _editingHoldId = null;
                         _bumpHoldsVersion();
                       });
-                      nav.pop();
-                      messenger.showSnackBar(
+                      final n = nav;
+                      final m = messenger;
+                      n.pop();
+                      m.showSnackBar(
                         const SnackBar(content: Text('All held bills cleared')),
                       );
                     }
@@ -497,6 +751,38 @@ class _PosScreenState extends State<PosScreen> {
       _applyFilters();
       // mark that we're editing this held bill so a subsequent Hold action updates it
       _editingHoldId = hb.id;
+    });
+  }
+
+  // Load a DB-held bill (map) into in-memory billing state
+  void _loadDbHeldBill(Map<String, dynamic> hb) {
+    final items = (hb['items'] as List).cast<Map<String, dynamic>>();
+    setState(() {
+      _billing.clear();
+      for (final it in items) {
+        final pid = it['product_id'] as int?;
+        final qty = it['qty'] as int? ?? 1;
+        final product = _allProducts.firstWhere(
+          (p) => p.id == pid,
+          orElse: () => Product(
+            id: null,
+            name: 'Unknown',
+            subCategoryId: 0,
+            manufacturerId: 0,
+            sellingPrice: 0.0,
+          ),
+        );
+        _billing.add(BillingItem(product: product, qty: qty));
+      }
+      _editingHoldId = hb['id'] as int?;
+      // restore selected customer if present
+      final cid = hb['customer_id'] as int?;
+      if (cid != null && cid != 0) {
+        _selectedCustomerId = cid;
+      } else {
+        _selectedCustomerId = null;
+      }
+      _searchController.text = hb['searchQuery'] ?? '';
     });
   }
 
@@ -993,7 +1279,7 @@ class _PosScreenState extends State<PosScreen> {
                                                     final inCart = _billing
                                                         .where(
                                                           (b) =>
-                                                              b.product.id ==
+                                                              b.product!.id ==
                                                               p.id,
                                                         )
                                                         .fold<int>(
@@ -1309,7 +1595,7 @@ class _PosScreenState extends State<PosScreen> {
                                                         InkWell(
                                                           onTap: () =>
                                                               _deleteFromBilling(
-                                                                b.product,
+                                                                b.product!,
                                                               ),
                                                           borderRadius:
                                                               BorderRadius.circular(
@@ -1348,7 +1634,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                     .start,
                                                             children: [
                                                               Text(
-                                                                b.product.name,
+                                                                b.product!.name,
                                                                 maxLines: 1,
                                                                 overflow:
                                                                     TextOverflow
@@ -1363,7 +1649,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                 height: 4,
                                                               ),
                                                               Text(
-                                                                '₹${(b.product.sellingPrice ?? 0).toStringAsFixed(2)} each',
+                                                                '₹${(b.product!.sellingPrice ?? 0).toStringAsFixed(2)} each',
                                                                 style: Theme.of(
                                                                   context,
                                                                 ).textTheme.bodySmall,
@@ -1406,7 +1692,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                     ),
                                                                 onTap: () =>
                                                                     _removeFromBilling(
-                                                                      b.product,
+                                                                      b.product!,
                                                                     ),
                                                                 child: const Padding(
                                                                   padding:
@@ -1444,7 +1730,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                     ),
                                                                 onTap: () =>
                                                                     _addToBilling(
-                                                                      b.product,
+                                                                      b.product!,
                                                                     ),
                                                                 child: const Padding(
                                                                   padding:
@@ -1576,17 +1862,27 @@ class _PosScreenState extends State<PosScreen> {
                                                           mainAxisSize:
                                                               MainAxisSize.min,
                                                           children: [
-                                                            // show only the item-countpair on the quick-hold button
+                                                            // show customer name (if any) + item-count on the quick-hold button
                                                             Text(
-                                                              '${hb.items.length}-$totalQty',
+                                                              hb.customerName !=
+                                                                          null &&
+                                                                      hb
+                                                                          .customerName!
+                                                                          .isNotEmpty
+                                                                  ? '${hb.customerName}\n${hb.items.length}-$totalQty'
+                                                                  : '${hb.items.length}-$totalQty',
                                                               style: TextStyle(
-                                                                fontSize: 12,
+                                                                fontSize: 11,
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .w600,
                                                                 color: AppColors
                                                                     .textPrimary,
                                                               ),
+                                                              maxLines: 2,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
                                                             ),
                                                           ],
                                                         ),
@@ -1762,25 +2058,315 @@ class _PosScreenState extends State<PosScreen> {
                                       },
                                     ),
                                     const SizedBox(height: 8),
+                                    // Customer selection: required before creating an invoice
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Autocomplete<Customer>(
+                                            optionsBuilder: (textEditingValue) {
+                                              if (textEditingValue
+                                                  .text
+                                                  .isEmpty) {
+                                                return _customers;
+                                              }
+                                              final q = textEditingValue.text
+                                                  .toLowerCase();
+                                              return _customers.where((c) {
+                                                return (c.name
+                                                        .toLowerCase()
+                                                        .contains(q) ||
+                                                    (c.mobile ?? '')
+                                                        .toLowerCase()
+                                                        .contains(q) ||
+                                                    (c.address ?? '')
+                                                        .toLowerCase()
+                                                        .contains(q));
+                                              }).toList();
+                                            },
+                                            displayStringForOption: (c) =>
+                                                '${c.name} ${c.mobile ?? ''}',
+                                            fieldViewBuilder:
+                                                (
+                                                  context,
+                                                  controller,
+                                                  focusNode,
+                                                  onFieldSubmitted,
+                                                ) {
+                                                  // set initial selection text when a customer is selected
+                                                  if (_selectedCustomerId !=
+                                                      null) {
+                                                    final selected = _customers
+                                                        .firstWhere(
+                                                          (c) =>
+                                                              c.id ==
+                                                              _selectedCustomerId,
+                                                          orElse: () =>
+                                                              Customer(
+                                                                name: '',
+                                                                address: '',
+                                                                mobile: '',
+                                                              ),
+                                                        );
+                                                    controller.text =
+                                                        selected.name;
+                                                  }
+                                                  return TextField(
+                                                    controller: controller,
+                                                    focusNode: focusNode,
+                                                    decoration:
+                                                        const InputDecoration(
+                                                          labelText: 'Customer',
+                                                          hintText:
+                                                              'Search customers by name, mobile or address',
+                                                        ),
+                                                    onSubmitted: (_) =>
+                                                        onFieldSubmitted(),
+                                                  );
+                                                },
+                                            onSelected: (c) {
+                                              setState(() {
+                                                _selectedCustomerId = c.id;
+                                              });
+                                            },
+                                            optionsViewBuilder:
+                                                (context, onSelected, options) {
+                                                  return Material(
+                                                    elevation: 4,
+                                                    child: ListView(
+                                                      padding: EdgeInsets.zero,
+                                                      shrinkWrap: true,
+                                                      children: options.map((
+                                                        c,
+                                                      ) {
+                                                        return ListTile(
+                                                          title: Text(c.name),
+                                                          subtitle: Text(
+                                                            '${c.mobile ?? ''} ${c.address ?? ''}',
+                                                          ),
+                                                          onTap: () =>
+                                                              onSelected(c),
+                                                        );
+                                                      }).toList(),
+                                                    ),
+                                                  );
+                                                },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        OutlinedButton(
+                                          onPressed: () async {
+                                            // show create customer dialog
+                                            final nameCtrl =
+                                                TextEditingController();
+                                            final addrCtrl =
+                                                TextEditingController();
+                                            final mobileCtrl =
+                                                TextEditingController();
+                                            final created = await showDialog<Customer?>(
+                                              context: context,
+                                              builder: (context) => AlertDialog(
+                                                title: const Text(
+                                                  'Create Customer',
+                                                ),
+                                                content: Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    TextField(
+                                                      controller: nameCtrl,
+                                                      decoration:
+                                                          const InputDecoration(
+                                                            labelText: 'Name',
+                                                          ),
+                                                    ),
+                                                    TextField(
+                                                      controller: addrCtrl,
+                                                      decoration:
+                                                          const InputDecoration(
+                                                            labelText:
+                                                                'Address',
+                                                          ),
+                                                    ),
+                                                    TextField(
+                                                      controller: mobileCtrl,
+                                                      decoration:
+                                                          const InputDecoration(
+                                                            labelText: 'Mobile',
+                                                          ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.of(
+                                                          context,
+                                                        ).pop(null),
+                                                    child: const Text('Cancel'),
+                                                  ),
+                                                  ElevatedButton(
+                                                    onPressed: () async {
+                                                      if (nameCtrl.text
+                                                          .trim()
+                                                          .isEmpty) {
+                                                        return;
+                                                      }
+                                                      final c = Customer(
+                                                        name: nameCtrl.text
+                                                            .trim(),
+                                                        address: addrCtrl.text
+                                                            .trim(),
+                                                        mobile: mobileCtrl.text
+                                                            .trim(),
+                                                      );
+                                                      final navigator =
+                                                          Navigator.of(context);
+                                                      final id =
+                                                          await _customerService
+                                                              .createCustomer(
+                                                                c,
+                                                              );
+                                                      c.id = id;
+                                                      navigator.pop(c);
+                                                    },
+                                                    child: const Text('Create'),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                            if (created != null) {
+                                              _customers =
+                                                  await _customerService
+                                                      .getAllCustomers();
+                                              if (!mounted) return;
+                                              setState(
+                                                () => _selectedCustomerId =
+                                                    created.id,
+                                              );
+                                            }
+                                          },
+                                          child: const Text('New'),
+                                        ),
+                                      ],
+                                    ),
+
+                                    const SizedBox(height: 8),
                                     Row(
                                       children: [
                                         Expanded(
                                           child: ElevatedButton(
-                                            onPressed: _billing.isEmpty
+                                            onPressed:
+                                                _billing.isEmpty ||
+                                                    _selectedCustomerId == null
                                                 ? null
-                                                : () {
-                                                    ScaffoldMessenger.of(
-                                                      context,
-                                                    ).showSnackBar(
+                                                : () async {
+                                                    final messenger =
+                                                        ScaffoldMessenger.of(
+                                                          context,
+                                                        );
+                                                    final items = _billing
+                                                        .map(
+                                                          (b) => {
+                                                            'product_id':
+                                                                b.product!.id,
+                                                            'qty': b.qty,
+                                                            'line_total':
+                                                                b.lineTotal,
+                                                          },
+                                                        )
+                                                        .toList();
+                                                    final total = _billingTotal;
+
+                                                    if (_editingHoldId !=
+                                                        null) {
+                                                      if (_editingHoldId! > 0) {
+                                                        // persisted DB hold -> finalize it
+                                                        await _customerService
+                                                            .finalizeHeldBill(
+                                                              _editingHoldId!,
+                                                              markPaid: false,
+                                                            );
+                                                        _dbHeldBills =
+                                                            await _customerService
+                                                                .getHeldBills();
+                                                      } else {
+                                                        // temp in-memory hold: find it and persist as invoice
+                                                        final idx = _heldBills
+                                                            .indexWhere(
+                                                              (h) =>
+                                                                  h.id ==
+                                                                  _editingHoldId,
+                                                            );
+                                                        if (idx != -1) {
+                                                          final temp =
+                                                              _heldBills[idx];
+                                                          final itemsForDb = temp
+                                                              .items
+                                                              .map(
+                                                                (b) => {
+                                                                  'product_id': b
+                                                                      .product
+                                                                      ?.id,
+                                                                  'qty': b.qty,
+                                                                  'line_total':
+                                                                      b.lineTotal,
+                                                                },
+                                                              )
+                                                              .toList();
+                                                          final totalForDb =
+                                                              itemsForDb.fold<
+                                                                double
+                                                              >(
+                                                                0.0,
+                                                                (s, it) =>
+                                                                    s +
+                                                                    (it['line_total']
+                                                                            as double? ??
+                                                                        0.0),
+                                                              );
+                                                          await _customerService
+                                                              .createCustomerBill(
+                                                                customerId:
+                                                                    temp.customerId ??
+                                                                    _selectedCustomerId!,
+                                                                items:
+                                                                    itemsForDb,
+                                                                total:
+                                                                    totalForDb,
+                                                                isPaid: false,
+                                                              );
+                                                          // remove temp hold
+                                                          setState(() {
+                                                            _heldBills.removeAt(
+                                                              idx,
+                                                            );
+                                                          });
+                                                        }
+                                                      }
+                                                    } else {
+                                                      // No editing hold -> standard create
+                                                      await _customerService
+                                                          .createCustomerBill(
+                                                            customerId:
+                                                                _selectedCustomerId!,
+                                                            items: items,
+                                                            total: total,
+                                                            isPaid: false,
+                                                          );
+                                                    }
+
+                                                    if (!mounted) return;
+                                                    messenger.showSnackBar(
                                                       const SnackBar(
                                                         content: Text(
-                                                          'Invoice created (dummy)',
+                                                          'Invoice created',
                                                         ),
                                                       ),
                                                     );
-                                                    setState(
-                                                      () => _billing.clear(),
-                                                    );
+                                                    setState(() {
+                                                      _billing.clear();
+                                                      _editingHoldId = null;
+                                                    });
                                                   },
                                             child: const Text('Create Invoice'),
                                           ),

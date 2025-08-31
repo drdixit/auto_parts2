@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'dart:convert';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -43,7 +45,8 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 6, // Incremented for product manual disable flag
+      version:
+          8, // Incremented to add customers, customer_bills and is_held for holds
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
       onOpen: (db) {
@@ -115,6 +118,41 @@ class DatabaseHelper {
       // Initialize existing records - if currently inactive, consider it manually disabled
       await db.execute('''
         UPDATE products SET is_manually_disabled = 1 WHERE is_active = 0
+      ''');
+    }
+
+    if (oldVersion < 7) {
+      // Add customers table
+      await db.execute('''
+        CREATE TABLE customers (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name VARCHAR(200) NOT NULL,
+          address TEXT,
+          mobile VARCHAR(30),
+          opening_balance DECIMAL(12,2) DEFAULT 0.00,
+          balance DECIMAL(12,2) DEFAULT 0.00,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      ''');
+
+      // Add customer bills table (stores held bills and invoices)
+      await db.execute('''
+        CREATE TABLE customer_bills (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          customer_id INTEGER NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          items TEXT,
+          total DECIMAL(12,2) DEFAULT 0.00,
+          is_paid BOOLEAN DEFAULT 0,
+          is_held BOOLEAN DEFAULT 0,
+          FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+        )
+      ''');
+    }
+    if (oldVersion < 8) {
+      // Add is_held column to customer_bills so holds can be persisted separately from finalized invoices
+      await db.execute('''
+        ALTER TABLE customer_bills ADD COLUMN is_held BOOLEAN DEFAULT 0
       ''');
     }
   }
@@ -310,9 +348,118 @@ class DatabaseHelper {
 
     // Create indexes for better performance
     await _createIndexes(db);
-
     // Insert sample data
     await _insertSampleData(db);
+
+    // Ensure customers and customer_bills tables exist on fresh create
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS customers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name VARCHAR(200) NOT NULL,
+        address TEXT,
+        mobile VARCHAR(30),
+        opening_balance DECIMAL(12,2) DEFAULT 0.00,
+        balance DECIMAL(12,2) DEFAULT 0.00,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS customer_bills (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_id INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        items TEXT,
+        total DECIMAL(12,2) DEFAULT 0.00,
+        is_paid BOOLEAN DEFAULT 0,
+        is_held BOOLEAN DEFAULT 0,
+        FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+      )
+    ''');
+
+    // Seed customers and sample bills (safe, idempotent)
+    await _insertSampleCustomersAndBills(db);
+
+    // Try to copy a bundled dummy image into the DB images directory so code that expects an image path can find it.
+    try {
+      final imagesDir = await getImagesDirectoryPath();
+      final dest = File(join(imagesDir, 'dummy.jpg'));
+      if (!await dest.exists()) {
+        // rootBundle may not be available in some contexts; guard with try/catch
+        try {
+          final bytes = await rootBundle.load('assets/images/dummy.jpg');
+          await dest.writeAsBytes(bytes.buffer.asUint8List());
+        } catch (e) {
+          // ignore - asset may not be available in this context
+        }
+      }
+    } catch (e) {
+      // ignore filesystem errors during DB create - non-critical
+    }
+  }
+
+  // Insert sample customers and corresponding sample bills.
+  Future<void> _insertSampleCustomersAndBills(Database db) async {
+    // Check if customers already exist
+    final existing = await db.rawQuery('SELECT COUNT(1) as cnt FROM customers');
+    final cnt = (existing.isNotEmpty
+        ? (existing.first['cnt'] as int? ?? 0)
+        : 0);
+    if (cnt > 0) return; // already seeded
+
+    // Insert a few customers
+    final now = DateTime.now().toIso8601String();
+    final aliceId = await db.insert('customers', {
+      'name': 'Alice Auto',
+      'address': '12 Market Road',
+      'mobile': '9999000001',
+      'opening_balance': 0.0,
+      'balance': 0.0,
+      'created_at': now,
+    });
+    final bobId = await db.insert('customers', {
+      'name': 'Bob Motors',
+      'address': '7 Industrial Area',
+      'mobile': '9999000002',
+      'opening_balance': 0.0,
+      // Bob owes 1200.00 -> negative balance to indicate unpaid
+      'balance': -1200.00,
+      'created_at': now,
+    });
+    await db.insert('customers', {
+      'name': 'Charlie Garage',
+      'address': '45 Service Lane',
+      'mobile': '9999000003',
+      'opening_balance': 0.0,
+      'balance': 0.0,
+      'created_at': now,
+    });
+
+    // Insert a paid bill for Alice
+    final itemsAlice = [
+      {'product_id': 1, 'qty': 1, 'line_total': 250.0},
+    ];
+    await db.insert('customer_bills', {
+      'customer_id': aliceId,
+      'items': jsonEncode(itemsAlice),
+      'total': 250.0,
+      'is_paid': 1,
+      'is_held': 0,
+      'created_at': now,
+    });
+
+    // Insert an unpaid bill (held->unpaid) for Bob
+    final itemsBob = [
+      {'product_id': 4, 'qty': 2, 'line_total': 600.0},
+    ];
+    await db.insert('customer_bills', {
+      'customer_id': bobId,
+      'items': jsonEncode(itemsBob),
+      'total': 1200.0,
+      'is_paid': 0,
+      'is_held': 0,
+      'created_at': now,
+    });
   }
 
   Future<void> _createIndexes(Database db) async {
