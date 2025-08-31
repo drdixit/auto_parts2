@@ -98,6 +98,39 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 6),
+            if (widget.customerId != null)
+              Builder(
+                builder: (context) {
+                  final cust = _customers.firstWhere(
+                    (c) => c.id == widget.customerId,
+                    orElse: () => Customer(name: '', address: '', mobile: ''),
+                  );
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6.0),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.account_balance_wallet),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Opening balance: ',
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '₹${cust.openingBalance.toStringAsFixed(2)}',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: cust.openingBalance < 0
+                                    ? Colors.red
+                                    : Colors.green,
+                              ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             Expanded(
               child: Row(
                 children: [
