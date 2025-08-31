@@ -187,13 +187,14 @@ class _CustomersScreenState extends State<CustomersScreen> {
                         subtitle: Row(
                           children: [
                             Expanded(child: Text(c.mobile ?? '')),
-                            Text(
-                              'Balance: ₹${c.balance.toStringAsFixed(2)}',
-                              style: TextStyle(
-                                color: balanceColor,
-                                fontWeight: FontWeight.w600,
+                            if (c.balance != 0.0)
+                              Text(
+                                'Balance: ₹${c.balance.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  color: balanceColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
                           ],
                         ),
                         trailing: Row(

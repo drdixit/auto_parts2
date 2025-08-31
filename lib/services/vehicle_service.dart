@@ -46,8 +46,9 @@ class VehicleService {
   }
 
   Future<int> updateVehicleModel(VehicleModel model) async {
-    if (model.id == null)
+    if (model.id == null) {
       throw ArgumentError('VehicleModel id required for update');
+    }
     final data = model.toMap();
     data['updated_at'] = DateTime.now().toIso8601String();
     data.remove('id');

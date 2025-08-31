@@ -637,61 +637,157 @@ class DatabaseHelper {
     final dummyPath = join(imagesDir, 'dummy.jpg');
     final now = DateTime.now().toIso8601String();
 
-    // Create 30 diverse customers with varied balances and metadata
-    for (var i = 1; i <= 30; i++) {
-      final name = i == 7
-          ? 'Seed Customer With A Very Long Name That Might Overflow UI Testing Purposes $i'
-          : 'Seed Customer $i';
-      final mobile = (i % 5 == 0) ? null : '99990${10000 + i}';
-      final opening = 0.0;
-      // Some customers start with negative balances (owing), some positive (credit), most zero
-      final balance = (i % 3 == 0)
-          ? -(i * 75.0)
-          : (i % 7 == 0 ? (i * 20.0) : 0.0);
+    // Create 50 realistic Indian customers. Balances are computed from unpaid bills
+    final names = <String>[
+      'Ravi Kumar',
+      'Suresh Patel',
+      'Aarti Sharma',
+      'Vikram Singh',
+      'Priya Reddy',
+      'Rahul Verma',
+      'Sunita Joshi',
+      'Manish Gupta',
+      'Neha Kapoor',
+      'Amit Desai',
+      'Pooja Nair',
+      'Karan Mehta',
+      'Deepak Choudhary',
+      'Anita Bhat',
+      'Ramesh Iyer',
+      'Sangeeta Rao',
+      'Nitin Sharma',
+      'Sneha Kulkarni',
+      'Ashok Menon',
+      'Divya Srinivasan',
+      'Kapil Chawla',
+      'Ritika Singh',
+      'Vineet Agarwal',
+      'Madhuri Patel',
+      'Gaurav Jain',
+      'Meena Shah',
+      'Arjun Rao',
+      'Leela Thomas',
+      'Kishore Reddy',
+      'Tanya Bose',
+      'Bhavesh Deshmukh',
+      'Smita Kulkarni',
+      'Sanjay Nair',
+      'Geeta Kaur',
+      'Rohit Kapoor',
+      'Shweta Singh',
+      'Prakash Verma',
+      'Isha Gupta',
+      'Vimal Shah',
+      'Bhavna Iyer',
+      'Yash Sharma',
+      'Ritu Aggarwal',
+      'Kamal Pathak',
+      'Anjali Rao',
+      'Sahil Mehra',
+      'Nisha Reddy',
+      'Vikash Kumar',
+      'Priyanka Singh',
+    ];
 
+    for (var i = 0; i < 50; i++) {
+      final name =
+          names[i % names.length] +
+          (i >= names.length ? ' ${i - names.length + 1}' : '');
+      final mobile = (i % 7 == 0) ? null : '98${70000 + i}';
+      final addr = (i % 5 == 0)
+          ? 'Plot ${100 + i}, Industrial Area, Near Highway, Pune, Maharashtra'
+          : 'Street ${i + 1}, Sector ${((i % 10) + 1)}, City ${((i % 6) + 1)}';
+
+      // Build bills for this customer deterministically so balances are reproducible
+
+      // Patterned bills: some customers have unpaid invoices (owing), some have credits
+      if (i % 3 == 0) {
+        // one unpaid invoice (will be inserted after customer creation)
+      }
+
+      if (i % 11 == 0) {
+        // small credit (store owes customer)
+        // we'll represent this as positive balance
+      }
+
+      // Insert customer with zero balance initially; we'll compute balance after inserting bills
       final cid = await db.insert('customers', {
         'name': name,
-        'address': i % 4 == 0
-            ? 'Long Address Example Street, Block $i, Some Industrial Area, City, State, Country'
-            : 'Address $i',
+        'address': addr,
         'mobile': mobile,
-        'opening_balance': opening,
-        'balance': balance,
+        'opening_balance': 0.0,
+        'balance': 0.0,
         'created_at': now,
       });
 
-      // Insert one unpaid bill for some customers and a paid bill for others to exercise balance flows
-      if (i % 4 == 0) {
-        final productId = (i % 19) + 1;
-        final total = (i * 10.0) + 50.0;
+      // Now re-create the same billed items deterministically so DB and balance match
+      if (i % 3 == 0) {
+        final prod = ((i * 3) % 20) + 1;
+        final tot = 450.0 + (i * 25.0);
         final items = jsonEncode([
-          {'product_id': productId, 'qty': 1, 'line_total': total},
+          {'product_id': prod, 'qty': 1, 'line_total': tot},
         ]);
         await db.insert('customer_bills', {
           'customer_id': cid,
           'items': items,
-          'total': total,
+          'total': tot,
           'is_paid': 0,
           'is_held': 0,
           'created_at': now,
         });
       }
 
-      if (i % 6 == 0) {
-        final productId = ((i + 3) % 19) + 1;
-        final total = (i * 12.0) + 30.0;
+      if (i % 5 == 0) {
+        final prod = ((i * 5) % 20) + 1;
+        final tot = 1200.0 + (i * 15.0);
         final items = jsonEncode([
-          {'product_id': productId, 'qty': 2, 'line_total': total},
+          {'product_id': prod, 'qty': 2, 'line_total': tot},
         ]);
         await db.insert('customer_bills', {
           'customer_id': cid,
           'items': items,
-          'total': total,
+          'total': tot,
           'is_paid': 1,
           'is_held': 0,
           'created_at': now,
         });
       }
+
+      if (i % 11 == 0) {
+        // a small credit note represented as a paid bill (refund/credit)
+        final prod = ((i * 7) % 20) + 1;
+        final tot = 150.0;
+        final items = jsonEncode([
+          {'product_id': prod, 'qty': 1, 'line_total': tot},
+        ]);
+        await db.insert('customer_bills', {
+          'customer_id': cid,
+          'items': items,
+          'total': tot,
+          'is_paid': 1,
+          'is_held': 0,
+          'created_at': now,
+        });
+      }
+
+      // Recompute balance from unpaid bills so DB is consistent: balance = -SUM(unpaid totals) + credit
+      final unpaidRes = await db.rawQuery(
+        'SELECT COALESCE(SUM(total),0) as unpaid FROM customer_bills WHERE customer_id = ? AND is_paid = 0',
+        [cid],
+      );
+      final unpaidNum = (unpaidRes.isNotEmpty
+          ? (unpaidRes.first['unpaid'] as num? ?? 0)
+          : 0);
+      final unpaid = unpaidNum.toDouble();
+      double newBalance = -unpaid;
+      // apply small manual credit for some seeded customers (i % 11 == 0)
+      if (i % 11 == 0) newBalance += 150.0;
+      await db.update(
+        'customers',
+        {'balance': newBalance},
+        where: 'id = ?',
+        whereArgs: [cid],
+      );
     }
 
     // Add some product_images to ensure image paths exist and edge-cases like missing images are covered
