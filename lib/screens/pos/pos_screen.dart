@@ -111,6 +111,7 @@ class _PosScreenState extends State<PosScreen> {
   List<HeldBill> get _heldBills => HoldService.instance.holds.cast<HeldBill>();
   List<Customer> _customers = [];
   int? _selectedCustomerId;
+  String? _customerDisplayName;
   // persisted holds: no local sequence id required
   // If non-null, we're editing/updating an existing held bill with this id.
   int? _editingHoldId;
@@ -754,8 +755,11 @@ class _PosScreenState extends State<PosScreen> {
       // restore selected customer for this held bill (if any)
       if (hb.customerId != null && hb.customerId != 0) {
         _selectedCustomerId = hb.customerId;
+        // also set the display name (in case the customer list hasn't refreshed)
+        _customerDisplayName = hb.customerName;
       } else {
         _selectedCustomerId = null;
+        _customerDisplayName = hb.customerName;
       }
       _applyFilters();
       // mark that we're editing this held bill so a subsequent Hold action updates it
@@ -788,11 +792,39 @@ class _PosScreenState extends State<PosScreen> {
       final cid = hb['customer_id'] as int?;
       if (cid != null && cid != 0) {
         _selectedCustomerId = cid;
+        _customerDisplayName = hb['customer_name'] as String?;
       } else {
         _selectedCustomerId = null;
+        _customerDisplayName = hb['customer_name'] as String?;
       }
       _searchController.text = hb['searchQuery'] ?? '';
     });
+  }
+
+  // Ask the user whether the invoice should be marked paid or unpaid.
+  // Returns true = paid, false = unpaid, null = cancelled.
+  Future<bool?> _askInvoicePaid() async {
+    return showDialog<bool?>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Invoice Payment'),
+        content: const Text('Has the customer paid this invoice?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(null),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Unpaid'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Paid'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _clearBill() {
@@ -2101,7 +2133,8 @@ class _PosScreenState extends State<PosScreen> {
                                                   focusNode,
                                                   onFieldSubmitted,
                                                 ) {
-                                                  // set initial selection text when a customer is selected
+                                                  // If a selected customer id is present and resolves to a known customer,
+                                                  // show its name. Otherwise show the preserved display name (from held bill) if any.
                                                   if (_selectedCustomerId !=
                                                       null) {
                                                     final selected = _customers
@@ -2118,6 +2151,12 @@ class _PosScreenState extends State<PosScreen> {
                                                         );
                                                     controller.text =
                                                         selected.name;
+                                                    _customerDisplayName =
+                                                        selected.name;
+                                                  } else {
+                                                    controller.text =
+                                                        _customerDisplayName ??
+                                                        '';
                                                   }
                                                   return TextField(
                                                     controller: controller,
@@ -2135,6 +2174,7 @@ class _PosScreenState extends State<PosScreen> {
                                             onSelected: (c) {
                                               setState(() {
                                                 _selectedCustomerId = c.id;
+                                                _customerDisplayName = c.name;
                                               });
                                             },
                                             optionsViewBuilder:
@@ -2286,14 +2326,23 @@ class _PosScreenState extends State<PosScreen> {
                                                         .toList();
                                                     final total = _billingTotal;
 
+                                                    // Ask whether this invoice is paid or unpaid.
+                                                    final paidChoice =
+                                                        await _askInvoicePaid();
+                                                    if (paidChoice == null) {
+                                                      // user cancelled
+                                                      return;
+                                                    }
+
                                                     if (_editingHoldId !=
                                                         null) {
                                                       if (_editingHoldId! > 0) {
-                                                        // persisted DB hold -> finalize it
+                                                        // persisted DB hold -> finalize it with chosen paid flag
                                                         await _customerService
                                                             .finalizeHeldBill(
                                                               _editingHoldId!,
-                                                              markPaid: false,
+                                                              markPaid:
+                                                                  paidChoice,
                                                             );
                                                         _dbHeldBills =
                                                             await _customerService
@@ -2342,7 +2391,8 @@ class _PosScreenState extends State<PosScreen> {
                                                                     itemsForDb,
                                                                 total:
                                                                     totalForDb,
-                                                                isPaid: false,
+                                                                isPaid:
+                                                                    paidChoice,
                                                               );
                                                           // remove temp hold
                                                           setState(() {
@@ -2360,7 +2410,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                 _selectedCustomerId!,
                                                             items: items,
                                                             total: total,
-                                                            isPaid: false,
+                                                            isPaid: paidChoice,
                                                           );
                                                     }
 
