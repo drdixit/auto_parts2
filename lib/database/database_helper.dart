@@ -347,10 +347,6 @@ class DatabaseHelper {
     ''');
 
     // Create indexes for better performance
-    await _createIndexes(db);
-    // Insert sample data
-    await _insertSampleData(db);
-
     // Ensure customers and customer_bills tables exist on fresh create
     await db.execute('''
       CREATE TABLE IF NOT EXISTS customers (
@@ -376,6 +372,11 @@ class DatabaseHelper {
         FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
       )
     ''');
+
+    // Create indexes for better performance
+    await _createIndexes(db);
+    // Insert sample data (products, categories, etc.)
+    await _insertSampleData(db);
 
     // Seed customers and sample bills (safe, idempotent)
     await _insertSampleCustomersAndBills(db);
