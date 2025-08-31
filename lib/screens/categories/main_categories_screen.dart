@@ -280,6 +280,25 @@ class _MainCategoriesTabState extends State<_MainCategoriesTab>
       padding: const EdgeInsets.all(16.0),
       child: Column(
         children: [
+          // Header row to match Sub-Categories style
+          Row(
+            children: [
+              const Icon(Icons.category, size: 24),
+              const SizedBox(width: 8),
+              const Text(
+                'Main Categories',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              ElevatedButton.icon(
+                onPressed: () => _showAddEditDialog(),
+                icon: const Icon(Icons.add),
+                label: const Text('Add Category'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Search and filters below header
           Row(
             children: [
               Expanded(
@@ -309,11 +328,6 @@ class _MainCategoriesTabState extends State<_MainCategoriesTab>
                 ],
               ),
               const SizedBox(width: 16),
-              ElevatedButton.icon(
-                onPressed: () => _showAddEditDialog(),
-                icon: const Icon(Icons.add),
-                label: const Text('Add Category'),
-              ),
             ],
           ),
           const SizedBox(height: 16),
