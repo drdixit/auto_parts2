@@ -808,8 +808,38 @@ class DatabaseHelper {
         ? (invCountRes.first['cnt'] as int? ?? 0)
         : 0);
     if (invCount < 25) {
+      Future<void> safeInsertInventory(Map<String, dynamic> iv) async {
+        final pid = iv['product_id'] as int?;
+        if (pid == null) return;
+        // don't create duplicate inventory rows for same product in seed
+        final existing = await db.rawQuery(
+          'SELECT COUNT(1) as cnt FROM product_inventory WHERE product_id = ?',
+          [pid],
+        );
+        final exists =
+            (existing.isNotEmpty ? (existing.first['cnt'] as int? ?? 0) : 0) >
+            0;
+        if (exists) return;
+
+        // clamp negative prices to 0 to avoid validators rejecting seeded rows
+        iv['cost_price'] =
+            (iv['cost_price'] is num && (iv['cost_price'] as num) < 0)
+            ? 0.0
+            : iv['cost_price'];
+        iv['selling_price'] =
+            (iv['selling_price'] is num && (iv['selling_price'] as num) < 0)
+            ? 0.0
+            : iv['selling_price'];
+        iv['mrp'] = (iv['mrp'] is num && (iv['mrp'] as num) < 0)
+            ? 0.0
+            : iv['mrp'];
+
+        iv['created_at'] = now;
+        await db.insert('product_inventory', iv);
+      }
+
       // zero stock
-      await db.insert('product_inventory', {
+      await safeInsertInventory({
         'product_id': 2,
         'supplier_name': 'Edge Supplies',
         'cost_price': 0.0,
@@ -818,11 +848,10 @@ class DatabaseHelper {
         'stock_quantity': 0,
         'minimum_stock_level': 0,
         'location_rack': 'Z-0',
-        'created_at': now,
       });
 
       // very large stock
-      await db.insert('product_inventory', {
+      await safeInsertInventory({
         'product_id': 3,
         'supplier_name': 'Bulk Corp',
         'cost_price': 10.0,
@@ -831,11 +860,10 @@ class DatabaseHelper {
         'stock_quantity': 100000,
         'minimum_stock_level': 10,
         'location_rack': 'BULK-1',
-        'created_at': now,
       });
 
-      // negative/invalid prices (to see how app handles it)
-      await db.insert('product_inventory', {
+      // previously negative/invalid prices: clamp to 0.0 to avoid validation errors
+      await safeInsertInventory({
         'product_id': 4,
         'supplier_name': 'Faulty Supplier',
         'cost_price': -50.0,
@@ -844,7 +872,6 @@ class DatabaseHelper {
         'stock_quantity': 5,
         'minimum_stock_level': 1,
         'location_rack': 'X-ERR',
-        'created_at': now,
       });
     }
   }
@@ -950,86 +977,96 @@ class DatabaseHelper {
   }
 
   Future<void> _insertSampleCompatibility(Database db) async {
-    // Insert realistic product-vehicle compatibility
-    await db.execute('''
-      INSERT INTO product_compatibility (product_id, vehicle_model_id, is_oem, fit_notes, compatibility_confirmed, added_by) VALUES
-      -- NGK Spark Plug CR8E compatible with multiple bikes
-      (1, 1, 1, 'OEM fitment', 1, 'System'),
-      (1, 2, 1, 'OEM fitment', 1, 'System'),
-      (1, 5, 0, 'Direct fit', 1, 'System'),
+    // Insert realistic product-vehicle compatibility in an idempotent way
+    final compatibilityRows = <List<dynamic>>[
+      // NGK Spark Plug CR8E compatible with multiple bikes
+      [1, 1, 1, 'OEM fitment', 1, 'System'],
+      [1, 2, 1, 'OEM fitment', 1, 'System'],
+      [1, 5, 0, 'Direct fit', 1, 'System'],
 
-      -- Bosch Spark Plug for different models
-      (2, 3, 0, 'Aftermarket replacement', 1, 'System'),
-      (2, 4, 0, 'Direct fit', 1, 'System'),
-      (2, 6, 0, 'Compatible', 1, 'System'),
+      // Bosch Spark Plug for different models
+      [2, 3, 0, 'Aftermarket replacement', 1, 'System'],
+      [2, 4, 0, 'Direct fit', 1, 'System'],
+      [2, 6, 0, 'Compatible', 1, 'System'],
 
-      -- Iridium spark plug for premium bikes
-      (3, 7, 0, 'Performance upgrade', 1, 'System'),
-      (3, 9, 0, 'Direct fit', 1, 'System'),
+      // Iridium spark plug for premium bikes
+      [3, 7, 0, 'Performance upgrade', 1, 'System'],
+      [3, 9, 0, 'Direct fit', 1, 'System'],
 
-      -- Brake pads compatibility
-      (4, 4, 0, 'Front brake pads', 1, 'System'),
-      (4, 5, 0, 'Direct fit', 1, 'System'),
-      (4, 7, 0, 'Compatible', 1, 'System'),
+      // Brake pads compatibility
+      [4, 4, 0, 'Front brake pads', 1, 'System'],
+      [4, 5, 0, 'Direct fit', 1, 'System'],
+      [4, 7, 0, 'Compatible', 1, 'System'],
 
-      (5, 1, 0, 'Organic brake pads', 1, 'System'),
-      (5, 2, 0, 'Direct fit', 1, 'System'),
-      (5, 3, 0, 'Compatible', 1, 'System'),
+      [5, 1, 0, 'Organic brake pads', 1, 'System'],
+      [5, 2, 0, 'Direct fit', 1, 'System'],
+      [5, 3, 0, 'Compatible', 1, 'System'],
 
-      -- Clutch plates
-      (6, 1, 1, 'OEM clutch plates', 1, 'System'),
-      (6, 2, 1, 'OEM fitment', 1, 'System'),
-      (6, 3, 1, 'Original part', 1, 'System'),
+      // Clutch plates
+      [6, 1, 1, 'OEM clutch plates', 1, 'System'],
+      [6, 2, 1, 'OEM fitment', 1, 'System'],
+      [6, 3, 1, 'Original part', 1, 'System'],
 
-      (7, 7, 1, 'OEM Bajaj part', 1, 'System'),
-      (7, 8, 1, 'Original fitment', 1, 'System'),
+      [7, 7, 1, 'OEM Bajaj part', 1, 'System'],
+      [7, 8, 1, 'Original fitment', 1, 'System'],
 
-      -- Batteries
-      (8, 1, 0, '12V 9Ah battery', 1, 'System'),
-      (8, 2, 0, 'Direct replacement', 1, 'System'),
-      (8, 3, 0, 'Compatible', 1, 'System'),
-      (8, 5, 0, 'Suitable', 1, 'System'),
-      (8, 7, 0, 'Compatible', 1, 'System'),
-      (8, 9, 0, 'Direct fit', 1, 'System'),
+      // Batteries
+      [8, 1, 0, '12V 9Ah battery', 1, 'System'],
+      [8, 2, 0, 'Direct replacement', 1, 'System'],
+      [8, 3, 0, 'Compatible', 1, 'System'],
+      [8, 5, 0, 'Suitable', 1, 'System'],
+      [8, 7, 0, 'Compatible', 1, 'System'],
+      [8, 9, 0, 'Direct fit', 1, 'System'],
 
-      (9, 4, 0, '12V 5Ah scooter battery', 1, 'System'),
-      (9, 10, 0, 'Perfect fit', 1, 'System'),
+      [9, 4, 0, '12V 5Ah scooter battery', 1, 'System'],
+      [9, 10, 0, 'Perfect fit', 1, 'System'],
 
-      -- Headlights (universal)
-      (10, 1, 0, 'H4 halogen bulb', 1, 'System'),
-      (10, 2, 0, 'Universal fit', 1, 'System'),
-      (10, 3, 0, 'Standard bulb', 1, 'System'),
-      (10, 5, 0, 'Compatible', 1, 'System'),
-      (10, 7, 0, 'Universal', 1, 'System'),
-      (10, 8, 0, 'Direct fit', 1, 'System'),
-      (10, 9, 0, 'Standard', 1, 'System'),
+      // Headlights (universal)
+      [10, 1, 0, 'H4 halogen bulb', 1, 'System'],
+      [10, 2, 0, 'Universal fit', 1, 'System'],
+      [10, 3, 0, 'Standard bulb', 1, 'System'],
+      [10, 5, 0, 'Compatible', 1, 'System'],
+      [10, 7, 0, 'Universal', 1, 'System'],
+      [10, 8, 0, 'Direct fit', 1, 'System'],
+      [10, 9, 0, 'Standard', 1, 'System'],
 
-      -- Air filters
-      (12, 1, 0, 'High flow filter', 1, 'System'),
-      (12, 2, 0, 'Performance upgrade', 1, 'System'),
-      (12, 3, 0, 'Direct fit', 1, 'System'),
+      // Air filters
+      [12, 1, 0, 'High flow filter', 1, 'System'],
+      [12, 2, 0, 'Performance upgrade', 1, 'System'],
+      [12, 3, 0, 'Direct fit', 1, 'System'],
 
-      (13, 4, 0, 'Paper air filter', 1, 'System'),
-      (13, 5, 0, 'Standard filter', 1, 'System'),
-      (13, 10, 0, 'OEM replacement', 1, 'System'),
+      [13, 4, 0, 'Paper air filter', 1, 'System'],
+      [13, 5, 0, 'Standard filter', 1, 'System'],
+      [13, 10, 0, 'OEM replacement', 1, 'System'],
 
-      -- Pistons
-      (14, 5, 1, 'OEM Honda piston', 1, 'System'),
-      (15, 7, 1, 'OEM Bajaj piston', 1, 'System'),
-      (15, 8, 1, 'Original part', 1, 'System'),
+      // Pistons
+      [14, 5, 1, 'OEM Honda piston', 1, 'System'],
+      [15, 7, 1, 'OEM Bajaj piston', 1, 'System'],
+      [15, 8, 1, 'Original part', 1, 'System'],
 
-      -- Chains
-      (16, 1, 0, '428 chain', 1, 'System'),
-      (16, 2, 0, 'Direct fit', 1, 'System'),
-      (16, 7, 0, 'Compatible', 1, 'System'),
-      (16, 8, 0, 'Standard chain', 1, 'System'),
+      // Chains
+      [16, 1, 0, '428 chain', 1, 'System'],
+      [16, 2, 0, 'Direct fit', 1, 'System'],
+      [16, 7, 0, 'Compatible', 1, 'System'],
+      [16, 8, 0, 'Standard chain', 1, 'System'],
 
-      -- Oil filters
-      (18, 1, 0, 'Spin-on filter', 1, 'System'),
-      (18, 2, 0, 'Direct fit', 1, 'System'),
-      (18, 3, 0, 'Compatible', 1, 'System'),
-      (18, 5, 0, 'Standard filter', 1, 'System')
-    ''');
+      // Oil filters
+      [18, 1, 0, 'Spin-on filter', 1, 'System'],
+      [18, 2, 0, 'Direct fit', 1, 'System'],
+      [18, 3, 0, 'Compatible', 1, 'System'],
+      [18, 5, 0, 'Standard filter', 1, 'System'],
+    ];
+
+    for (final row in compatibilityRows) {
+      try {
+        await db.rawInsert(
+          'INSERT OR IGNORE INTO product_compatibility (product_id, vehicle_model_id, is_oem, fit_notes, compatibility_confirmed, added_by) VALUES (?, ?, ?, ?, ?, ?)',
+          row,
+        );
+      } catch (e) {
+        // ignore individual insert failures - best-effort seed
+      }
+    }
   }
 
   // Helper methods for CRUD operations
