@@ -271,7 +271,7 @@ class _MainCategoriesScreenState extends State<MainCategoriesScreen> {
           height: 50,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.grey[300]!),
+            border: Border.all(color: AppColors.surfaceMuted),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(3),
@@ -282,14 +282,18 @@ class _MainCategoriesScreenState extends State<MainCategoriesScreen> {
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) {
                 return Container(
-                  color: Colors.grey[200],
+                  color: AppColors.surfaceMuted,
                   child: const Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.broken_image, size: 20, color: Colors.red),
+                      Icon(
+                        Icons.broken_image,
+                        size: 20,
+                        color: AppColors.error,
+                      ),
                       Text(
                         'Error',
-                        style: TextStyle(fontSize: 8, color: Colors.red),
+                        style: TextStyle(fontSize: 8, color: AppColors.error),
                       ),
                     ],
                   ),
@@ -432,7 +436,7 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Error saving icon: $e'),
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.error,
             ),
           );
         }
@@ -446,17 +450,21 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
         width: 100,
         height: 100,
         decoration: BoxDecoration(
-          color: Colors.grey[100],
+          color: AppColors.surfaceLight,
           borderRadius: BorderRadius.circular(6),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.image_not_supported, size: 32, color: Colors.grey[400]),
+            Icon(
+              Icons.image_not_supported,
+              size: 32,
+              color: AppColors.surfaceMuted,
+            ),
             const SizedBox(height: 4),
             Text(
               'No Image',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -474,15 +482,15 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
           return Container(
             width: 100,
             height: 100,
-            color: Colors.red[50],
+            color: AppColors.surfaceMuted.withAlpha((0.12 * 255).round()),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.broken_image, size: 32, color: Colors.red[400]),
+                Icon(Icons.broken_image, size: 32, color: AppColors.error),
                 const SizedBox(height: 4),
                 Text(
                   'Error Loading',
-                  style: TextStyle(fontSize: 10, color: Colors.red[600]),
+                  style: TextStyle(fontSize: 10, color: AppColors.error),
                 ),
               ],
             ),

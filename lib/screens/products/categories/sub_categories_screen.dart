@@ -664,18 +664,18 @@ class _AddEditSubCategoryDialogState extends State<AddEditSubCategoryDialog> {
                   ),
                 )
               : Container(
-                  color: Colors.grey[100],
+                  color: AppColors.surfaceLight,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         Icons.image_not_supported,
                         size: 8,
-                        color: Colors.grey[400],
+                        color: AppColors.surfaceMuted,
                       ),
                       Text(
                         'No Image',
-                        style: TextStyle(fontSize: 4, color: Colors.grey[500]),
+                        style: TextStyle(fontSize: 4, color: AppColors.surface),
                       ),
                     ],
                   ),
@@ -704,9 +704,9 @@ class _AddEditSubCategoryDialogState extends State<AddEditSubCategoryDialog> {
 
     if (_selectedMainCategoryId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a main category'),
-          backgroundColor: Colors.red,
+        SnackBar(
+          content: const Text('Please select a main category'),
+          backgroundColor: AppColors.error,
         ),
       );
       return;

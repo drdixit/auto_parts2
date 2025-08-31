@@ -215,8 +215,9 @@ class _PosScreenState extends State<PosScreen> {
           !_selectedProductManufacturerIds.contains(p.manufacturerId)) {
         return false;
       }
-      if (_searchQuery.isNotEmpty && !_fuzzyMatch(p.name, _searchQuery))
+      if (_searchQuery.isNotEmpty && !_fuzzyMatch(p.name, _searchQuery)) {
         return false;
+      }
       return true;
     }).toList();
     setState(() {});
@@ -246,20 +247,22 @@ class _PosScreenState extends State<PosScreen> {
 
   void _toggleSubCategory(int id) {
     setState(() {
-      if (_selectedSubCategoryIds.contains(id))
+      if (_selectedSubCategoryIds.contains(id)) {
         _selectedSubCategoryIds.remove(id);
-      else
+      } else {
         _selectedSubCategoryIds.add(id);
+      }
       _applyFilters();
     });
   }
 
   void _toggleVehicle(int id) {
     setState(() {
-      if (_selectedVehicleIds.contains(id))
+      if (_selectedVehicleIds.contains(id)) {
         _selectedVehicleIds.remove(id);
-      else
+      } else {
         _selectedVehicleIds.add(id);
+      }
       _applyFilters();
     });
   }
@@ -295,10 +298,11 @@ class _PosScreenState extends State<PosScreen> {
         (b) => b.product.id == p.id,
         orElse: () => BillingItem(product: p, qty: 0),
       );
-      if (existing.qty <= 1)
+      if (existing.qty <= 1) {
         _billing.removeWhere((b) => b.product.id == p.id);
-      else
+      } else {
         existing.qty -= 1;
+      }
     });
   }
 
@@ -371,8 +375,9 @@ class _PosScreenState extends State<PosScreen> {
           width: 560,
           child: StatefulBuilder(
             builder: (context, dialogSetState) {
-              if (_heldBills.isEmpty)
+              if (_heldBills.isEmpty) {
                 return const Center(child: Text('No held bills'));
+              }
               return ListView.builder(
                 shrinkWrap: true,
                 itemCount: _heldBills.length,
@@ -381,7 +386,7 @@ class _PosScreenState extends State<PosScreen> {
                   final totalQty = hb.items.fold<int>(0, (s, it) => s + it.qty);
                   return ListTile(
                     title: Text(
-                      'Hold ${hb.id} - ${hb.items.length} - ${totalQty}',
+                      'Hold ${hb.id} - ${hb.items.length} - $totalQty',
                     ),
                     subtitle: Text('$hb.createdAt'),
                     trailing: Row(
@@ -399,8 +404,9 @@ class _PosScreenState extends State<PosScreen> {
                           onPressed: () {
                             dialogSetState(() {
                               final removed = _heldBills.removeAt(i);
-                              if (_editingHoldId == removed.id)
+                              if (_editingHoldId == removed.id) {
                                 _editingHoldId = null;
+                              }
                               _bumpHoldsVersion();
                             });
                           },
@@ -603,7 +609,7 @@ class _PosScreenState extends State<PosScreen> {
                                                   onSelected: (_) =>
                                                       _selectMainCategory(null),
                                                   backgroundColor:
-                                                      Colors.transparent,
+                                                      AppColors.transparent,
                                                   selectedColor:
                                                       _chipSelectedColor,
                                                   checkmarkColor: _accentColor,
@@ -632,8 +638,9 @@ class _PosScreenState extends State<PosScreen> {
                                                                 )
                                                           : AppColors
                                                                 .surfaceMuted
-                                                                .withOpacity(
-                                                                  0.18,
+                                                                .withAlpha(
+                                                                  (0.18 * 255)
+                                                                      .round(),
                                                                 ),
                                                     ),
                                                   ),
@@ -651,7 +658,7 @@ class _PosScreenState extends State<PosScreen> {
                                                           c.id,
                                                         ),
                                                     backgroundColor:
-                                                        Colors.transparent,
+                                                        AppColors.transparent,
                                                     selectedColor:
                                                         _chipSelectedColor,
                                                     checkmarkColor:
@@ -678,8 +685,9 @@ class _PosScreenState extends State<PosScreen> {
                                                                   )
                                                             : AppColors
                                                                   .surfaceMuted
-                                                                  .withOpacity(
-                                                                    0.12,
+                                                                  .withAlpha(
+                                                                    (0.12 * 255)
+                                                                        .round(),
                                                                   ),
                                                       ),
                                                     ),
@@ -713,7 +721,7 @@ class _PosScreenState extends State<PosScreen> {
                                                   onSelected: (_) =>
                                                       _toggleSubCategory(s.id!),
                                                   backgroundColor:
-                                                      Colors.transparent,
+                                                      AppColors.transparent,
                                                   selectedColor:
                                                       _chipSelectedColor,
                                                   checkmarkColor: _accentColor,
@@ -738,8 +746,9 @@ class _PosScreenState extends State<PosScreen> {
                                                                 )
                                                           : AppColors
                                                                 .surfaceMuted
-                                                                .withOpacity(
-                                                                  0.12,
+                                                                .withAlpha(
+                                                                  (0.12 * 255)
+                                                                      .round(),
                                                                 ),
                                                     ),
                                                   ),
@@ -769,7 +778,7 @@ class _PosScreenState extends State<PosScreen> {
                                                   onSelected: (_) =>
                                                       _toggleVehicle(v.id!),
                                                   backgroundColor:
-                                                      Colors.transparent,
+                                                      AppColors.transparent,
                                                   selectedColor:
                                                       _chipSelectedColor,
                                                   checkmarkColor: _accentColor,
@@ -794,8 +803,9 @@ class _PosScreenState extends State<PosScreen> {
                                                                 )
                                                           : AppColors
                                                                 .surfaceMuted
-                                                                .withOpacity(
-                                                                  0.12,
+                                                                .withAlpha(
+                                                                  (0.12 * 255)
+                                                                      .round(),
                                                                 ),
                                                     ),
                                                   ),
@@ -835,7 +845,7 @@ class _PosScreenState extends State<PosScreen> {
                                                     _applyFilters();
                                                   }),
                                                   backgroundColor:
-                                                      Colors.transparent,
+                                                      AppColors.transparent,
                                                   selectedColor:
                                                       _chipSelectedColor,
                                                   checkmarkColor: _accentColor,
@@ -860,8 +870,9 @@ class _PosScreenState extends State<PosScreen> {
                                                                 )
                                                           : AppColors
                                                                 .surfaceMuted
-                                                                .withOpacity(
-                                                                  0.12,
+                                                                .withAlpha(
+                                                                  (0.12 * 255)
+                                                                      .round(),
                                                                 ),
                                                     ),
                                                   ),
@@ -1015,7 +1026,10 @@ class _PosScreenState extends State<PosScreen> {
                                                             BoxShape.rectangle,
                                                         shadowColor: AppColors
                                                             .textSecondary
-                                                            .withOpacity(0.6),
+                                                            .withAlpha(
+                                                              (0.6 * 255)
+                                                                  .round(),
+                                                            ),
                                                         color:
                                                             AppColors.surface,
                                                         borderRadius:
@@ -1174,7 +1188,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                                       inCart >
                                                                                           0
                                                                                       ? _chipSelectedColor
-                                                                                      : Colors.transparent,
+                                                                                      : AppColors.transparent,
                                                                                   borderRadius: BorderRadius.circular(
                                                                                     6,
                                                                                   ),
@@ -1377,8 +1391,9 @@ class _PosScreenState extends State<PosScreen> {
                                                             border: Border.all(
                                                               color: AppColors
                                                                   .surfaceMuted
-                                                                  .withOpacity(
-                                                                    0.8,
+                                                                  .withAlpha(
+                                                                    (0.8 * 255)
+                                                                        .round(),
                                                                   ),
                                                             ),
                                                           ),
@@ -1515,7 +1530,9 @@ class _PosScreenState extends State<PosScreen> {
                                                 elevation: 0,
                                                 backgroundColor: AppColors
                                                     .surfaceMuted
-                                                    .withOpacity(0.8),
+                                                    .withAlpha(
+                                                      (0.8 * 255).round(),
+                                                    ),
                                                 foregroundColor:
                                                     AppColors.textPrimary,
                                               ),
@@ -1561,14 +1578,14 @@ class _PosScreenState extends State<PosScreen> {
                                                           children: [
                                                             // show only the item-countpair on the quick-hold button
                                                             Text(
-                                                              '${hb.items.length}-${totalQty}',
+                                                              '${hb.items.length}-$totalQty',
                                                               style: TextStyle(
                                                                 fontSize: 12,
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .w600,
-                                                                color: Colors
-                                                                    .grey[800],
+                                                                color: AppColors
+                                                                    .textPrimary,
                                                               ),
                                                             ),
                                                           ],
@@ -1610,28 +1627,27 @@ class _PosScreenState extends State<PosScreen> {
                                                                       ).pop(
                                                                         true,
                                                                       ),
-                                                                  child: const Text(
-                                                                    'Delete',
-                                                                    style: TextStyle(
-                                                                      color: Colors
-                                                                          .red,
-                                                                    ),
-                                                                  ),
+                                                                  child:
+                                                                      const Text(
+                                                                        'Delete',
+                                                                      ),
                                                                 ),
                                                               ],
                                                             ),
                                                           );
                                                           if (confirm == true) {
-                                                            if (!mounted)
+                                                            if (!mounted) {
                                                               return;
+                                                            }
                                                             setState(() {
                                                               _heldBills.remove(
                                                                 hb,
                                                               );
                                                               if (_editingHoldId ==
-                                                                  hb.id)
+                                                                  hb.id) {
                                                                 _editingHoldId =
                                                                     null;
+                                                              }
                                                               _bumpHoldsVersion();
                                                             });
                                                             messenger.showSnackBar(
@@ -1651,8 +1667,12 @@ class _PosScreenState extends State<PosScreen> {
                                                           child: Icon(
                                                             Icons.close,
                                                             size: 16,
-                                                            color:
-                                                                Colors.red[400],
+                                                            color: AppColors
+                                                                .error
+                                                                .withAlpha(
+                                                                  (0.8 * 255)
+                                                                      .round(),
+                                                                ),
                                                           ),
                                                         ),
                                                       ),
@@ -1660,7 +1680,7 @@ class _PosScreenState extends State<PosScreen> {
                                                   ),
                                                 ),
                                               );
-                                            }).toList(),
+                                            }),
                                             // If there are more than 5 holds, show a 'More' button to open full list
                                             if (_heldBills.length > 5)
                                               OutlinedButton(
@@ -1872,12 +1892,14 @@ class _PosScreenState extends State<PosScreen> {
                       fillColor: AppColors.surfaceMuted,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.transparent),
+                        borderSide: BorderSide(color: AppColors.transparent),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: BorderSide(
-                          color: AppColors.surfaceMuted.withOpacity(0.12),
+                          color: AppColors.surfaceMuted.withAlpha(
+                            (0.12 * 255).round(),
+                          ),
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(

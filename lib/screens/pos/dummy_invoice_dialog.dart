@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:auto_parts2/theme/app_colors.dart';
 
 /// Small DTO used by the dialog to keep logic separate from POS models.
 class InvoiceLine {
@@ -121,9 +122,9 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
                             ),
                             Text(
                               '${DateTime.now()}'.split('.')[0],
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey,
+                                color: AppColors.surfaceMuted,
                               ),
                             ),
                           ],

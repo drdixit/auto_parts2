@@ -396,7 +396,7 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen>
                                               mainCategory,
                                             )
                                             ? null
-                                            : Colors.grey,
+                                            : AppColors.surfaceMuted,
                                       ),
                                       onPressed:
                                           _canToggleSubCategory(
@@ -450,12 +450,16 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen>
       label: Text(
         subCategory.isActive ? 'Active' : 'Inactive',
         style: TextStyle(
-          color: subCategory.isActive ? Colors.white : Colors.black,
+          color: subCategory.isActive
+              ? AppColors.surface
+              : AppColors.textPrimary,
           fontSize: 12,
           fontWeight: FontWeight.w500,
         ),
       ),
-      backgroundColor: subCategory.isActive ? Colors.green : Colors.grey,
+      backgroundColor: subCategory.isActive
+          ? AppColors.success
+          : AppColors.surfaceMuted,
     );
   }
 
@@ -468,7 +472,7 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen>
           height: 40,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.grey[300]!),
+            border: Border.all(color: AppColors.surfaceMuted),
           ),
           child: category.iconPath != null && category.iconPath!.isNotEmpty
               ? ClipRRect(
@@ -480,11 +484,11 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen>
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
-                        color: Colors.grey[200],
+                        color: AppColors.surfaceMuted,
                         child: Icon(
                           Icons.broken_image,
                           size: 20,
-                          color: Colors.grey[400],
+                          color: AppColors.surface,
                         ),
                       );
                     },
@@ -644,7 +648,7 @@ class _AddEditSubCategoryDialogState extends State<AddEditSubCategoryDialog> {
           height: 24,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.grey[300]!),
+            border: Border.all(color: AppColors.surfaceMuted),
           ),
           child: category.iconPath != null && category.iconPath!.isNotEmpty
               ? ClipRRect(
@@ -656,29 +660,29 @@ class _AddEditSubCategoryDialogState extends State<AddEditSubCategoryDialog> {
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
-                        color: Colors.grey[200],
+                        color: AppColors.surfaceMuted,
                         child: Icon(
                           Icons.broken_image,
                           size: 12,
-                          color: Colors.grey[400],
+                          color: AppColors.surface,
                         ),
                       );
                     },
                   ),
                 )
               : Container(
-                  color: Colors.grey[100],
+                  color: AppColors.surfaceLight,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         Icons.image_not_supported,
                         size: 8,
-                        color: Colors.grey[400],
+                        color: AppColors.surfaceMuted,
                       ),
                       Text(
                         'No Image',
-                        style: TextStyle(fontSize: 4, color: Colors.grey[500]),
+                        style: TextStyle(fontSize: 4, color: AppColors.surface),
                       ),
                     ],
                   ),
@@ -707,9 +711,9 @@ class _AddEditSubCategoryDialogState extends State<AddEditSubCategoryDialog> {
 
     if (_selectedMainCategoryId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a main category'),
-          backgroundColor: Colors.red,
+        SnackBar(
+          content: const Text('Please select a main category'),
+          backgroundColor: AppColors.error,
         ),
       );
       return;

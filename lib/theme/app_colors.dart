@@ -19,4 +19,6 @@ class AppColors {
   // Controls
   static const Color buttonNeutral = Color(0xFF111827);
   static const Color chipSelected = Color(0xFF10B981);
+  // Utility
+  static const Color transparent = Color(0x00000000);
 }

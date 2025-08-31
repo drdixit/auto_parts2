@@ -1025,7 +1025,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           Container(
             height: 200,
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(color: AppColors.surfaceMuted),
               borderRadius: BorderRadius.circular(8),
             ),
             child: ListView.builder(
@@ -1046,7 +1046,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           Container(
             height: 120,
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(color: AppColors.surfaceMuted),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Center(

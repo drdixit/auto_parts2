@@ -1049,22 +1049,22 @@ class _ProductsScreenState extends State<ProductsScreen>
     String statusText;
 
     if (isOutOfStock) {
-      backgroundColor = AppColors.error.withOpacity(0.12);
+      backgroundColor = AppColors.error.withAlpha((0.12 * 255).round());
       foregroundColor = AppColors.error;
       icon = Icons.remove_shopping_cart;
       statusText = 'Out of Stock';
     } else if (isCriticalStock) {
-      backgroundColor = AppColors.error.withOpacity(0.08);
+      backgroundColor = AppColors.error.withAlpha((0.08 * 255).round());
       foregroundColor = AppColors.error;
       icon = Icons.warning;
       statusText = 'Critical: $stockQty';
     } else if (isLowStock) {
-      backgroundColor = AppColors.warning.withOpacity(0.12);
+      backgroundColor = AppColors.warning.withAlpha((0.12 * 255).round());
       foregroundColor = AppColors.warning;
       icon = Icons.warning_amber;
       statusText = 'Low: $stockQty';
     } else {
-      backgroundColor = AppColors.success.withOpacity(0.12);
+      backgroundColor = AppColors.success.withAlpha((0.12 * 255).round());
       foregroundColor = AppColors.success;
       icon = Icons.inventory_2;
       statusText = 'Stock: $stockQty';
@@ -1261,7 +1261,10 @@ class _ProductsScreenState extends State<ProductsScreen>
                   ),
                   Text(
                     'Min: $minLevel',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
