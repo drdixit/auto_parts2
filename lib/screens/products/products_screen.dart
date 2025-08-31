@@ -6,6 +6,7 @@ import 'package:auto_parts2/services/product_service.dart';
 import 'product_form_dialog.dart';
 import 'product_compatibility_dialog.dart';
 import 'product_inventory_dialog.dart';
+import 'package:auto_parts2/theme/app_colors.dart';
 
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
@@ -65,7 +66,7 @@ class _ProductsScreenState extends State<ProductsScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error loading products: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -90,7 +91,7 @@ class _ProductsScreenState extends State<ProductsScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result['message']),
-              backgroundColor: Colors.blue,
+              backgroundColor: AppColors.buttonNeutral,
             ),
           );
         }
@@ -189,7 +190,7 @@ class _ProductsScreenState extends State<ProductsScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result['message']),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
           ),
         );
         await _loadProducts();
@@ -198,7 +199,7 @@ class _ProductsScreenState extends State<ProductsScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result['error'] ?? 'Failed to update product status'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -207,7 +208,7 @@ class _ProductsScreenState extends State<ProductsScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.error,
         ),
       );
     }
@@ -244,7 +245,7 @@ class _ProductsScreenState extends State<ProductsScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error loading inventory: ${e.toString()}'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.error,
         ),
       );
     }
@@ -265,7 +266,7 @@ class _ProductsScreenState extends State<ProductsScreen>
           children: [
             Text(
               'Current Stock: $currentStock units',
-              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -282,7 +283,7 @@ class _ProductsScreenState extends State<ProductsScreen>
             Text(
               'Note: This will add the entered quantity to the current stock. Use "Inventory" for full inventory edits.',
               style: TextStyle(
-                color: Colors.grey[500],
+                color: AppColors.textSecondary,
                 fontSize: 12,
                 fontStyle: FontStyle.italic,
               ),
@@ -299,9 +300,9 @@ class _ProductsScreenState extends State<ProductsScreen>
               final addedStock = int.tryParse(stockController.text) ?? 0;
               if (addedStock < 0) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     content: Text('Stock quantity cannot be negative'),
-                    backgroundColor: Colors.red,
+                    backgroundColor: AppColors.error,
                   ),
                 );
                 return;
@@ -327,7 +328,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                     messenger.showSnackBar(
                       SnackBar(
                         content: Text(result['message']),
-                        backgroundColor: Colors.green,
+                        backgroundColor: AppColors.success,
                       ),
                     );
                     await _loadProducts(); // Refresh the list
@@ -337,7 +338,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                         content: Text(
                           result['error'] ?? 'Failed to update stock',
                         ),
-                        backgroundColor: Colors.red,
+                        backgroundColor: AppColors.error,
                       ),
                     );
                   }
@@ -346,9 +347,9 @@ class _ProductsScreenState extends State<ProductsScreen>
                   if (newQuantity == 0) {
                     if (!mounted) return;
                     messenger.showSnackBar(
-                      const SnackBar(
+                      SnackBar(
                         content: Text('No stock to add'),
-                        backgroundColor: Colors.orange,
+                        backgroundColor: AppColors.warning,
                       ),
                     );
                     return;
@@ -368,7 +369,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                     messenger.showSnackBar(
                       SnackBar(
                         content: Text(result['message'] ?? 'Inventory created'),
-                        backgroundColor: Colors.green,
+                        backgroundColor: AppColors.success,
                       ),
                     );
                     await _loadProducts();
@@ -378,7 +379,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                         content: Text(
                           result['error'] ?? 'Failed to create inventory',
                         ),
-                        backgroundColor: Colors.red,
+                        backgroundColor: AppColors.error,
                       ),
                     );
                   }
@@ -388,7 +389,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                 messenger.showSnackBar(
                   SnackBar(
                     content: Text('Error: ${e.toString()}'),
-                    backgroundColor: Colors.red,
+                    backgroundColor: AppColors.error,
                   ),
                 );
               }
@@ -463,8 +464,8 @@ class _ProductsScreenState extends State<ProductsScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Products'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
         actions: [
           IconButton(
             icon: const Icon(Icons.analytics),
@@ -483,7 +484,7 @@ class _ProductsScreenState extends State<ProductsScreen>
           // Search and Filter Section
           Container(
             padding: const EdgeInsets.all(16),
-            color: Colors.grey[50],
+            color: AppColors.surfaceLight,
             child: Column(
               children: [
                 // Search Bar
@@ -506,7 +507,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                       borderRadius: BorderRadius.circular(8),
                     ),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: AppColors.surface,
                   ),
                   onChanged: _onSearchChanged,
                 ),
@@ -543,7 +544,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                     Text(
                       '${_filteredProducts.length} products',
                       style: TextStyle(
-                        color: Colors.grey[600],
+                        color: AppColors.textSecondary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -564,7 +565,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                         Icon(
                           Icons.inventory_2_outlined,
                           size: 64,
-                          color: Colors.grey[400],
+                          color: AppColors.textSecondary,
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -573,7 +574,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                               : 'No products available',
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.grey[600],
+                            color: AppColors.textSecondary,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -602,8 +603,8 @@ class _ProductsScreenState extends State<ProductsScreen>
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddProductDialog,
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
         tooltip: 'Add Product',
         child: const Icon(Icons.add),
       ),
@@ -638,7 +639,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                           'Part No: ${product.partNumber}',
                           style: TextStyle(
                             fontSize: 14,
-                            color: Colors.grey[600],
+                            color: AppColors.textSecondary,
                           ),
                         ),
                     ],
@@ -658,7 +659,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                   margin: const EdgeInsets.only(right: 16),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: AppColors.surfaceMuted),
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(7),
@@ -715,10 +716,10 @@ class _ProductsScreenState extends State<ProductsScreen>
                         const SizedBox(height: 4),
                         Text(
                           '₹${product.sellingPrice!.toStringAsFixed(2)}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Colors.blue,
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                         ),
                       ],
@@ -736,21 +737,27 @@ class _ProductsScreenState extends State<ProductsScreen>
                   onPressed: () => _showCompatibilityDialog(product),
                   icon: const Icon(Icons.directions_car, size: 16),
                   label: const Text('Vehicles'),
-                  style: TextButton.styleFrom(foregroundColor: Colors.purple),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.secondary,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 TextButton.icon(
                   onPressed: () => _showQuickStockUpdate(product),
                   icon: const Icon(Icons.speed, size: 16),
                   label: const Text('Quick Stock'),
-                  style: TextButton.styleFrom(foregroundColor: Colors.teal),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.chipSelected,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 TextButton.icon(
                   onPressed: () => _showInventoryDialog(product),
                   icon: const Icon(Icons.inventory_2, size: 16),
                   label: const Text('Inventory'),
-                  style: TextButton.styleFrom(foregroundColor: Colors.blue),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 TextButton.icon(
@@ -774,8 +781,8 @@ class _ProductsScreenState extends State<ProductsScreen>
                     label: Text(product.isActive ? 'Deactivate' : 'Activate'),
                     style: TextButton.styleFrom(
                       foregroundColor: product.isActive
-                          ? Colors.orange
-                          : Colors.green,
+                          ? AppColors.warning
+                          : AppColors.success,
                     ),
                   ),
                 ),
@@ -796,19 +803,21 @@ class _ProductsScreenState extends State<ProductsScreen>
     final mainCategoryActive = product.mainCategoryActive ?? true;
 
     String statusText;
-    Color backgroundColor;
-    Color textColor;
+    Color backgroundColor = AppColors.surface; // Default value
+    Color textColor = AppColors.textSecondary; // Default value
 
     if (isEffectivelyActive) {
       // Product and all parents are active
       statusText = 'Active';
-      backgroundColor = Colors.green;
-      textColor = Colors.white;
+      backgroundColor = AppColors.success;
+      textColor = AppColors.surface;
     } else if (!isProductActive) {
       // Product itself is inactive (whether manually disabled or not)
       statusText = 'Inactive';
-      backgroundColor = isManuallyDisabled ? Colors.red : Colors.grey;
-      textColor = Colors.white;
+      backgroundColor = isManuallyDisabled
+          ? AppColors.error
+          : AppColors.surfaceMuted;
+      textColor = AppColors.surface;
     } else {
       // Product is active but parent category is inactive
       if (!mainCategoryActive) {
@@ -818,8 +827,8 @@ class _ProductsScreenState extends State<ProductsScreen>
       } else {
         statusText = 'Inactive by Category';
       }
-      backgroundColor = Colors.orange;
-      textColor = Colors.white;
+      backgroundColor = AppColors.warning;
+      textColor = AppColors.surface;
     }
 
     return Chip(
@@ -847,7 +856,7 @@ class _ProductsScreenState extends State<ProductsScreen>
               '$label:',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey[600],
+                color: AppColors.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -899,8 +908,8 @@ class _ProductsScreenState extends State<ProductsScreen>
     return Container(
       width: 80,
       height: 80,
-      color: Colors.grey.shade100,
-      child: Icon(Icons.image, color: Colors.grey.shade400, size: 32),
+      color: AppColors.surfaceLight,
+      child: Icon(Icons.image, color: AppColors.textSecondary, size: 32),
     );
   }
 
@@ -940,7 +949,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                             Icon(
                               Icons.broken_image,
                               size: 64,
-                              color: Colors.grey,
+                              color: AppColors.textSecondary,
                             ),
                             SizedBox(height: 16),
                             Text('Image not found'),
@@ -994,19 +1003,23 @@ class _ProductsScreenState extends State<ProductsScreen>
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.grey[200],
+          color: AppColors.surfaceLight,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: Colors.grey[300]!, width: 1),
+          border: Border.all(color: AppColors.surfaceMuted, width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.inventory_2_outlined, size: 12, color: Colors.grey[600]),
+            Icon(
+              Icons.inventory_2_outlined,
+              size: 12,
+              color: AppColors.textSecondary,
+            ),
             const SizedBox(width: 4),
             Text(
               'No Inventory',
               style: TextStyle(
-                color: Colors.grey[600],
+                color: AppColors.textSecondary,
                 fontWeight: FontWeight.w500,
                 fontSize: 11,
               ),
@@ -1036,23 +1049,23 @@ class _ProductsScreenState extends State<ProductsScreen>
     String statusText;
 
     if (isOutOfStock) {
-      backgroundColor = Colors.red[100]!;
-      foregroundColor = Colors.red[800]!;
+      backgroundColor = AppColors.error.withOpacity(0.12);
+      foregroundColor = AppColors.error;
       icon = Icons.remove_shopping_cart;
       statusText = 'Out of Stock';
     } else if (isCriticalStock) {
-      backgroundColor = Colors.red[50]!;
-      foregroundColor = Colors.red[700]!;
+      backgroundColor = AppColors.error.withOpacity(0.08);
+      foregroundColor = AppColors.error;
       icon = Icons.warning;
       statusText = 'Critical: $stockQty';
     } else if (isLowStock) {
-      backgroundColor = Colors.orange[100]!;
-      foregroundColor = Colors.orange[800]!;
+      backgroundColor = AppColors.warning.withOpacity(0.12);
+      foregroundColor = AppColors.warning;
       icon = Icons.warning_amber;
       statusText = 'Low: $stockQty';
     } else {
-      backgroundColor = Colors.green[100]!;
-      foregroundColor = Colors.green[800]!;
+      backgroundColor = AppColors.success.withOpacity(0.12);
+      foregroundColor = AppColors.success;
       icon = Icons.inventory_2;
       statusText = 'Stock: $stockQty';
     }
@@ -1094,16 +1107,16 @@ class _ProductsScreenState extends State<ProductsScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: Colors.blue[50],
+              color: AppColors.surfaceLight,
               borderRadius: BorderRadius.circular(3),
-              border: Border.all(color: Colors.blue[200]!, width: 1),
+              border: Border.all(color: AppColors.surfaceMuted, width: 1),
             ),
             child: Text(
               '₹${sellingPrice.toStringAsFixed(2)}',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: Colors.blue[800],
+                color: AppColors.textSecondary,
               ),
             ),
           ),
@@ -1131,7 +1144,7 @@ class _ProductsScreenState extends State<ProductsScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.check_circle, size: 64, color: Colors.green),
+                Icon(Icons.check_circle, size: 64, color: AppColors.success),
                 SizedBox(height: 16),
                 Text(
                   'No products are out of stock!',
@@ -1149,7 +1162,7 @@ class _ProductsScreenState extends State<ProductsScreen>
             return ListTile(
               leading: const Icon(
                 Icons.remove_shopping_cart,
-                color: Colors.red,
+                color: AppColors.error,
               ),
               title: Text(product['name'] ?? 'Unknown'),
               subtitle: Column(
@@ -1165,7 +1178,7 @@ class _ProductsScreenState extends State<ProductsScreen>
               trailing: Text(
                 'Out of Stock',
                 style: TextStyle(
-                  color: Colors.red[700],
+                  color: AppColors.error,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -1195,7 +1208,7 @@ class _ProductsScreenState extends State<ProductsScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.check_circle, size: 64, color: Colors.green),
+                Icon(Icons.check_circle, size: 64, color: AppColors.success),
                 SizedBox(height: 16),
                 Text(
                   'No products have low stock!',
@@ -1218,7 +1231,9 @@ class _ProductsScreenState extends State<ProductsScreen>
             return ListTile(
               leading: Icon(
                 stockQty <= criticalLevel ? Icons.warning : Icons.warning_amber,
-                color: stockQty <= criticalLevel ? Colors.red : Colors.orange,
+                color: stockQty <= criticalLevel
+                    ? AppColors.error
+                    : AppColors.warning,
               ),
               title: Text(product['name'] ?? 'Unknown'),
               subtitle: Column(
@@ -1239,8 +1254,8 @@ class _ProductsScreenState extends State<ProductsScreen>
                     'Stock: $stockQty',
                     style: TextStyle(
                       color: stockQty <= criticalLevel
-                          ? Colors.red[700]
-                          : Colors.orange[700],
+                          ? AppColors.error
+                          : AppColors.warning,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -1276,8 +1291,16 @@ class _ProductsScreenState extends State<ProductsScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
+                Icon(
+                  Icons.inventory_2_outlined,
+                  size: 64,
+                  color: AppColors.textSecondary,
+                ),
+                Icon(
+                  Icons.inventory_2_outlined,
+                  size: 64,
+                  color: AppColors.textSecondary,
+                ),
                 Text(
                   'No inventory records found.',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
@@ -1303,10 +1326,10 @@ class _ProductsScreenState extends State<ProductsScreen>
                     ? Icons.warning_amber
                     : Icons.inventory_2,
                 color: isOutOfStock
-                    ? Colors.red
+                    ? AppColors.error
                     : isLowStock
-                    ? Colors.orange
-                    : Colors.green,
+                    ? AppColors.warning
+                    : AppColors.success,
               ),
               title: Text('Product ID: ${inventory.productId}'),
               subtitle: Column(
@@ -1328,12 +1351,15 @@ class _ProductsScreenState extends State<ProductsScreen>
                       '₹${inventory.sellingPrice.toStringAsFixed(2)}',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.blue,
+                        color: AppColors.chipSelected,
                       ),
                     ),
                   Text(
                     'Min: ${inventory.minimumStockLevel}',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),

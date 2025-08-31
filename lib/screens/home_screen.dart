@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'categories/main_categories_screen.dart';
 import 'pos/pos_screen.dart';
 import 'package:auto_parts2/database/database_helper.dart';
+import 'package:auto_parts2/theme/app_colors.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -46,7 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error initializing database: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -136,7 +137,11 @@ class DashboardTab extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.category, size: 48, color: Colors.blue),
+                        Icon(
+                          Icons.category,
+                          size: 48,
+                          color: AppColors.chipSelected,
+                        ),
                         SizedBox(height: 8),
                         Text(
                           'Categories',
@@ -159,7 +164,11 @@ class DashboardTab extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.inventory, size: 48, color: Colors.green),
+                        Icon(
+                          Icons.inventory,
+                          size: 48,
+                          color: AppColors.success,
+                        ),
                         SizedBox(height: 8),
                         Text(
                           'Products',
@@ -193,16 +202,16 @@ class PlaceholderTab extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.construction, size: 64, color: Colors.grey[400]),
+          Icon(Icons.construction, size: 64, color: AppColors.surfaceMuted),
           const SizedBox(height: 16),
           Text(
             '$title (Coming Soon)',
-            style: TextStyle(fontSize: 24, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 24, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 8),
           Text(
             'This feature is under development',
-            style: TextStyle(fontSize: 16, color: Colors.grey[500]),
+            style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
           ),
         ],
       ),

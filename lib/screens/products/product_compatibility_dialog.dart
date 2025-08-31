@@ -3,6 +3,7 @@ import 'package:auto_parts2/models/product.dart';
 import 'package:auto_parts2/models/product_compatibility.dart';
 import 'package:auto_parts2/models/vehicle_model.dart';
 import 'package:auto_parts2/services/product_service.dart';
+import 'package:auto_parts2/theme/app_colors.dart';
 
 class ProductCompatibilityDialog extends StatefulWidget {
   final Product product;
@@ -66,7 +67,7 @@ class _ProductCompatibilityDialogState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error loading data: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -128,7 +129,7 @@ class _ProductCompatibilityDialogState
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result['error'] ?? 'Failed to add compatibility'),
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.error,
             ),
           );
         }
@@ -156,7 +157,7 @@ class _ProductCompatibilityDialogState
                 content: Text(
                   result['error'] ?? 'Failed to remove compatibility',
                 ),
-                backgroundColor: Colors.red,
+                backgroundColor: AppColors.error,
               ),
             );
           }
@@ -167,7 +168,7 @@ class _ProductCompatibilityDialogState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -191,7 +192,11 @@ class _ProductCompatibilityDialogState
             // Header
             Row(
               children: [
-                const Icon(Icons.directions_car, color: Colors.blue, size: 28),
+                const Icon(
+                  Icons.directions_car,
+                  color: AppColors.buttonNeutral,
+                  size: 28,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -206,7 +211,10 @@ class _ProductCompatibilityDialogState
                       ),
                       Text(
                         widget.product.name,
-                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -238,22 +246,22 @@ class _ProductCompatibilityDialogState
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
+                  color: AppColors.surfaceMuted,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade200),
+                  border: Border.all(color: AppColors.surfaceMuted),
                 ),
                 child: Row(
                   children: [
                     Icon(
                       Icons.check_circle,
-                      color: Colors.blue.shade600,
+                      color: AppColors.chipSelected,
                       size: 16,
                     ),
                     const SizedBox(width: 8),
                     Text(
                       '${_selectedVehicleIds.length} vehicle(s) selected',
                       style: TextStyle(
-                        color: Colors.blue.shade700,
+                        color: AppColors.chipSelected,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -268,7 +276,7 @@ class _ProductCompatibilityDialogState
                   ? const Center(child: CircularProgressIndicator())
                   : Container(
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: AppColors.surfaceMuted),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: _filteredVehicles.isEmpty
@@ -279,20 +287,20 @@ class _ProductCompatibilityDialogState
                                   Icon(
                                     Icons.search_off,
                                     size: 48,
-                                    color: Colors.grey.shade400,
+                                    color: AppColors.textSecondary,
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
                                     'No vehicles found',
                                     style: TextStyle(
-                                      color: Colors.grey.shade600,
+                                      color: AppColors.textSecondary,
                                     ),
                                   ),
                                   if (_vehicleSearchController.text.isNotEmpty)
                                     Text(
                                       'Try adjusting your search terms',
                                       style: TextStyle(
-                                        color: Colors.grey.shade500,
+                                        color: AppColors.textSecondary,
                                         fontSize: 12,
                                       ),
                                     ),

@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:auto_parts2/models/models.dart';
 import 'package:auto_parts2/services/services.dart';
+import 'package:auto_parts2/theme/app_colors.dart';
 
 class ProductFormDialog extends StatefulWidget {
   final Product? product;
@@ -150,7 +151,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error picking images: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -206,7 +207,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error loading form data: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -450,7 +451,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result['message']),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
           ),
         );
         Navigator.of(context).pop(true);
@@ -467,7 +468,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result['error']),
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.error,
             ),
           );
         }
@@ -480,7 +481,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -507,7 +508,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                     children: [
                       Icon(
                         widget.isEditing ? Icons.edit : Icons.add,
-                        color: Colors.blue,
+                        color: AppColors.chipSelected,
                         size: 28,
                       ),
                       const SizedBox(width: 12),
@@ -960,20 +961,26 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                       ElevatedButton(
                         onPressed: _isLoading ? null : _saveProduct,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.onPrimary,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 24,
                             vertical: 12,
                           ),
                         ),
                         child: _isLoading
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: Colors.white,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimary,
                                 ),
                               )
                             : Text(
@@ -1001,15 +1008,15 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
               icon: const Icon(Icons.add_photo_alternate),
               label: const Text('Add Images'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
               ),
             ),
             const SizedBox(width: 16),
             if (_selectedImagePaths.isNotEmpty)
               Text(
                 '${_selectedImagePaths.length} image(s) selected',
-                style: const TextStyle(color: Colors.grey),
+                style: const TextStyle(color: AppColors.textSecondary),
               ),
           ],
         ),
@@ -1033,7 +1040,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           const SizedBox(height: 8),
           Text(
             'Tap on an image to set it as primary. Primary image will be shown first.',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
         ] else ...[
           Container(
@@ -1046,11 +1053,14 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.image, size: 48, color: Colors.grey.shade400),
+                  Icon(Icons.image, size: 48, color: AppColors.textSecondary),
                   const SizedBox(height: 8),
                   Text(
                     'No images selected',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 16,
+                    ),
                   ),
                 ],
               ),
@@ -1070,7 +1080,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       margin: const EdgeInsets.only(right: 8),
       decoration: BoxDecoration(
         border: Border.all(
-          color: isPrimary ? Colors.blue : Colors.grey.shade300,
+          color: isPrimary ? AppColors.chipSelected : AppColors.surfaceMuted,
           width: isPrimary ? 3 : 1,
         ),
         borderRadius: BorderRadius.circular(8),
@@ -1091,13 +1101,13 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.blue,
+                  color: Theme.of(context).colorScheme.primary,
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text(
+                child: Text(
                   'PRIMARY',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.onPrimary,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1110,11 +1120,15 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
             child: GestureDetector(
               onTap: () => _removeImage(index),
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.red,
+                decoration: BoxDecoration(
+                  color: AppColors.error,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.close, color: Colors.white, size: 20),
+                child: Icon(
+                  Icons.close,
+                  color: Theme.of(context).colorScheme.onPrimary,
+                  size: 20,
+                ),
               ),
             ),
           ),
@@ -1132,7 +1146,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           return Container(
             width: 140,
             height: 180,
-            color: Colors.grey.shade200,
+            color: AppColors.surfaceMuted,
             child: const Center(child: CircularProgressIndicator()),
           );
         }
@@ -1160,8 +1174,8 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     return Container(
       width: 140,
       height: 180,
-      color: Colors.grey.shade200,
-      child: Icon(Icons.broken_image, color: Colors.grey.shade400, size: 40),
+      color: AppColors.surfaceMuted,
+      child: Icon(Icons.broken_image, color: AppColors.textSecondary, size: 40),
     );
   }
 
@@ -1188,18 +1202,22 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue.shade50,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.blue.shade200),
+              border: Border.all(color: AppColors.surfaceMuted),
             ),
             child: Row(
               children: [
-                Icon(Icons.check_circle, color: Colors.blue.shade600, size: 16),
+                Icon(
+                  Icons.check_circle,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 16,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   '${_selectedVehicleIds.length} vehicle(s) selected',
                   style: TextStyle(
-                    color: Colors.blue.shade700,
+                    color: Theme.of(context).colorScheme.primary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1212,7 +1230,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
         Container(
           height: 300,
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border.all(color: AppColors.surfaceMuted),
             borderRadius: BorderRadius.circular(8),
           ),
           child: _filteredVehicles.isEmpty
@@ -1223,18 +1241,18 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                       Icon(
                         Icons.search_off,
                         size: 48,
-                        color: Colors.grey.shade400,
+                        color: AppColors.textSecondary,
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'No vehicles found',
-                        style: TextStyle(color: Colors.grey.shade600),
+                        style: TextStyle(color: AppColors.textSecondary),
                       ),
                       if (_vehicleSearchController.text.isNotEmpty)
                         Text(
                           'Try adjusting your search terms',
                           style: TextStyle(
-                            color: Colors.grey.shade500,
+                            color: AppColors.textSecondary,
                             fontSize: 12,
                           ),
                         ),
@@ -1294,17 +1312,17 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           width: 4,
           height: 24,
           decoration: BoxDecoration(
-            color: Colors.blue,
+            color: Theme.of(context).colorScheme.primary,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
         const SizedBox(width: 12),
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: Colors.blue,
+            color: Theme.of(context).colorScheme.primary,
           ),
         ),
       ],

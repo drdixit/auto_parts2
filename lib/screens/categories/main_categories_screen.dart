@@ -6,6 +6,7 @@ import 'package:auto_parts2/services/main_category_service.dart';
 import 'package:auto_parts2/database/database_helper.dart';
 import 'package:auto_parts2/screens/categories/sub_categories_screen.dart';
 import 'package:auto_parts2/screens/products/products_screen.dart';
+import 'package:auto_parts2/theme/app_colors.dart';
 
 class MainCategoriesScreen extends StatefulWidget {
   const MainCategoriesScreen({super.key});
@@ -23,11 +24,11 @@ class _MainCategoriesScreenState extends State<MainCategoriesScreen> {
       child: Column(
         children: [
           Container(
-            color: Colors.grey[50],
+            color: AppColors.surfaceLight,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TabBar(
               labelColor: Theme.of(context).colorScheme.primary,
-              unselectedLabelColor: Colors.grey[600],
+              unselectedLabelColor: AppColors.textSecondary,
               tabs: const [
                 Tab(text: 'Main Categories'),
                 Tab(text: 'Sub Categories'),
@@ -110,7 +111,7 @@ class _MainCategoriesTabState extends State<_MainCategoriesTab>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error loading categories: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -148,7 +149,7 @@ class _MainCategoriesTabState extends State<_MainCategoriesTab>
             content: Text(
               'Category ${category.isActive ? 'deactivated' : 'activated'} successfully',
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
           ),
         );
       }
@@ -157,7 +158,7 @@ class _MainCategoriesTabState extends State<_MainCategoriesTab>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error updating category status: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -183,15 +184,22 @@ class _MainCategoriesTabState extends State<_MainCategoriesTab>
         width: 50,
         height: 50,
         decoration: BoxDecoration(
-          color: Colors.grey[200],
+          color: AppColors.surfaceLight,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: Colors.grey[300]!),
+          border: Border.all(color: AppColors.surfaceMuted),
         ),
-        child: const Column(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.image_not_supported, size: 20, color: Colors.grey),
-            Text('No Image', style: TextStyle(fontSize: 8, color: Colors.grey)),
+            Icon(
+              Icons.image_not_supported,
+              size: 20,
+              color: AppColors.textSecondary,
+            ),
+            Text(
+              'No Image',
+              style: TextStyle(fontSize: 8, color: AppColors.textSecondary),
+            ),
           ],
         ),
       );
@@ -298,13 +306,13 @@ class _MainCategoriesTabState extends State<_MainCategoriesTab>
                                     category.isActive ? 'Active' : 'Inactive',
                                     style: TextStyle(
                                       color: category.isActive
-                                          ? Colors.white
-                                          : Colors.black,
+                                          ? AppColors.surface
+                                          : AppColors.textSecondary,
                                     ),
                                   ),
                                   backgroundColor: category.isActive
-                                      ? Colors.green
-                                      : Colors.grey,
+                                      ? AppColors.success
+                                      : AppColors.surfaceMuted,
                                 ),
                               ),
                               DataCell(
@@ -453,15 +461,15 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
           return Container(
             width: 100,
             height: 100,
-            color: Colors.red[50],
+            color: AppColors.surfaceMuted.withOpacity(0.12),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.broken_image, size: 32, color: Colors.red[400]),
+                Icon(Icons.broken_image, size: 32, color: AppColors.error),
                 const SizedBox(height: 4),
                 Text(
                   'Error Loading',
-                  style: TextStyle(fontSize: 10, color: Colors.red[600]),
+                  style: TextStyle(fontSize: 10, color: AppColors.error),
                 ),
               ],
             ),
@@ -491,10 +499,7 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Category name already exists'),
-              backgroundColor: Colors.red,
-            ),
+            const SnackBar(content: Text('Category name already exists')),
           );
         }
         return;
@@ -526,7 +531,7 @@ class _AddEditCategoryDialogState extends State<AddEditCategoryDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error saving category: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }

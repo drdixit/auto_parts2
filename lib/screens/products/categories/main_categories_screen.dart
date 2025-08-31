@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:auto_parts2/models/main_category.dart';
 import 'package:auto_parts2/services/main_category_service.dart';
 import 'package:auto_parts2/database/database_helper.dart';
+import 'package:auto_parts2/theme/app_colors.dart';
 
 class MainCategoriesScreen extends StatefulWidget {
   const MainCategoriesScreen({super.key});
@@ -74,13 +75,13 @@ class _MainCategoriesScreenState extends State<MainCategoriesScreen> {
 
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(content: Text(message), backgroundColor: AppColors.error),
     );
   }
 
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.green),
+      SnackBar(content: Text(message), backgroundColor: AppColors.success),
     );
   }
 
@@ -187,13 +188,13 @@ class _MainCategoriesScreenState extends State<MainCategoriesScreen> {
                                     category.isActive ? 'Active' : 'Inactive',
                                     style: TextStyle(
                                       color: category.isActive
-                                          ? Colors.white
-                                          : Colors.black,
+                                          ? AppColors.surface
+                                          : AppColors.textSecondary,
                                     ),
                                   ),
                                   backgroundColor: category.isActive
-                                      ? Colors.green
-                                      : Colors.grey,
+                                      ? AppColors.success
+                                      : AppColors.surfaceMuted,
                                 ),
                               ),
                               DataCell(
@@ -240,15 +241,22 @@ class _MainCategoriesScreenState extends State<MainCategoriesScreen> {
         width: 50,
         height: 50,
         decoration: BoxDecoration(
-          color: Colors.grey[200],
+          color: AppColors.surfaceLight,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: Colors.grey[300]!),
+          border: Border.all(color: AppColors.surfaceMuted),
         ),
-        child: const Column(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.image_not_supported, size: 20, color: Colors.grey),
-            Text('No Image', style: TextStyle(fontSize: 8, color: Colors.grey)),
+            Icon(
+              Icons.image_not_supported,
+              size: 20,
+              color: AppColors.textSecondary,
+            ),
+            Text(
+              'No Image',
+              style: TextStyle(fontSize: 8, color: AppColors.textSecondary),
+            ),
           ],
         ),
       );

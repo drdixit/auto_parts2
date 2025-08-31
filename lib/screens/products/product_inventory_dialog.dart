@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:auto_parts2/models/product_inventory.dart';
 import 'package:auto_parts2/services/product_service.dart';
+import 'package:auto_parts2/theme/app_colors.dart';
 
 class ProductInventoryDialog extends StatefulWidget {
   final int productId;
@@ -170,7 +171,7 @@ class _ProductInventoryDialogState extends State<ProductInventoryDialog> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result['message']),
-              backgroundColor: Colors.green,
+              backgroundColor: AppColors.success,
             ),
           );
           Navigator.of(context).pop(true);
@@ -237,7 +238,7 @@ class _ProductInventoryDialogState extends State<ProductInventoryDialog> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(result['error']),
-                backgroundColor: Colors.red,
+                backgroundColor: AppColors.error,
               ),
             );
           }
@@ -251,7 +252,7 @@ class _ProductInventoryDialogState extends State<ProductInventoryDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -271,7 +272,11 @@ class _ProductInventoryDialogState extends State<ProductInventoryDialog> {
             // Header
             Row(
               children: [
-                const Icon(Icons.inventory, color: Colors.green, size: 28),
+                const Icon(
+                  Icons.inventory,
+                  color: AppColors.chipSelected,
+                  size: 28,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -288,7 +293,7 @@ class _ProductInventoryDialogState extends State<ProductInventoryDialog> {
                         'Product: ${widget.productName}',
                         style: const TextStyle(
                           fontSize: 14,
-                          color: Colors.grey,
+                          color: Color(0xFF6B7280),
                         ),
                       ),
                     ],
@@ -640,8 +645,8 @@ class _ProductInventoryDialogState extends State<ProductInventoryDialog> {
                 ElevatedButton(
                   onPressed: _isLoading ? null : _saveInventory,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
+                    backgroundColor: AppColors.success,
+                    foregroundColor: AppColors.surface,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 12,
@@ -653,7 +658,7 @@ class _ProductInventoryDialogState extends State<ProductInventoryDialog> {
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: AppColors.surface,
                           ),
                         )
                       : Text(
@@ -677,7 +682,7 @@ class _ProductInventoryDialogState extends State<ProductInventoryDialog> {
           width: 4,
           height: 24,
           decoration: BoxDecoration(
-            color: Colors.green,
+            color: AppColors.success,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -687,7 +692,7 @@ class _ProductInventoryDialogState extends State<ProductInventoryDialog> {
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: Colors.green,
+            color: AppColors.success,
           ),
         ),
       ],

@@ -11,6 +11,7 @@ import 'package:auto_parts2/models/vehicle_model.dart';
 import 'package:auto_parts2/services/main_category_service.dart';
 import 'package:auto_parts2/services/product_service.dart';
 import 'package:auto_parts2/services/sub_category_service.dart';
+import 'package:auto_parts2/theme/app_colors.dart';
 
 // Intents for keyboard shortcuts
 class ResetIntent extends Intent {
@@ -106,7 +107,7 @@ class _PosScreenState extends State<PosScreen> {
   void _bumpHoldsVersion() => _holdsVersion.value += 1;
 
   // UI tokens
-  final Color _accentColor = Colors.indigo;
+  Color get _accentColor => Theme.of(context).colorScheme.primary;
   final Color _chipSelectedColor = const Color(0xFFE8ECFF);
   final double _cardRadius = 12.0;
   final double _panelRadius = 14.0;
@@ -440,7 +441,7 @@ class _PosScreenState extends State<PosScreen> {
                             onPressed: () => Navigator.of(context).pop(true),
                             child: const Text(
                               'Clear',
-                              style: TextStyle(color: Colors.red),
+                              style: TextStyle(color: AppColors.error),
                             ),
                           ),
                         ],
@@ -462,7 +463,9 @@ class _PosScreenState extends State<PosScreen> {
             child: Text(
               'Clear all holds',
               style: TextStyle(
-                color: _heldBills.isEmpty ? Colors.grey[400] : Colors.red[700],
+                color: _heldBills.isEmpty
+                    ? AppColors.surfaceMuted
+                    : AppColors.error,
               ),
             ),
           ),
@@ -522,7 +525,7 @@ class _PosScreenState extends State<PosScreen> {
         child: Focus(
           autofocus: true,
           child: Scaffold(
-            backgroundColor: Colors.grey[50],
+            backgroundColor: AppColors.surfaceLight,
             body: Column(
               children: [
                 _buildTopBar(context),
@@ -554,7 +557,7 @@ class _PosScreenState extends State<PosScreen> {
                                       children: [
                                         Icon(
                                           Icons.tune,
-                                          color: Colors.grey[700],
+                                          color: AppColors.textSecondary,
                                         ),
                                         const SizedBox(width: 8),
                                         Text(
@@ -609,7 +612,8 @@ class _PosScreenState extends State<PosScreen> {
                                                         _selectedMainCategoryId ==
                                                             null
                                                         ? _accentColor
-                                                        : Colors.grey[800],
+                                                        : AppColors
+                                                              .textSecondary,
                                                     fontWeight: FontWeight.w600,
                                                   ),
                                                   shape: RoundedRectangleBorder(
@@ -626,10 +630,10 @@ class _PosScreenState extends State<PosScreen> {
                                                                   (0.18 * 255)
                                                                       .round(),
                                                                 )
-                                                          : Colors.grey
-                                                                .withAlpha(
-                                                                  (0.18 * 255)
-                                                                      .round(),
+                                                          : AppColors
+                                                                .surfaceMuted
+                                                                .withOpacity(
+                                                                  0.18,
                                                                 ),
                                                     ),
                                                   ),
@@ -655,7 +659,8 @@ class _PosScreenState extends State<PosScreen> {
                                                     labelStyle: TextStyle(
                                                       color: sel
                                                           ? _accentColor
-                                                          : Colors.grey[800],
+                                                          : AppColors
+                                                                .textSecondary,
                                                       fontWeight:
                                                           FontWeight.w600,
                                                     ),
@@ -671,10 +676,10 @@ class _PosScreenState extends State<PosScreen> {
                                                                     (0.18 * 255)
                                                                         .round(),
                                                                   )
-                                                            : Colors.grey
-                                                                  .withAlpha(
-                                                                    (0.12 * 255)
-                                                                        .round(),
+                                                            : AppColors
+                                                                  .surfaceMuted
+                                                                  .withOpacity(
+                                                                    0.12,
                                                                   ),
                                                       ),
                                                     ),
@@ -715,7 +720,8 @@ class _PosScreenState extends State<PosScreen> {
                                                   labelStyle: TextStyle(
                                                     color: sel
                                                         ? _accentColor
-                                                        : Colors.grey[800],
+                                                        : AppColors
+                                                              .textSecondary,
                                                     fontWeight: FontWeight.w600,
                                                   ),
                                                   shape: RoundedRectangleBorder(
@@ -730,10 +736,10 @@ class _PosScreenState extends State<PosScreen> {
                                                                   (0.18 * 255)
                                                                       .round(),
                                                                 )
-                                                          : Colors.grey
-                                                                .withAlpha(
-                                                                  (0.12 * 255)
-                                                                      .round(),
+                                                          : AppColors
+                                                                .surfaceMuted
+                                                                .withOpacity(
+                                                                  0.12,
                                                                 ),
                                                     ),
                                                   ),
@@ -770,7 +776,8 @@ class _PosScreenState extends State<PosScreen> {
                                                   labelStyle: TextStyle(
                                                     color: sel
                                                         ? _accentColor
-                                                        : Colors.grey[800],
+                                                        : AppColors
+                                                              .textSecondary,
                                                     fontWeight: FontWeight.w600,
                                                   ),
                                                   shape: RoundedRectangleBorder(
@@ -785,10 +792,10 @@ class _PosScreenState extends State<PosScreen> {
                                                                   (0.18 * 255)
                                                                       .round(),
                                                                 )
-                                                          : Colors.grey
-                                                                .withAlpha(
-                                                                  (0.12 * 255)
-                                                                      .round(),
+                                                          : AppColors
+                                                                .surfaceMuted
+                                                                .withOpacity(
+                                                                  0.12,
                                                                 ),
                                                     ),
                                                   ),
@@ -835,7 +842,8 @@ class _PosScreenState extends State<PosScreen> {
                                                   labelStyle: TextStyle(
                                                     color: sel
                                                         ? _accentColor
-                                                        : Colors.grey[800],
+                                                        : AppColors
+                                                              .textSecondary,
                                                     fontWeight: FontWeight.w600,
                                                   ),
                                                   shape: RoundedRectangleBorder(
@@ -850,10 +858,10 @@ class _PosScreenState extends State<PosScreen> {
                                                                   (0.18 * 255)
                                                                       .round(),
                                                                 )
-                                                          : Colors.grey
-                                                                .withAlpha(
-                                                                  (0.12 * 255)
-                                                                      .round(),
+                                                          : AppColors
+                                                                .surfaceMuted
+                                                                .withOpacity(
+                                                                  0.12,
                                                                 ),
                                                     ),
                                                   ),
@@ -889,7 +897,9 @@ class _PosScreenState extends State<PosScreen> {
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodyLarge
-                                            ?.copyWith(color: Colors.grey[700]),
+                                            ?.copyWith(
+                                              color: AppColors.textSecondary,
+                                            ),
                                       ),
                                     ),
                                   ),
@@ -1003,9 +1013,11 @@ class _PosScreenState extends State<PosScreen> {
                                                             : 2,
                                                         shape:
                                                             BoxShape.rectangle,
-                                                        shadowColor:
-                                                            Colors.black54,
-                                                        color: Colors.white,
+                                                        shadowColor: AppColors
+                                                            .textSecondary
+                                                            .withOpacity(0.6),
+                                                        color:
+                                                            AppColors.surface,
                                                         borderRadius:
                                                             BorderRadius.circular(
                                                               _cardRadius,
@@ -1017,7 +1029,8 @@ class _PosScreenState extends State<PosScreen> {
                                                               ? 1.02
                                                               : 1.0,
                                                           child: Material(
-                                                            color: Colors.white,
+                                                            color: AppColors
+                                                                .surface,
                                                             elevation: 0,
                                                             borderRadius:
                                                                 BorderRadius.circular(
@@ -1066,7 +1079,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                                       null &&
                                                                                   p.primaryImagePath!.isNotEmpty
                                                                               ? Container(
-                                                                                  color: Colors.grey[100],
+                                                                                  color: AppColors.surfaceMuted,
                                                                                   alignment: Alignment.center,
                                                                                   child: Image.file(
                                                                                     File(
@@ -1085,7 +1098,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                                           __,
                                                                                           ___,
                                                                                         ) => Container(
-                                                                                          color: Colors.grey[100],
+                                                                                          color: AppColors.surfaceMuted,
                                                                                           alignment: Alignment.center,
                                                                                           child: const Text(
                                                                                             'No image',
@@ -1094,7 +1107,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                                   ),
                                                                                 )
                                                                               : Container(
-                                                                                  color: Colors.grey[100],
+                                                                                  color: AppColors.surfaceMuted,
                                                                                   alignment: Alignment.center,
                                                                                   child: const Text(
                                                                                     'No image',
@@ -1131,7 +1144,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                           Text(
                                                                             '₹${price.toStringAsFixed(2)}',
                                                                             style: TextStyle(
-                                                                              color: Colors.grey[800],
+                                                                              color: AppColors.textPrimary,
                                                                               fontWeight: FontWeight.bold,
                                                                             ),
                                                                           ),
@@ -1355,15 +1368,18 @@ class _PosScreenState extends State<PosScreen> {
                                                                 vertical: 4,
                                                               ),
                                                           decoration: BoxDecoration(
-                                                            color:
-                                                                Colors.grey[50],
+                                                            color: AppColors
+                                                                .surfaceLight,
                                                             borderRadius:
                                                                 BorderRadius.circular(
                                                                   8,
                                                                 ),
                                                             border: Border.all(
-                                                              color: Colors
-                                                                  .grey[200]!,
+                                                              color: AppColors
+                                                                  .surfaceMuted
+                                                                  .withOpacity(
+                                                                    0.8,
+                                                                  ),
                                                             ),
                                                           ),
                                                           child: Row(
@@ -1497,9 +1513,11 @@ class _PosScreenState extends State<PosScreen> {
                                             ElevatedButton.icon(
                                               style: ElevatedButton.styleFrom(
                                                 elevation: 0,
-                                                backgroundColor:
-                                                    Colors.grey[200],
-                                                foregroundColor: Colors.black87,
+                                                backgroundColor: AppColors
+                                                    .surfaceMuted
+                                                    .withOpacity(0.8),
+                                                foregroundColor:
+                                                    AppColors.textPrimary,
                                               ),
                                               onPressed: _billing.isEmpty
                                                   ? null
@@ -1783,7 +1801,7 @@ class _PosScreenState extends State<PosScreen> {
       height: 76,
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         boxShadow: [
           BoxShadow(
             color: const Color.fromRGBO(0, 0, 0, 0.05),
@@ -1804,7 +1822,7 @@ class _PosScreenState extends State<PosScreen> {
                   color: _accentColor,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.store, color: Colors.white),
+                child: const Icon(Icons.store, color: AppColors.surface),
               ),
               const SizedBox(width: 12),
               Column(
@@ -1819,9 +1837,9 @@ class _PosScreenState extends State<PosScreen> {
                   ),
                   Text(
                     'Sell faster • Desktop',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -1851,7 +1869,7 @@ class _PosScreenState extends State<PosScreen> {
                       contentPadding: const EdgeInsets.symmetric(vertical: 10),
                       isDense: true,
                       filled: true,
-                      fillColor: Colors.grey[100],
+                      fillColor: AppColors.surfaceMuted,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: BorderSide(color: Colors.transparent),
@@ -1859,7 +1877,7 @@ class _PosScreenState extends State<PosScreen> {
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: BorderSide(
-                          color: Colors.grey.withAlpha((0.12 * 255).round()),
+                          color: AppColors.surfaceMuted.withOpacity(0.12),
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
@@ -1884,7 +1902,7 @@ class _PosScreenState extends State<PosScreen> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
+                  color: AppColors.surfaceMuted,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -1906,7 +1924,7 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   BoxDecoration get _panelDecoration => BoxDecoration(
-    color: Colors.white,
+    color: AppColors.surface,
     borderRadius: BorderRadius.circular(_panelRadius),
     boxShadow: [
       BoxShadow(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:auto_parts2/models/sub_category.dart';
 import 'package:auto_parts2/models/main_category.dart';
+import 'package:auto_parts2/theme/app_colors.dart';
 import 'package:auto_parts2/services/sub_category_service.dart';
 import 'package:auto_parts2/services/main_category_service.dart';
 
@@ -73,7 +74,7 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error loading data: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -170,7 +171,7 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error updating sub-category: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -264,7 +265,9 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen>
                                 margin: const EdgeInsets.only(right: 8),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(3),
-                                  border: Border.all(color: Colors.grey[300]!),
+                                  border: Border.all(
+                                    color: AppColors.surfaceMuted,
+                                  ),
                                 ),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(2),
@@ -275,11 +278,11 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen>
                                     fit: BoxFit.cover,
                                     errorBuilder: (context, error, stackTrace) {
                                       return Container(
-                                        color: Colors.grey[200],
+                                        color: AppColors.surfaceLight,
                                         child: Icon(
                                           Icons.broken_image,
                                           size: 10,
-                                          color: Colors.grey[400],
+                                          color: AppColors.textSecondary,
                                         ),
                                       );
                                     },
@@ -488,18 +491,21 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen>
                   ),
                 )
               : Container(
-                  color: Colors.grey[100],
+                  color: AppColors.surfaceLight,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         Icons.image_not_supported,
                         size: 12,
-                        color: Colors.grey[400],
+                        color: AppColors.textSecondary,
                       ),
                       Text(
                         'No Image',
-                        style: TextStyle(fontSize: 6, color: Colors.grey[500]),
+                        style: TextStyle(
+                          fontSize: 6,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -515,7 +521,7 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen>
                 category.name,
                 style: TextStyle(
                   fontWeight: FontWeight.w500,
-                  color: category.isActive ? null : Colors.red[600],
+                  color: category.isActive ? null : AppColors.error,
                   decoration: category.isActive
                       ? null
                       : TextDecoration.lineThrough,
@@ -527,7 +533,7 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen>
                   'Inactive',
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.red[600],
+                    color: AppColors.error,
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -684,8 +690,8 @@ class _AddEditSubCategoryDialogState extends State<AddEditSubCategoryDialog> {
             category.name + (showInactiveState ? ' (Inactive)' : ''),
             style: TextStyle(
               color: showInactiveState
-                  ? Colors.grey[600]
-                  : (isSelected ? Colors.blue : null),
+                  ? AppColors.textSecondary
+                  : (isSelected ? AppColors.chipSelected : null),
               fontWeight: isSelected ? FontWeight.w500 : null,
               decoration: showInactiveState ? TextDecoration.lineThrough : null,
             ),
@@ -760,7 +766,7 @@ class _AddEditSubCategoryDialogState extends State<AddEditSubCategoryDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error saving sub-category: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -894,7 +900,6 @@ class _AddEditSubCategoryDialogState extends State<AddEditSubCategoryDialog> {
                                     content: Text(
                                       'Cannot select inactive main category',
                                     ),
-                                    backgroundColor: Colors.red,
                                   ),
                                 );
                               });
