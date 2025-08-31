@@ -408,10 +408,10 @@ class DatabaseHelper {
         : 0);
     if (cnt > 0) return; // already seeded
 
-    // Insert a few customers
+    // Insert a few customers (shops and trade customers)
     final now = DateTime.now().toIso8601String();
     final aliceId = await db.insert('customers', {
-      'name': 'Alice Auto',
+      'name': 'Alpha Auto Stores',
       'address': '12 Market Road',
       'mobile': '9999000001',
       'opening_balance': 0.0,
@@ -419,16 +419,16 @@ class DatabaseHelper {
       'created_at': now,
     });
     final bobId = await db.insert('customers', {
-      'name': 'Bob Motors',
+      'name': 'Beta Motors',
       'address': '7 Industrial Area',
       'mobile': '9999000002',
       'opening_balance': 0.0,
-      // Bob owes 1200.00 -> negative balance to indicate unpaid
+      // Beta Motors owes 1200.00 -> negative balance to indicate unpaid
       'balance': -1200.00,
       'created_at': now,
     });
     await db.insert('customers', {
-      'name': 'Charlie Garage',
+      'name': 'Gamma Garage',
       'address': '45 Service Lane',
       'mobile': '9999000003',
       'opening_balance': 0.0,
@@ -638,55 +638,57 @@ class DatabaseHelper {
     final now = DateTime.now().toIso8601String();
 
     // Create 50 realistic Indian customers. Balances are computed from unpaid bills
+    // Mix of shop/trade names and individual customers to mirror real dataset
     final names = <String>[
-      'Ravi Kumar',
-      'Suresh Patel',
-      'Aarti Sharma',
-      'Vikram Singh',
-      'Priya Reddy',
-      'Rahul Verma',
-      'Sunita Joshi',
-      'Manish Gupta',
-      'Neha Kapoor',
-      'Amit Desai',
-      'Pooja Nair',
-      'Karan Mehta',
-      'Deepak Choudhary',
-      'Anita Bhat',
-      'Ramesh Iyer',
-      'Sangeeta Rao',
-      'Nitin Sharma',
-      'Sneha Kulkarni',
-      'Ashok Menon',
-      'Divya Srinivasan',
-      'Kapil Chawla',
-      'Ritika Singh',
-      'Vineet Agarwal',
-      'Madhuri Patel',
-      'Gaurav Jain',
-      'Meena Shah',
-      'Arjun Rao',
-      'Leela Thomas',
-      'Kishore Reddy',
-      'Tanya Bose',
-      'Bhavesh Deshmukh',
-      'Smita Kulkarni',
-      'Sanjay Nair',
-      'Geeta Kaur',
-      'Rohit Kapoor',
-      'Shweta Singh',
-      'Prakash Verma',
-      'Isha Gupta',
-      'Vimal Shah',
-      'Bhavna Iyer',
-      'Yash Sharma',
-      'Ritu Aggarwal',
-      'Kamal Pathak',
-      'Anjali Rao',
-      'Sahil Mehra',
-      'Nisha Reddy',
-      'Vikash Kumar',
-      'Priyanka Singh',
+      'Alpha Auto Stores',
+      'Beta Traders',
+      'Gamma Garage',
+      'Delta Motors',
+      'Epsilon Spares',
+      'Zeta Two-Wheelers',
+      'Eta Service Center',
+      'Theta Parts Depot',
+      'Iota Repairs',
+      'Kappa Auto Care',
+      'Lambda Wheels',
+      'Mu Garage',
+      'Nu Automobile',
+      'Xi Motor House',
+      'Omicron Auto',
+      'Pi Auto Emporium',
+      'Rho Car Service',
+      'Sigma Bike Shop',
+      'Tau Tyres',
+      'Upsilon Spares',
+      'Phi Motors',
+      'Chi Garage',
+      'Psi Auto Solutions',
+      'Omega Parts',
+      'Sunil & Sons Garage',
+      'Arun Workshop',
+      'Suresh Auto Parts',
+      'Sharma Motors',
+      'Patel Vehicle Repairs',
+      'Kumar Garage',
+      'Raju Traders',
+      'Nagaraj Spares',
+      'Mohan Workshop',
+      'Rajesh Wheels',
+      'Vikram Auto Center',
+      'Ambika Motors',
+      'Hari Garage',
+      'Rita Service Point',
+      'City Auto Store',
+      'Township Spares',
+      'Neighborhood Garage',
+      'Express Auto',
+      'Corner Bike Shop',
+      'Central Parts',
+      'Precision Auto',
+      'Prime Motors',
+      'Trusty Garage',
+      'United Auto Traders',
+      'Victory Spares',
     ];
 
     for (var i = 0; i < 50; i++) {
@@ -753,22 +755,7 @@ class DatabaseHelper {
         });
       }
 
-      if (i % 11 == 0) {
-        // a small credit note represented as a paid bill (refund/credit)
-        final prod = ((i * 7) % 20) + 1;
-        final tot = 150.0;
-        final items = jsonEncode([
-          {'product_id': prod, 'qty': 1, 'line_total': tot},
-        ]);
-        await db.insert('customer_bills', {
-          'customer_id': cid,
-          'items': items,
-          'total': tot,
-          'is_paid': 1,
-          'is_held': 0,
-          'created_at': now,
-        });
-      }
+      // (Removed positive credit insertion to ensure balances never become positive)
 
       // Recompute balance from unpaid bills so DB is consistent: balance = -SUM(unpaid totals) + credit
       final unpaidRes = await db.rawQuery(
@@ -780,8 +767,7 @@ class DatabaseHelper {
           : 0);
       final unpaid = unpaidNum.toDouble();
       double newBalance = -unpaid;
-      // apply small manual credit for some seeded customers (i % 11 == 0)
-      if (i % 11 == 0) newBalance += 150.0;
+      // no manual positive credits; balance remains negative for unpaid or zero
       await db.update(
         'customers',
         {'balance': newBalance},
