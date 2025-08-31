@@ -619,6 +619,151 @@ class DatabaseHelper {
 
     // Sample Products - Add comprehensive product data
     await _insertSampleProducts(db);
+    // Add larger bulk seed dataset for testing edge cases (idempotent)
+    await _insertBulkSeed(db);
+  }
+
+  // Insert a larger bulk of seed data to exercise edge-cases and logical flows.
+  // This is idempotent: if there are already many customers, skip.
+  Future<void> _insertBulkSeed(Database db) async {
+    final existing = await db.rawQuery('SELECT COUNT(1) as cnt FROM customers');
+    final cnt = (existing.isNotEmpty
+        ? (existing.first['cnt'] as int? ?? 0)
+        : 0);
+    if (cnt > 20) return; // assume already seeded with bulk data
+
+    final imagesDir = await getImagesDirectoryPath();
+    final dummyPath = join(imagesDir, 'dummy.jpg');
+    final now = DateTime.now().toIso8601String();
+
+    // Create 30 diverse customers with varied balances and metadata
+    for (var i = 1; i <= 30; i++) {
+      final name = i == 7
+          ? 'Seed Customer With A Very Long Name That Might Overflow UI Testing Purposes $i'
+          : 'Seed Customer $i';
+      final mobile = (i % 5 == 0) ? null : '99990${10000 + i}';
+      final opening = 0.0;
+      // Some customers start with negative balances (owing), some positive (credit), most zero
+      final balance = (i % 3 == 0)
+          ? -(i * 75.0)
+          : (i % 7 == 0 ? (i * 20.0) : 0.0);
+
+      final cid = await db.insert('customers', {
+        'name': name,
+        'address': i % 4 == 0
+            ? 'Long Address Example Street, Block $i, Some Industrial Area, City, State, Country'
+            : 'Address $i',
+        'mobile': mobile,
+        'opening_balance': opening,
+        'balance': balance,
+        'created_at': now,
+      });
+
+      // Insert one unpaid bill for some customers and a paid bill for others to exercise balance flows
+      if (i % 4 == 0) {
+        final productId = (i % 19) + 1;
+        final total = (i * 10.0) + 50.0;
+        final items = jsonEncode([
+          {'product_id': productId, 'qty': 1, 'line_total': total},
+        ]);
+        await db.insert('customer_bills', {
+          'customer_id': cid,
+          'items': items,
+          'total': total,
+          'is_paid': 0,
+          'is_held': 0,
+          'created_at': now,
+        });
+      }
+
+      if (i % 6 == 0) {
+        final productId = ((i + 3) % 19) + 1;
+        final total = (i * 12.0) + 30.0;
+        final items = jsonEncode([
+          {'product_id': productId, 'qty': 2, 'line_total': total},
+        ]);
+        await db.insert('customer_bills', {
+          'customer_id': cid,
+          'items': items,
+          'total': total,
+          'is_paid': 1,
+          'is_held': 0,
+          'created_at': now,
+        });
+      }
+    }
+
+    // Add some product_images to ensure image paths exist and edge-cases like missing images are covered
+    // Only add if product_images is empty
+    final piCountRes = await db.rawQuery(
+      'SELECT COUNT(1) as cnt FROM product_images',
+    );
+    final piCount = (piCountRes.isNotEmpty
+        ? (piCountRes.first['cnt'] as int? ?? 0)
+        : 0);
+    if (piCount == 0) {
+      // Create image records for first 20 products; some marked primary, some not
+      for (var pid = 1; pid <= 20; pid++) {
+        final path = dummyPath; // reuse bundled dummy image
+        await db.insert('product_images', {
+          'product_id': pid,
+          'image_path': path,
+          'image_type': pid % 3 == 0 ? 'technical' : 'gallery',
+          'alt_text': 'Seed image for product $pid',
+          'sort_order': pid,
+          'is_primary': pid % 5 == 0 ? 1 : 0,
+          'created_at': now,
+        });
+      }
+    }
+
+    // Add edge-case inventory rows (zero stock, zero price, very large stock)
+    final invCountRes = await db.rawQuery(
+      'SELECT COUNT(1) as cnt FROM product_inventory',
+    );
+    final invCount = (invCountRes.isNotEmpty
+        ? (invCountRes.first['cnt'] as int? ?? 0)
+        : 0);
+    if (invCount < 25) {
+      // zero stock
+      await db.insert('product_inventory', {
+        'product_id': 2,
+        'supplier_name': 'Edge Supplies',
+        'cost_price': 0.0,
+        'selling_price': 0.0,
+        'mrp': 0.0,
+        'stock_quantity': 0,
+        'minimum_stock_level': 0,
+        'location_rack': 'Z-0',
+        'created_at': now,
+      });
+
+      // very large stock
+      await db.insert('product_inventory', {
+        'product_id': 3,
+        'supplier_name': 'Bulk Corp',
+        'cost_price': 10.0,
+        'selling_price': 15.0,
+        'mrp': 20.0,
+        'stock_quantity': 100000,
+        'minimum_stock_level': 10,
+        'location_rack': 'BULK-1',
+        'created_at': now,
+      });
+
+      // negative/invalid prices (to see how app handles it)
+      await db.insert('product_inventory', {
+        'product_id': 4,
+        'supplier_name': 'Faulty Supplier',
+        'cost_price': -50.0,
+        'selling_price': -10.0,
+        'mrp': -5.0,
+        'stock_quantity': 5,
+        'minimum_stock_level': 1,
+        'location_rack': 'X-ERR',
+        'created_at': now,
+      });
+    }
   }
 
   Future<void> _insertSampleProducts(Database db) async {
