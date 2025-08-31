@@ -455,13 +455,9 @@ class _ProductsScreenState extends State<ProductsScreen>
   Widget build(BuildContext context) {
     super.build(context);
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        // Title removed to avoid duplicate 'Products' heading in body.
-        title: const SizedBox.shrink(),
-        actions: [],
+      appBar: const PreferredSize(
+        preferredSize: Size.zero,
+        child: SizedBox.shrink(),
       ),
       body: Column(
         children: [
@@ -469,7 +465,7 @@ class _ProductsScreenState extends State<ProductsScreen>
           Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: 12.0,
-              vertical: 12.0,
+              vertical: 0.0,
             ),
             child: Row(
               children: [
