@@ -14,7 +14,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 2; // start on POS tab by default (web-like landing)
+  int _selectedIndex = 0; // start on Dashboard tab by default
   bool _isLoading = true;
 
   final List<Widget> _screens = [
@@ -79,6 +79,17 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Row(
         children: [
           NavigationRail(
+            leading: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              child: SizedBox(
+                width: 56,
+                height: 56,
+                child: Image.asset(
+                  'assets/images/logo.png',
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
             selectedIndex: _selectedIndex,
             onDestinationSelected: (int index) {
               setState(() {
