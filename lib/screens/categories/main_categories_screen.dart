@@ -6,6 +6,7 @@ import 'package:auto_parts2/services/main_category_service.dart';
 import 'package:auto_parts2/database/database_helper.dart';
 import 'package:auto_parts2/screens/categories/sub_categories_screen.dart';
 import 'package:auto_parts2/screens/products/products_screen.dart';
+import 'package:auto_parts2/screens/products/vehicles_screen.dart';
 import 'package:auto_parts2/theme/app_colors.dart';
 
 class MainCategoriesScreen extends StatefulWidget {
@@ -20,7 +21,7 @@ class _MainCategoriesScreenState extends State<MainCategoriesScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Column(
         children: [
           Container(
@@ -30,9 +31,46 @@ class _MainCategoriesScreenState extends State<MainCategoriesScreen> {
               labelColor: Theme.of(context).colorScheme.primary,
               unselectedLabelColor: AppColors.textSecondary,
               tabs: const [
-                Tab(text: 'Main Categories'),
-                Tab(text: 'Sub Categories'),
-                Tab(text: 'Products'),
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.category, size: 20),
+                      SizedBox(width: 8),
+                      Text('Main Categories'),
+                    ],
+                  ),
+                ),
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.category_outlined, size: 20),
+                      SizedBox(width: 8),
+                      Text('Sub-Categories'),
+                    ],
+                  ),
+                ),
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.inventory_2_outlined, size: 20),
+                      SizedBox(width: 8),
+                      Text('Products'),
+                    ],
+                  ),
+                ),
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.directions_car, size: 20),
+                      SizedBox(width: 8),
+                      Text('Vehicles'),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -42,6 +80,7 @@ class _MainCategoriesScreenState extends State<MainCategoriesScreen> {
                 const _MainCategoriesTab(),
                 const SubCategoriesScreen(),
                 const ProductsScreen(),
+                const VehiclesScreen(),
               ],
             ),
           ),

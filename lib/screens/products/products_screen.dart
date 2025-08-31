@@ -4,7 +4,7 @@ import 'package:auto_parts2/models/product.dart';
 import 'package:auto_parts2/models/product_inventory.dart';
 import 'package:auto_parts2/services/product_service.dart';
 import 'product_form_dialog.dart';
-import 'product_compatibility_dialog.dart';
+// compatibility dialog removed from this screen; managed in Vehicles -> Product link flows
 import 'product_inventory_dialog.dart';
 import 'package:auto_parts2/theme/app_colors.dart';
 
@@ -212,13 +212,6 @@ class _ProductsScreenState extends State<ProductsScreen>
         ),
       );
     }
-  }
-
-  Future<void> _showCompatibilityDialog(Product product) async {
-    await showDialog(
-      context: context,
-      builder: (context) => ProductCompatibilityDialog(product: product),
-    );
   }
 
   Future<void> _showInventoryDialog(Product product) async {
@@ -466,28 +459,43 @@ class _ProductsScreenState extends State<ProductsScreen>
         backgroundColor: Colors.transparent,
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: Row(
-          children: const [
-            Icon(Icons.inventory_2_outlined, size: 24),
-            SizedBox(width: 8),
-            Text('Products'),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.analytics),
-            onPressed: _showInventoryOverview,
-            tooltip: 'Inventory Overview',
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadProducts,
-            tooltip: 'Refresh',
-          ),
-        ],
+        // Title removed to avoid duplicate 'Products' heading in body.
+        title: const SizedBox.shrink(),
+        actions: [],
       ),
       body: Column(
         children: [
+          // Header (icon + title + add button) to match Sub-Categories style
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                const Icon(Icons.inventory_2_outlined, size: 24),
+                const SizedBox(width: 8),
+                const Text(
+                  'Products',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.analytics),
+                  onPressed: _showInventoryOverview,
+                  tooltip: 'Inventory Overview',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _loadProducts,
+                  tooltip: 'Refresh',
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: _showAddProductDialog,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Product'),
+                ),
+              ],
+            ),
+          ),
           // Search and Filter Section
           Container(
             padding: const EdgeInsets.all(16),
@@ -743,14 +751,7 @@ class _ProductsScreenState extends State<ProductsScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                TextButton.icon(
-                  onPressed: () => _showCompatibilityDialog(product),
-                  icon: const Icon(Icons.directions_car, size: 16),
-                  label: const Text('Vehicles'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Theme.of(context).colorScheme.secondary,
-                  ),
-                ),
+                // Vehicles management moved to Vehicles tab; remove per-product Vehicles button
                 const SizedBox(width: 8),
                 TextButton.icon(
                   onPressed: () => _showQuickStockUpdate(product),
