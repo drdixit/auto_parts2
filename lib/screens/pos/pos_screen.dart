@@ -1603,6 +1603,220 @@ class _PosScreenState extends State<PosScreen> {
                                       ],
                                     ),
                                     const SizedBox(height: 12),
+                                    // Customer selection: required before creating an invoice
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Autocomplete<Customer>(
+                                            optionsBuilder: (textEditingValue) {
+                                              if (textEditingValue
+                                                  .text
+                                                  .isEmpty) {
+                                                return _customers;
+                                              }
+                                              final q = textEditingValue.text
+                                                  .toLowerCase();
+                                              return _customers.where((c) {
+                                                return (c.name
+                                                        .toLowerCase()
+                                                        .contains(q) ||
+                                                    (c.mobile ?? '')
+                                                        .toLowerCase()
+                                                        .contains(q) ||
+                                                    (c.address ?? '')
+                                                        .toLowerCase()
+                                                        .contains(q));
+                                              }).toList();
+                                            },
+                                            displayStringForOption: (c) =>
+                                                '${c.name} ${c.mobile ?? ''}',
+                                            fieldViewBuilder:
+                                                (
+                                                  context,
+                                                  controller,
+                                                  focusNode,
+                                                  onFieldSubmitted,
+                                                ) {
+                                                  // Avoid clobbering user input while the field is focused.
+                                                  // Resolve selected customer name if possible, otherwise fall back
+                                                  // to the preserved display name from a held bill.
+                                                  String displayText =
+                                                      _customerDisplayName ??
+                                                      '';
+                                                  if (_selectedCustomerId !=
+                                                      null) {
+                                                    final resolved = _customers
+                                                        .firstWhere(
+                                                          (c) =>
+                                                              c.id ==
+                                                              _selectedCustomerId,
+                                                          orElse: () =>
+                                                              Customer(
+                                                                name: '',
+                                                                address: '',
+                                                                mobile: '',
+                                                              ),
+                                                        );
+                                                    if (resolved
+                                                        .name
+                                                        .isNotEmpty) {
+                                                      displayText =
+                                                          resolved.name;
+                                                      // also keep the preserved display name in sync
+                                                      _customerDisplayName =
+                                                          resolved.name;
+                                                    }
+                                                  }
+
+                                                  // Only update the controller when the field is not focused
+                                                  // (so typing by the user isn't overwritten) and when the text differs.
+                                                  if (!focusNode.hasFocus &&
+                                                      controller.text !=
+                                                          displayText) {
+                                                    controller.text =
+                                                        displayText;
+                                                  }
+
+                                                  return TextField(
+                                                    controller: controller,
+                                                    focusNode: focusNode,
+                                                    decoration:
+                                                        const InputDecoration(
+                                                          labelText: 'Customer',
+                                                          hintText:
+                                                              'Search customers by name, mobile or address',
+                                                        ),
+                                                    onSubmitted: (_) =>
+                                                        onFieldSubmitted(),
+                                                  );
+                                                },
+                                            onSelected: (c) {
+                                              setState(() {
+                                                _selectedCustomerId = c.id;
+                                                _customerDisplayName = c.name;
+                                              });
+                                            },
+                                            optionsViewBuilder:
+                                                (context, onSelected, options) {
+                                                  return Material(
+                                                    elevation: 4,
+                                                    child: ListView(
+                                                      padding: EdgeInsets.zero,
+                                                      shrinkWrap: true,
+                                                      children: options.map((
+                                                        c,
+                                                      ) {
+                                                        return ListTile(
+                                                          title: Text(c.name),
+                                                          subtitle: Text(
+                                                            '${c.mobile ?? ''} ${c.address ?? ''}',
+                                                          ),
+                                                          onTap: () =>
+                                                              onSelected(c),
+                                                        );
+                                                      }).toList(),
+                                                    ),
+                                                  );
+                                                },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        OutlinedButton(
+                                          onPressed: () async {
+                                            // show create customer dialog
+                                            final nameCtrl =
+                                                TextEditingController();
+                                            final addrCtrl =
+                                                TextEditingController();
+                                            final mobileCtrl =
+                                                TextEditingController();
+                                            final created = await showDialog<Customer?>(
+                                              context: context,
+                                              builder: (context) => AlertDialog(
+                                                title: const Text(
+                                                  'Create Customer',
+                                                ),
+                                                content: Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    TextField(
+                                                      controller: nameCtrl,
+                                                      decoration:
+                                                          const InputDecoration(
+                                                            labelText: 'Name',
+                                                          ),
+                                                    ),
+                                                    TextField(
+                                                      controller: addrCtrl,
+                                                      decoration:
+                                                          const InputDecoration(
+                                                            labelText:
+                                                                'Address',
+                                                          ),
+                                                    ),
+                                                    TextField(
+                                                      controller: mobileCtrl,
+                                                      decoration:
+                                                          const InputDecoration(
+                                                            labelText: 'Mobile',
+                                                          ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.of(
+                                                          context,
+                                                        ).pop(null),
+                                                    child: const Text('Cancel'),
+                                                  ),
+                                                  ElevatedButton(
+                                                    onPressed: () async {
+                                                      if (nameCtrl.text
+                                                          .trim()
+                                                          .isEmpty) {
+                                                        return;
+                                                      }
+                                                      final c = Customer(
+                                                        name: nameCtrl.text
+                                                            .trim(),
+                                                        address: addrCtrl.text
+                                                            .trim(),
+                                                        mobile: mobileCtrl.text
+                                                            .trim(),
+                                                      );
+                                                      final navigator =
+                                                          Navigator.of(context);
+                                                      final id =
+                                                          await _customerService
+                                                              .createCustomer(
+                                                                c,
+                                                              );
+                                                      c.id = id;
+                                                      navigator.pop(c);
+                                                    },
+                                                    child: const Text('Create'),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                            if (created != null) {
+                                              _customers =
+                                                  await _customerService
+                                                      .getAllCustomers();
+                                              if (!mounted) return;
+                                              setState(
+                                                () => _selectedCustomerId =
+                                                    created.id,
+                                              );
+                                            }
+                                          },
+                                          child: const Text('New'),
+                                        ),
+                                      ],
+                                    ),
                                     Expanded(
                                       child: _billing.isEmpty
                                           ? const Center(
@@ -2097,206 +2311,6 @@ class _PosScreenState extends State<PosScreen> {
                                           ],
                                         );
                                       },
-                                    ),
-                                    const SizedBox(height: 8),
-                                    // Customer selection: required before creating an invoice
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Autocomplete<Customer>(
-                                            optionsBuilder: (textEditingValue) {
-                                              if (textEditingValue
-                                                  .text
-                                                  .isEmpty) {
-                                                return _customers;
-                                              }
-                                              final q = textEditingValue.text
-                                                  .toLowerCase();
-                                              return _customers.where((c) {
-                                                return (c.name
-                                                        .toLowerCase()
-                                                        .contains(q) ||
-                                                    (c.mobile ?? '')
-                                                        .toLowerCase()
-                                                        .contains(q) ||
-                                                    (c.address ?? '')
-                                                        .toLowerCase()
-                                                        .contains(q));
-                                              }).toList();
-                                            },
-                                            displayStringForOption: (c) =>
-                                                '${c.name} ${c.mobile ?? ''}',
-                                            fieldViewBuilder:
-                                                (
-                                                  context,
-                                                  controller,
-                                                  focusNode,
-                                                  onFieldSubmitted,
-                                                ) {
-                                                  // If a selected customer id is present and resolves to a known customer,
-                                                  // show its name. Otherwise show the preserved display name (from held bill) if any.
-                                                  if (_selectedCustomerId !=
-                                                      null) {
-                                                    final selected = _customers
-                                                        .firstWhere(
-                                                          (c) =>
-                                                              c.id ==
-                                                              _selectedCustomerId,
-                                                          orElse: () =>
-                                                              Customer(
-                                                                name: '',
-                                                                address: '',
-                                                                mobile: '',
-                                                              ),
-                                                        );
-                                                    controller.text =
-                                                        selected.name;
-                                                    _customerDisplayName =
-                                                        selected.name;
-                                                  } else {
-                                                    controller.text =
-                                                        _customerDisplayName ??
-                                                        '';
-                                                  }
-                                                  return TextField(
-                                                    controller: controller,
-                                                    focusNode: focusNode,
-                                                    decoration:
-                                                        const InputDecoration(
-                                                          labelText: 'Customer',
-                                                          hintText:
-                                                              'Search customers by name, mobile or address',
-                                                        ),
-                                                    onSubmitted: (_) =>
-                                                        onFieldSubmitted(),
-                                                  );
-                                                },
-                                            onSelected: (c) {
-                                              setState(() {
-                                                _selectedCustomerId = c.id;
-                                                _customerDisplayName = c.name;
-                                              });
-                                            },
-                                            optionsViewBuilder:
-                                                (context, onSelected, options) {
-                                                  return Material(
-                                                    elevation: 4,
-                                                    child: ListView(
-                                                      padding: EdgeInsets.zero,
-                                                      shrinkWrap: true,
-                                                      children: options.map((
-                                                        c,
-                                                      ) {
-                                                        return ListTile(
-                                                          title: Text(c.name),
-                                                          subtitle: Text(
-                                                            '${c.mobile ?? ''} ${c.address ?? ''}',
-                                                          ),
-                                                          onTap: () =>
-                                                              onSelected(c),
-                                                        );
-                                                      }).toList(),
-                                                    ),
-                                                  );
-                                                },
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        OutlinedButton(
-                                          onPressed: () async {
-                                            // show create customer dialog
-                                            final nameCtrl =
-                                                TextEditingController();
-                                            final addrCtrl =
-                                                TextEditingController();
-                                            final mobileCtrl =
-                                                TextEditingController();
-                                            final created = await showDialog<Customer?>(
-                                              context: context,
-                                              builder: (context) => AlertDialog(
-                                                title: const Text(
-                                                  'Create Customer',
-                                                ),
-                                                content: Column(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    TextField(
-                                                      controller: nameCtrl,
-                                                      decoration:
-                                                          const InputDecoration(
-                                                            labelText: 'Name',
-                                                          ),
-                                                    ),
-                                                    TextField(
-                                                      controller: addrCtrl,
-                                                      decoration:
-                                                          const InputDecoration(
-                                                            labelText:
-                                                                'Address',
-                                                          ),
-                                                    ),
-                                                    TextField(
-                                                      controller: mobileCtrl,
-                                                      decoration:
-                                                          const InputDecoration(
-                                                            labelText: 'Mobile',
-                                                          ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed: () =>
-                                                        Navigator.of(
-                                                          context,
-                                                        ).pop(null),
-                                                    child: const Text('Cancel'),
-                                                  ),
-                                                  ElevatedButton(
-                                                    onPressed: () async {
-                                                      if (nameCtrl.text
-                                                          .trim()
-                                                          .isEmpty) {
-                                                        return;
-                                                      }
-                                                      final c = Customer(
-                                                        name: nameCtrl.text
-                                                            .trim(),
-                                                        address: addrCtrl.text
-                                                            .trim(),
-                                                        mobile: mobileCtrl.text
-                                                            .trim(),
-                                                      );
-                                                      final navigator =
-                                                          Navigator.of(context);
-                                                      final id =
-                                                          await _customerService
-                                                              .createCustomer(
-                                                                c,
-                                                              );
-                                                      c.id = id;
-                                                      navigator.pop(c);
-                                                    },
-                                                    child: const Text('Create'),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                            if (created != null) {
-                                              _customers =
-                                                  await _customerService
-                                                      .getAllCustomers();
-                                              if (!mounted) return;
-                                              setState(
-                                                () => _selectedCustomerId =
-                                                    created.id,
-                                              );
-                                            }
-                                          },
-                                          child: const Text('New'),
-                                        ),
-                                      ],
                                     ),
 
                                     const SizedBox(height: 8),
