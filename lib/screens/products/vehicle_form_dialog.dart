@@ -27,6 +27,7 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
   VehicleType? _selectedType;
   Manufacturer? _selectedManufacturer;
   final TextEditingController _yearController = TextEditingController();
+  final TextEditingController _ccController = TextEditingController();
 
   @override
   void initState() {
@@ -46,6 +47,7 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
             : Manufacturer(name: 'Unknown'),
       );
       _yearController.text = widget.model!.modelYear?.toString() ?? '';
+      _ccController.text = widget.model!.engineCapacity ?? '';
     }
   }
 
@@ -53,6 +55,7 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
   void dispose() {
     _nameController.dispose();
     _yearController.dispose();
+    _ccController.dispose();
     super.dispose();
   }
 
@@ -65,6 +68,9 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
       vehicleTypeId: _selectedType?.id ?? 0,
       modelYear: _yearController.text.isNotEmpty
           ? int.tryParse(_yearController.text)
+          : null,
+      engineCapacity: _ccController.text.trim().isNotEmpty
+          ? _ccController.text.trim()
           : null,
     );
     widget.onSubmit(model);

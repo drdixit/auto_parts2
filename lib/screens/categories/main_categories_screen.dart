@@ -25,8 +25,9 @@ class _MainCategoriesScreenState extends State<MainCategoriesScreen> {
       child: Column(
         children: [
           Container(
-            color: AppColors.surfaceLight,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            // Keep layout spacing but remove the colored band behind the TabBar
+            color: Colors.transparent,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
             child: TabBar(
               labelColor: Theme.of(context).colorScheme.primary,
               unselectedLabelColor: AppColors.textSecondary,
