@@ -139,6 +139,15 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                     decoration: const InputDecoration(labelText: 'Model Year'),
                     keyboardType: TextInputType.number,
                   ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _ccController,
+                    decoration: const InputDecoration(
+                      labelText: 'Engine Capacity (cc)',
+                      hintText: 'e.g. 150cc',
+                    ),
+                    keyboardType: TextInputType.text,
+                  ),
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
