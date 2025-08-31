@@ -463,9 +463,16 @@ class _ProductsScreenState extends State<ProductsScreen>
     super.build(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Products'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        title: Row(
+          children: const [
+            Icon(Icons.inventory_2_outlined, size: 24),
+            SizedBox(width: 8),
+            Text('Products'),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.analytics),
@@ -674,10 +681,13 @@ class _ProductsScreenState extends State<ProductsScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildDetailRow(
-                        'Category',
-                        '${product.mainCategoryName} > ${product.subCategoryName}',
-                      ),
+                      // Show main and sub category as simple inline text
+                      if (product.mainCategoryName != null &&
+                          product.mainCategoryName!.isNotEmpty)
+                        _buildSimpleRow(product.mainCategoryName!),
+                      if (product.subCategoryName != null &&
+                          product.subCategoryName!.isNotEmpty)
+                        _buildSimpleRow(product.subCategoryName!),
                       _buildDetailRow(
                         'Manufacturer',
                         product.manufacturerName ?? 'Unknown',
@@ -870,6 +880,18 @@ class _ProductsScreenState extends State<ProductsScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSimpleRow(String text, {int maxLines = 1}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 12),
+        maxLines: maxLines,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
