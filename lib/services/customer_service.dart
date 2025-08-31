@@ -7,6 +7,12 @@ class CustomerService {
 
   Future<int> createCustomer(Customer c) async {
     final db = await _dbHelper.database;
+    // Normalize opening balance: positive input => store as negative (they owe us)
+    double newOpening = c.openingBalance;
+    if (newOpening > 0) newOpening = -newOpening.abs();
+    c.openingBalance = newOpening;
+    // For a new customer, initialize balance to the opening balance
+    c.balance = newOpening;
     final id = await db.insert('customers', c.toMap());
     return id;
   }
@@ -26,12 +32,51 @@ class CustomerService {
 
   Future<int> updateCustomer(Customer c) async {
     final db = await _dbHelper.database;
-    return await db.update(
-      'customers',
-      c.toMap(),
-      where: 'id = ?',
-      whereArgs: [c.id],
-    );
+    // Perform update inside a transaction so we can adjust balance consistently when opening_balance changes
+    return await db.transaction<int>((txn) async {
+      // fetch existing opening_balance
+      final rows = await txn.query(
+        'customers',
+        where: 'id = ?',
+        whereArgs: [c.id],
+      );
+      if (rows.isEmpty) return 0;
+      final oldOpeningNum = rows.first['opening_balance'];
+      final oldOpening = (oldOpeningNum is num)
+          ? oldOpeningNum.toDouble()
+          : (double.tryParse(oldOpeningNum?.toString() ?? '') ?? 0.0);
+
+      // Normalize new opening: positive input -> negative
+      double newOpening = c.openingBalance;
+      if (newOpening > 0) newOpening = -newOpening.abs();
+
+      final delta =
+          newOpening -
+          oldOpening; // how much opening changed (can be positive or negative)
+
+      // Update core fields and opening_balance; adjust balance separately using SQL math
+      final data = {
+        'name': c.name,
+        'address': c.address,
+        'mobile': c.mobile,
+        'opening_balance': newOpening,
+      };
+
+      final count = await txn.update(
+        'customers',
+        data,
+        where: 'id = ?',
+        whereArgs: [c.id],
+      );
+      if (count > 0 && delta != 0) {
+        // Apply delta to balance so balance stays consistent with change in opening balance
+        await txn.rawUpdate(
+          'UPDATE customers SET balance = COALESCE(balance, 0) + ? WHERE id = ?',
+          [delta, c.id],
+        );
+      }
+      return count;
+    });
   }
 
   Future<int> deleteCustomer(int id) async {

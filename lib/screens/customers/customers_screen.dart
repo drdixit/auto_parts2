@@ -63,6 +63,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 decoration: const InputDecoration(labelText: 'Opening Balance'),
                 keyboardType: TextInputType.number,
               ),
+              const SizedBox(height: 6),
+              const Text(
+                'Note: positive opening amounts will be stored as negative (customer owes).',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
             ],
           ),
         ),
@@ -75,14 +80,17 @@ class _CustomersScreenState extends State<CustomersScreen> {
             onPressed: () async {
               if (nameCtrl.text.trim().isEmpty) return;
               final navigator = Navigator.of(context);
+              double ob = double.tryParse(openingCtrl.text) ?? 0.0;
+              // Normalize: positive -> negative
+              if (ob > 0) ob = -ob.abs();
+
               final cust = Customer(
                 id: c?.id,
                 name: nameCtrl.text.trim(),
                 address: addrCtrl.text.trim(),
                 mobile: mobileCtrl.text.trim(),
-                openingBalance: double.tryParse(openingCtrl.text) ?? 0.0,
-                balance:
-                    c?.balance ?? (double.tryParse(openingCtrl.text) ?? 0.0),
+                openingBalance: ob,
+                balance: c?.balance ?? ob,
               );
               if (c == null) {
                 await _service.createCustomer(cust);
