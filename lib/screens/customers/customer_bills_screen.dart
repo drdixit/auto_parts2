@@ -71,10 +71,6 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                 ? 'Bills — ${_custName(widget.customerId!)}'
                 : 'Customer Bills',
           ),
-          leading: IconButton(
-            icon: const Icon(Icons.close),
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -86,10 +82,6 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
           widget.customerId != null
               ? 'Bills — ${_custName(widget.customerId!)}'
               : 'Customer Bills',
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).maybePop(),
         ),
       ),
       body: Padding(
