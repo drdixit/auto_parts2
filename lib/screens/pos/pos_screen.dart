@@ -12,6 +12,7 @@ import 'package:auto_parts2/services/main_category_service.dart';
 import 'package:auto_parts2/services/product_service.dart';
 import 'package:auto_parts2/services/sub_category_service.dart';
 import 'package:auto_parts2/services/customer_service.dart';
+import 'package:auto_parts2/services/hold_service.dart';
 import 'package:auto_parts2/models/customer.dart';
 import 'package:auto_parts2/theme/app_colors.dart';
 
@@ -105,7 +106,9 @@ class _PosScreenState extends State<PosScreen> {
 
   // Billing
   final List<BillingItem> _billing = [];
-  final List<HeldBill> _heldBills = [];
+  // Temporary holds are kept in the singleton HoldService so they survive
+  // navigation within the same app session. They are not persisted to DB.
+  List<HeldBill> get _heldBills => HoldService.instance.holds.cast<HeldBill>();
   List<Customer> _customers = [];
   int? _selectedCustomerId;
   // persisted holds: no local sequence id required
@@ -748,6 +751,12 @@ class _PosScreenState extends State<PosScreen> {
       _selectedVehicleIds.addAll(hb.selectedVehicleIds);
       _selectedProductManufacturerIds.clear();
       _selectedProductManufacturerIds.addAll(hb.selectedProductManufacturerIds);
+      // restore selected customer for this held bill (if any)
+      if (hb.customerId != null && hb.customerId != 0) {
+        _selectedCustomerId = hb.customerId;
+      } else {
+        _selectedCustomerId = null;
+      }
       _applyFilters();
       // mark that we're editing this held bill so a subsequent Hold action updates it
       _editingHoldId = hb.id;
