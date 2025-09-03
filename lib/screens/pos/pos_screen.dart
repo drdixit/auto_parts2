@@ -584,6 +584,11 @@ class _PosScreenState extends State<PosScreen> {
                                       (h) => h.id == hb.id,
                                     );
                                     _bumpHoldsVersion();
+                                    // If the removed hold was loaded into cart, clear cart
+                                    if (_editingHoldId == hb.id) {
+                                      _editingHoldId = null;
+                                      _billing.clear();
+                                    }
                                     if (!mounted) return;
                                     setState(() {});
                                   });
@@ -2176,6 +2181,8 @@ class _PosScreenState extends State<PosScreen> {
                                                                   hb.id) {
                                                                 _editingHoldId =
                                                                     null;
+                                                                _billing
+                                                                    .clear();
                                                               }
                                                               _bumpHoldsVersion();
                                                             });
@@ -2272,6 +2279,7 @@ class _PosScreenState extends State<PosScreen> {
                                                         setState(() {
                                                           _heldBills.clear();
                                                           _editingHoldId = null;
+                                                          _billing.clear();
                                                           _bumpHoldsVersion();
                                                         });
                                                         messenger.showSnackBar(
