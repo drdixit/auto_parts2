@@ -307,8 +307,11 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
         appBar: AppBar(
           title: Text(
             widget.customerId != null
-                ? 'Bills — ${_custName(widget.customerId!)}'
-                : 'Customer Bills',
+                ? 'Estimates — ${_custName(widget.customerId!)}'
+                : 'Customer Estimates',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
         ),
         body: const Center(child: CircularProgressIndicator()),
@@ -319,8 +322,11 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
       appBar: AppBar(
         title: Text(
           widget.customerId != null
-              ? 'Bills — ${_custName(widget.customerId!)}'
-              : 'Customer Bills',
+              ? 'Estimates — ${_custName(widget.customerId!)}'
+              : 'Customer Estimates',
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
       ),
       body: Padding(
@@ -369,10 +375,7 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Customer Bills',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
+                      // Header intentionally removed (replaced by AppBar title)
                       const SizedBox(height: 8),
                       Expanded(
                         child: LayoutBuilder(
