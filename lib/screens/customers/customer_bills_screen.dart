@@ -107,6 +107,37 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
     }
   }
 
+  // Compare bills so newest (by created_at) comes first; fallback to id desc
+  int _compareBills(Map<String, dynamic> a, Map<String, dynamic> b) {
+    DateTime? parseSafe(dynamic v) {
+      if (v == null) return null;
+      try {
+        return DateTime.parse(v.toString()).toUtc();
+      } catch (_) {
+        return null;
+      }
+    }
+
+    final aDt = parseSafe(a['created_at']);
+    final bDt = parseSafe(b['created_at']);
+    if (aDt != null && bDt != null) {
+      final cmp = bDt.compareTo(aDt);
+      if (cmp != 0) return cmp;
+    } else if (aDt != null) {
+      return -1;
+    } else if (bDt != null) {
+      return 1;
+    }
+
+    final aid = (a['id'] is int)
+        ? a['id'] as int
+        : int.tryParse('${a['id']}') ?? 0;
+    final bid = (b['id'] is int)
+        ? b['id'] as int
+        : int.tryParse('${b['id']}') ?? 0;
+    return bid.compareTo(aid);
+  }
+
   Future<void> _showBillDetails(Map<String, dynamic> bill) async {
     final items = (bill['items'] as List).cast<Map<String, dynamic>>();
     final BuildContext dialogContext = context;
@@ -339,6 +370,8 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                       Expanded(
                         child: LayoutBuilder(
                           builder: (context, constraints) {
+                            final sorted = [..._bills];
+                            sorted.sort(_compareBills);
                             return SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
                               child: ConstrainedBox(
@@ -356,7 +389,7 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                       DataColumn(label: Text('Actions')),
                                       DataColumn(label: Text('Details')),
                                     ],
-                                    rows: _bills.map((b) {
+                                    rows: sorted.map((b) {
                                       final isPaid =
                                           (b['is_paid'] ?? false) as bool;
                                       final total = (b['total'] as double);
