@@ -27,10 +27,9 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
 
   Future<void> _load() async {
     _customers = await _service.getAllCustomers();
-    // Load all bills (recent first). We'll render them in a table and allow
-    // toggling paid/unpaid status from here.
     _bills = await _service.getCustomerBills(customerId: widget.customerId);
-    // Ensure last-created bill shows first (defensive: sort by created_at desc)
+
+    // Prefer created_at descending; fallback to id descending
     _bills.sort((a, b) {
       DateTime? parseSafe(dynamic v) {
         if (v == null) return null;
@@ -43,17 +42,15 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
 
       final aDt = parseSafe(a['created_at']);
       final bDt = parseSafe(b['created_at']);
-
       if (aDt != null && bDt != null) {
         final cmp = bDt.compareTo(aDt);
         if (cmp != 0) return cmp;
       } else if (aDt != null) {
-        return -1; // a has date, b doesn't -> a is newer, so a before b
+        return -1;
       } else if (bDt != null) {
-        return 1; // b has date, a doesn't -> b before a
+        return 1;
       }
 
-      // Fallback: compare by id descending (last inserted id first)
       final aid = (a['id'] is int)
           ? a['id'] as int
           : int.tryParse('${a['id']}') ?? 0;
@@ -62,7 +59,7 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
           : int.tryParse('${b['id']}') ?? 0;
       return bid.compareTo(aid);
     });
-    // load inventory/cost info lazily when building UI
+
     if (!mounted) return;
     setState(() => _loading = false);
   }
@@ -90,7 +87,6 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
     if (iso == null) return '';
     try {
       final dt = DateTime.parse(iso).toLocal();
-      // e.g. 12 Jan 2025
       final m = <String>[
         'Jan',
         'Feb',
@@ -113,12 +109,11 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
 
   Future<void> _showBillDetails(Map<String, dynamic> bill) async {
     final items = (bill['items'] as List).cast<Map<String, dynamic>>();
-    // Build lines for display using product names
     final BuildContext dialogContext = context;
     await showDialog<void>(
       context: dialogContext,
       builder: (ctx) {
-        final isPaid = (bill['is_paid'] ?? false) as bool;
+        final bool isPaid = bill['is_paid'] == true;
         return Dialog(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 720, maxHeight: 640),
@@ -172,7 +167,6 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                           children: [
                             const SizedBox(height: 4),
                             const Divider(),
-                            // Lines
                             Expanded(
                               child: ListView.separated(
                                 itemCount: items.length,
@@ -243,9 +237,7 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () async {
-                            // Capture navigator from the dialog context before awaiting
                             final navigator = Navigator.of(ctx);
-                            // Toggle paid state
                             await _markPaid(bill, !isPaid);
                             if (mounted) navigator.pop();
                           },
@@ -272,7 +264,6 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Provide a Scaffold so this screen can be closed safely when pushed or shown as a page.
     if (_loading) {
       return Scaffold(
         appBar: AppBar(
@@ -346,58 +337,82 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                       ),
                       const SizedBox(height: 8),
                       Expanded(
-                        child: SingleChildScrollView(
-                          child: DataTable(
-                            columns: const [
-                              DataColumn(label: Text('Bill #')),
-                              DataColumn(label: Text('Date')),
-                              DataColumn(label: Text('Customer')),
-                              DataColumn(label: Text('Total')),
-                              DataColumn(label: Text('Actions')),
-                              DataColumn(label: Text('Details')),
-                            ],
-                            rows: _bills.map((b) {
-                              final isPaid = (b['is_paid'] ?? false) as bool;
-                              final total = (b['total'] as double);
-                              return DataRow(
-                                cells: [
-                                  DataCell(Text('${b['id']}')),
-                                  DataCell(
-                                    Text(
-                                      _formatDate(b['created_at'] as String?),
-                                    ),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            return SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minWidth: constraints.maxWidth,
+                                ),
+                                child: SingleChildScrollView(
+                                  child: DataTable(
+                                    columnSpacing: 24,
+                                    columns: const [
+                                      DataColumn(label: Text('Bill #')),
+                                      DataColumn(label: Text('Date')),
+                                      DataColumn(label: Text('Customer')),
+                                      DataColumn(label: Text('Total')),
+                                      DataColumn(label: Text('Actions')),
+                                      DataColumn(label: Text('Details')),
+                                    ],
+                                    rows: _bills.map((b) {
+                                      final isPaid =
+                                          (b['is_paid'] ?? false) as bool;
+                                      final total = (b['total'] as double);
+                                      return DataRow(
+                                        cells: [
+                                          DataCell(Text('${b['id']}')),
+                                          DataCell(
+                                            Text(
+                                              _formatDate(
+                                                b['created_at'] as String?,
+                                              ),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            Text(
+                                              _custName(
+                                                b['customer_id'] as int,
+                                              ),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            Text(
+                                              '₹${total.toStringAsFixed(2)}',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: isPaid
+                                                    ? Colors.green
+                                                    : Colors.red,
+                                              ),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            OutlinedButton(
+                                              onPressed: () async {
+                                                await _markPaid(b, !isPaid);
+                                              },
+                                              child: Text(
+                                                isPaid ? 'Unpaid' : 'Paid',
+                                              ),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            TextButton(
+                                              onPressed: () =>
+                                                  _showBillDetails(b),
+                                              child: const Text('See'),
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    }).toList(),
                                   ),
-                                  DataCell(
-                                    Text(_custName(b['customer_id'] as int)),
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      '₹${total.toStringAsFixed(2)}',
-                                      style: TextStyle(
-                                        color: isPaid
-                                            ? Colors.green
-                                            : Colors.red,
-                                      ),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    OutlinedButton(
-                                      onPressed: () async {
-                                        await _markPaid(b, !isPaid);
-                                      },
-                                      child: Text(isPaid ? 'Unpaid' : 'Paid'),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    TextButton(
-                                      onPressed: () => _showBillDetails(b),
-                                      child: const Text('See'),
-                                    ),
-                                  ),
-                                ],
-                              );
-                            }).toList(),
-                          ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],
