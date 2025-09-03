@@ -95,12 +95,14 @@ class CustomerService {
     final payload = jsonEncode(items);
     // Run in a transaction: insert bill and update customer balance if unpaid
     return await db.transaction<int>((txn) async {
+      final now = DateTime.now().toIso8601String();
       final id = await txn.insert('customer_bills', {
         'customer_id': customerId,
         'items': payload,
         'total': total,
         'is_paid': isPaid ? 1 : 0,
         'is_held': 0,
+        'created_at': now,
       });
       if (!isPaid) {
         // Decrease customer's balance by total (they owe money)
@@ -121,12 +123,14 @@ class CustomerService {
   }) async {
     final db = await _dbHelper.database;
     final payload = jsonEncode(items);
+    final now = DateTime.now().toIso8601String();
     return await db.insert('customer_bills', {
       'customer_id': customerId,
       'items': payload,
       'total': total,
       'is_paid': 0,
       'is_held': 1,
+      'created_at': now,
     });
   }
 

@@ -86,7 +86,14 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
   String _formatDate(String? iso) {
     if (iso == null) return '';
     try {
-      final dt = DateTime.parse(iso).toLocal();
+      // Handle SQLite CURRENT_TIMESTAMP which is 'YYYY-MM-DD HH:MM:SS' (UTC without timezone).
+      // If we parse that directly, DateTime.parse treats it as local which makes toLocal() incorrect.
+      // Normalize space-separated UTC timestamps to ISO + 'Z' so parsing yields UTC, then convert to local.
+      final sqliteSpaceTs = RegExp(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\$');
+      final normalized = sqliteSpaceTs.hasMatch(iso)
+          ? iso.replaceFirst(' ', 'T') + 'Z'
+          : iso;
+      final dt = DateTime.parse(normalized).toLocal();
       final m = <String>[
         'Jan',
         'Feb',
