@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:auto_parts2/models/sub_category.dart';
@@ -19,6 +20,7 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen>
   bool get wantKeepAlive => true;
   final SubCategoryService _subCategoryService = SubCategoryService();
   final MainCategoryService _mainCategoryService = MainCategoryService();
+  StreamSubscription<int>? _mainCategoryChangeSub;
   List<SubCategory> _subCategories = [];
   List<SubCategory> _filteredSubCategories = [];
   List<MainCategory> _mainCategories = [];
@@ -33,10 +35,20 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen>
   void initState() {
     super.initState();
     _loadData();
+    // Subscribe to main category changes so sub-category UI stays in sync
+    _mainCategoryChangeSub = _mainCategoryService.categoryChanges.listen((
+      mainCategoryId,
+    ) {
+      // Reload data and re-apply filters when a main category status changes
+      if (mounted) {
+        _loadData();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _mainCategoryChangeSub?.cancel();
     _searchController.dispose();
     super.dispose();
   }

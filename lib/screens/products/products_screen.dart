@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:auto_parts2/models/product.dart';
 import 'package:auto_parts2/models/product_inventory.dart';
 import 'package:auto_parts2/services/product_service.dart';
+import 'package:auto_parts2/services/sub_category_service.dart';
 import 'product_form_dialog.dart';
 // compatibility dialog removed from this screen; managed in Vehicles -> Product link flows
 import 'product_inventory_dialog.dart';
@@ -20,6 +22,7 @@ class _ProductsScreenState extends State<ProductsScreen>
   @override
   bool get wantKeepAlive => true;
   final ProductService _productService = ProductService();
+  StreamSubscription<int>? _subCategoryChangeSub;
   List<Product> _products = [];
   List<Product> _filteredProducts = [];
   bool _isLoading = true;
@@ -32,10 +35,20 @@ class _ProductsScreenState extends State<ProductsScreen>
   void initState() {
     super.initState();
     _loadProducts();
+    // Listen for sub-category changes so products UI stays consistent
+    try {
+      final subCategoryService = SubCategoryService();
+      _subCategoryChangeSub = subCategoryService.subCategoryChanges.listen((
+        id,
+      ) {
+        if (mounted) _loadProducts();
+      });
+    } catch (_) {}
   }
 
   @override
   void dispose() {
+    _subCategoryChangeSub?.cancel();
     _searchController.dispose();
     super.dispose();
   }

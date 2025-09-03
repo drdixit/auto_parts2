@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:auto_parts2/database/database_helper.dart';
 import 'package:auto_parts2/models/sub_category.dart';
 import 'package:auto_parts2/services/product_service.dart';
@@ -5,6 +7,12 @@ import 'package:auto_parts2/services/product_service.dart';
 class SubCategoryService {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   final ProductService _productService = ProductService();
+  // Broadcast stream to notify listeners when a sub-category changes (status toggled/updated)
+  // Emits the sub-category id that changed.
+  static final StreamController<int> _subCategoryChangeController =
+      StreamController<int>.broadcast();
+
+  Stream<int> get subCategoryChanges => _subCategoryChangeController.stream;
 
   Future<List<SubCategory>> getAllSubCategories({
     bool includeInactive = false,
@@ -231,6 +239,11 @@ class SubCategoryService {
 
         // Handle product cascading
         await _productService.handleSubCategoryCascade(id, isActive, txn: txn);
+
+        // Notify listeners of the change (do not let stream errors break DB transaction)
+        try {
+          _subCategoryChangeController.add(id);
+        } catch (_) {}
 
         return 1; // Return success
       } catch (e) {

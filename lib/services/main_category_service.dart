@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:auto_parts2/database/database_helper.dart';
 import 'package:auto_parts2/models/main_category.dart';
 import 'package:auto_parts2/services/product_service.dart';
@@ -5,6 +7,12 @@ import 'package:auto_parts2/services/product_service.dart';
 class MainCategoryService {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   final ProductService _productService = ProductService();
+  // Broadcast stream to notify listeners when a main category changes (status toggled/updated)
+  // Emits the main category id that changed.
+  static final StreamController<int> _categoryChangeController =
+      StreamController<int>.broadcast();
+
+  Stream<int> get categoryChanges => _categoryChangeController.stream;
 
   Future<List<MainCategory>> getAllCategories({
     bool includeInactive = false,
@@ -127,6 +135,13 @@ class MainCategoryService {
 
           // Handle product cascading
           await _productService.handleMainCategoryCascade(id, true, txn: txn);
+        }
+
+        // Notify listeners that this main category changed
+        try {
+          _categoryChangeController.add(id);
+        } catch (_) {
+          // Ignore any errors adding to the stream to avoid breaking the transaction
         }
 
         return 1; // Return success
