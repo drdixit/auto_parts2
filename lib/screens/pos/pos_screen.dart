@@ -15,6 +15,7 @@ import 'package:auto_parts2/services/customer_service.dart';
 import 'package:auto_parts2/services/hold_service.dart';
 import 'package:auto_parts2/models/customer.dart';
 import 'package:auto_parts2/theme/app_colors.dart';
+import 'package:auto_parts2/screens/pos/dummy_invoice_dialog.dart';
 
 // Intents for keyboard shortcuts
 class ResetIntent extends Intent {
@@ -801,31 +802,7 @@ class _PosScreenState extends State<PosScreen> {
     });
   }
 
-  // Ask the user whether the invoice should be marked paid or unpaid.
-  // Returns true = paid, false = unpaid, null = cancelled.
-  Future<bool?> _askInvoicePaid() async {
-    return showDialog<bool?>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Invoice Payment'),
-        content: const Text('Has the customer paid this invoice?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(null),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Unpaid'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Paid'),
-          ),
-        ],
-      ),
-    );
-  }
+  // ...existing code...
 
   void _clearBill() {
     setState(() => _billing.clear());
@@ -2327,6 +2304,59 @@ class _PosScreenState extends State<PosScreen> {
                                                         ScaffoldMessenger.of(
                                                           context,
                                                         );
+
+                                                    // Build preview lines for the dialog
+                                                    final previewLines = _billing
+                                                        .map(
+                                                          (b) =>
+                                                              // InvoiceLine expects name, qty, unitPrice
+                                                              InvoiceLine(
+                                                                name:
+                                                                    b
+                                                                        .product
+                                                                        ?.name ??
+                                                                    'Unknown',
+                                                                qty: b.qty,
+                                                                unitPrice:
+                                                                    b
+                                                                        .product
+                                                                        ?.sellingPrice ??
+                                                                    0.0,
+                                                              ),
+                                                        )
+                                                        .toList();
+
+                                                    // Fetch selected customer to show in dialog (best-effort)
+                                                    final customer =
+                                                        _selectedCustomerId !=
+                                                            null
+                                                        ? await _customerService
+                                                              .getCustomerById(
+                                                                _selectedCustomerId!,
+                                                              )
+                                                        : null;
+
+                                                    // Show Estimate preview dialog. If user cancels the dialog (closes), abort creation.
+                                                    final confirmed =
+                                                        await showDialog<bool?>(
+                                                          context: context,
+                                                          builder: (ctx) =>
+                                                              DummyInvoiceDialog(
+                                                                lines:
+                                                                    previewLines,
+                                                                customer:
+                                                                    customer,
+                                                              ),
+                                                        );
+                                                    if (confirmed == null) {
+                                                      // user closed the dialog; do not create invoice
+                                                      return;
+                                                    }
+
+                                                    // confirmed is non-null here and indicates paid/unpaid (true=paid, false=unpaid)
+                                                    final bool paidChoice =
+                                                        confirmed;
+
                                                     final items = _billing
                                                         .map(
                                                           (b) => {
@@ -2339,14 +2369,6 @@ class _PosScreenState extends State<PosScreen> {
                                                         )
                                                         .toList();
                                                     final total = _billingTotal;
-
-                                                    // Ask whether this invoice is paid or unpaid.
-                                                    final paidChoice =
-                                                        await _askInvoicePaid();
-                                                    if (paidChoice == null) {
-                                                      // user cancelled
-                                                      return;
-                                                    }
 
                                                     if (_editingHoldId !=
                                                         null) {
@@ -2441,7 +2463,7 @@ class _PosScreenState extends State<PosScreen> {
                                                       _editingHoldId = null;
                                                     });
                                                   },
-                                            child: const Text('Create Invoice'),
+                                            child: const Text('Estimate Only'),
                                           ),
                                         ),
                                         const SizedBox(width: 8),

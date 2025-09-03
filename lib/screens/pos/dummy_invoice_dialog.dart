@@ -15,8 +15,15 @@ class InvoiceLine {
 class DummyInvoiceDialog extends StatefulWidget {
   final List<InvoiceLine> lines;
   final VoidCallback? onCreated;
+  // optional pre-selected customer to display
+  final dynamic customer;
 
-  const DummyInvoiceDialog({super.key, required this.lines, this.onCreated});
+  const DummyInvoiceDialog({
+    super.key,
+    required this.lines,
+    this.onCreated,
+    this.customer,
+  });
 
   @override
   State<DummyInvoiceDialog> createState() => _DummyInvoiceDialogState();
@@ -51,7 +58,7 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
                 children: [
                   const Expanded(
                     child: Text(
-                      'Create Invoice (Dummy)',
+                      'Estimate',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -66,7 +73,7 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
               ),
               const SizedBox(height: 8),
 
-              // Customer form (temporary variables)
+              // Customer summary (show either passed customer or editable fields)
               Card(
                 elevation: 0,
                 child: Padding(
@@ -79,24 +86,50 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
                         style: TextStyle(fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 8),
-                      TextField(
-                        controller: _customerName,
-                        decoration: const InputDecoration(labelText: 'Name'),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _customerAddress,
-                        decoration: const InputDecoration(labelText: 'Address'),
-                        maxLines: 2,
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _customerContact,
-                        decoration: const InputDecoration(
-                          labelText: 'Contact Number',
+                      if (widget.customer != null) ...[
+                        // customer may be a Map or an object with fields
+                        Text(
+                          widget.customer is Map
+                              ? (widget.customer['name'] ?? '').toString()
+                              : widget.customer.name ?? '',
+                          style: const TextStyle(fontSize: 14),
                         ),
-                        keyboardType: TextInputType.phone,
-                      ),
+                        const SizedBox(height: 6),
+                        Text(
+                          widget.customer is Map
+                              ? (widget.customer['address'] ?? '').toString()
+                              : (widget.customer.address ?? ''),
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          widget.customer is Map
+                              ? (widget.customer['mobile'] ?? '').toString()
+                              : (widget.customer.mobile ?? ''),
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ] else ...[
+                        TextField(
+                          controller: _customerName,
+                          decoration: const InputDecoration(labelText: 'Name'),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _customerAddress,
+                          decoration: const InputDecoration(
+                            labelText: 'Address',
+                          ),
+                          maxLines: 2,
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _customerContact,
+                          decoration: const InputDecoration(
+                            labelText: 'Contact Number',
+                          ),
+                          keyboardType: TextInputType.phone,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -112,14 +145,10 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Header
+                        // Header (title removed per request; show only timestamp)
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            const Text(
-                              'Auto Parts (Dummy Invoice)',
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
                             Text(
                               '${DateTime.now()}'.split('.')[0],
                               style: TextStyle(
@@ -130,13 +159,16 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        // Customer summary
-                        if (_customerName.text.isNotEmpty ||
+                        // Customer summary: prefer passed customer, else use typed fields
+                        if (widget.customer != null ||
+                            _customerName.text.isNotEmpty ||
                             _customerContact.text.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 8.0),
                             child: Text(
-                              'To: ${_customerName.text} ${_customerContact.text.isNotEmpty ? '• ${_customerContact.text}' : ''}\n${_customerAddress.text}',
+                              widget.customer != null
+                                  ? 'To: ${widget.customer is Map ? (widget.customer['name'] ?? '') : (widget.customer.name ?? '')}${(widget.customer is Map ? (widget.customer['mobile'] ?? '') : (widget.customer.mobile ?? '')) != '' ? ' • ${(widget.customer is Map ? (widget.customer['mobile'] ?? '') : (widget.customer.mobile ?? ''))}' : ''}\n${widget.customer is Map ? (widget.customer['address'] ?? '') : (widget.customer.address ?? '')}'
+                                  : 'To: ${_customerName.text} ${_customerContact.text.isNotEmpty ? '• ${_customerContact.text}' : ''}\n${_customerAddress.text}',
                               style: const TextStyle(fontSize: 13),
                             ),
                           ),
@@ -200,8 +232,28 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Close'),
+                      onPressed: () => Navigator.of(context).pop(null),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: widget.lines.isEmpty
+                          ? null
+                          : () {
+                              // Create as unpaid invoice
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Invoice created (dummy) - Unpaid',
+                                  ),
+                                ),
+                              );
+                              if (widget.onCreated != null) widget.onCreated!();
+                              Navigator.of(context).pop(false);
+                            },
+                      child: const Text('Unpaid'),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -210,16 +262,18 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
                       onPressed: widget.lines.isEmpty
                           ? null
                           : () {
-                              // Temporary behavior: show a snackbar and notify caller via callback.
+                              // Create as paid invoice
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Invoice created (dummy)'),
+                                  content: Text(
+                                    'Invoice created (dummy) - Paid',
+                                  ),
                                 ),
                               );
                               if (widget.onCreated != null) widget.onCreated!();
-                              Navigator.of(context).pop();
+                              Navigator.of(context).pop(true);
                             },
-                      child: const Text('Create Invoice'),
+                      child: const Text('Paid'),
                     ),
                   ),
                 ],
