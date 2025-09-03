@@ -38,10 +38,45 @@ class _SubCategoriesScreenState extends State<SubCategoriesScreen>
     // Subscribe to main category changes so sub-category UI stays in sync
     _mainCategoryChangeSub = _mainCategoryService.categoryChanges.listen((
       mainCategoryId,
-    ) {
-      // Reload data and re-apply filters when a main category status changes
-      if (mounted) {
-        _loadData();
+    ) async {
+      try {
+        final updated = await _mainCategoryService.getCategoryById(
+          mainCategoryId,
+        );
+        if (updated == null) return;
+        if (!mounted) return;
+
+        setState(() {
+          // Update the full list used for dialogs
+          final idxAll = _allMainCategories.indexWhere(
+            (c) => c.id == mainCategoryId,
+          );
+          if (idxAll >= 0) {
+            _allMainCategories[idxAll] = updated;
+          } else {
+            _allMainCategories.add(updated);
+          }
+
+          // Update active dropdown list
+          final idx = _mainCategories.indexWhere((c) => c.id == mainCategoryId);
+          if (updated.isActive) {
+            if (idx >= 0) {
+              _mainCategories[idx] = updated;
+            } else {
+              _mainCategories.add(updated);
+              _mainCategories.sort(
+                (a, b) => a.sortOrder.compareTo(b.sortOrder),
+              );
+            }
+          } else {
+            if (idx >= 0) _mainCategories.removeAt(idx);
+          }
+        });
+
+        // Re-apply filters to update sub-category visibility
+        _applyFilters();
+      } catch (e) {
+        if (mounted) _loadData();
       }
     });
   }

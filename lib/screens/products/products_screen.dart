@@ -5,6 +5,7 @@ import 'package:auto_parts2/models/product.dart';
 import 'package:auto_parts2/models/product_inventory.dart';
 import 'package:auto_parts2/services/product_service.dart';
 import 'package:auto_parts2/services/sub_category_service.dart';
+import 'package:auto_parts2/services/main_category_service.dart';
 import 'product_form_dialog.dart';
 // compatibility dialog removed from this screen; managed in Vehicles -> Product link flows
 import 'product_inventory_dialog.dart';
@@ -23,6 +24,7 @@ class _ProductsScreenState extends State<ProductsScreen>
   bool get wantKeepAlive => true;
   final ProductService _productService = ProductService();
   StreamSubscription<int>? _subCategoryChangeSub;
+  StreamSubscription<int>? _mainCategoryChangeSub;
   List<Product> _products = [];
   List<Product> _filteredProducts = [];
   bool _isLoading = true;
@@ -44,11 +46,20 @@ class _ProductsScreenState extends State<ProductsScreen>
         if (mounted) _loadProducts();
       });
     } catch (_) {}
+
+    // Listen for main category changes as well (re-enabled main category should refresh products)
+    try {
+      final mainCategoryService = MainCategoryService();
+      _mainCategoryChangeSub = mainCategoryService.categoryChanges.listen((id) {
+        if (mounted) _loadProducts();
+      });
+    } catch (_) {}
   }
 
   @override
   void dispose() {
     _subCategoryChangeSub?.cancel();
+    _mainCategoryChangeSub?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -829,28 +840,30 @@ class _ProductsScreenState extends State<ProductsScreen>
     Color backgroundColor = AppColors.surface; // Default value
     Color textColor = AppColors.textSecondary; // Default value
 
+    // Precedence: main category disabled > sub-category disabled > product manual disable
     if (isEffectivelyActive) {
-      // Product and all parents are active
       statusText = 'Active';
       backgroundColor = AppColors.success;
       textColor = AppColors.surface;
+    } else if (!mainCategoryActive) {
+      statusText = 'Inactive by Main Category';
+      backgroundColor = AppColors.warning;
+      textColor = AppColors.surface;
+    } else if (!subCategoryActive) {
+      statusText = 'Inactive by Sub Category';
+      backgroundColor = AppColors.warning;
+      textColor = AppColors.surface;
     } else if (!isProductActive) {
-      // Product itself is inactive (whether manually disabled or not)
+      // Product individually disabled (manual)
       statusText = 'Inactive';
       backgroundColor = isManuallyDisabled
           ? AppColors.error
           : AppColors.surfaceMuted;
       textColor = AppColors.surface;
     } else {
-      // Product is active but parent category is inactive
-      if (!mainCategoryActive) {
-        statusText = 'Inactive by Main Category';
-      } else if (!subCategoryActive) {
-        statusText = 'Inactive by Sub Category';
-      } else {
-        statusText = 'Inactive by Category';
-      }
-      backgroundColor = AppColors.warning;
+      // Fallback
+      statusText = 'Inactive';
+      backgroundColor = AppColors.surfaceMuted;
       textColor = AppColors.surface;
     }
 
@@ -1013,19 +1026,32 @@ class _ProductsScreenState extends State<ProductsScreen>
     final subCategoryActive = product.subCategoryActive ?? true;
     final mainCategoryActive = product.mainCategoryActive ?? true;
 
+    // Prefer to explain category-level inactivity first (main -> sub), then manual product state
     if (product.isActive) {
       return 'Click to deactivate this product';
-    } else if (isManuallyDisabled) {
-      if (!subCategoryActive) {
-        return 'Product is manually disabled AND sub-category is inactive. Click to activate product.';
-      } else if (!mainCategoryActive) {
-        return 'Product is manually disabled AND main category is inactive. Click to activate product.';
-      } else {
-        return 'Product is manually disabled. Click to activate product.';
-      }
-    } else {
-      return 'Product is inactive. Click to activate product.';
     }
+
+    // Product is inactive — determine highest-priority reason for the user
+    if (!mainCategoryActive) {
+      if (isManuallyDisabled) {
+        return 'Product is manually disabled AND main category is inactive. Click to activate product.';
+      }
+      return 'Product is inactive because its main category is inactive. Click to activate product.';
+    }
+
+    if (!subCategoryActive) {
+      if (isManuallyDisabled) {
+        return 'Product is manually disabled AND sub-category is inactive. Click to activate product.';
+      }
+      return 'Product is inactive because its sub-category is inactive. Click to activate product.';
+    }
+
+    // No category reason — product must be manually disabled
+    if (isManuallyDisabled) {
+      return 'Product is manually disabled. Click to activate product.';
+    }
+
+    return 'Product is inactive. Click to activate product.';
   }
 
   Widget _buildInventoryStatus(Product product) {
