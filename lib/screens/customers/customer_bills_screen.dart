@@ -163,10 +163,10 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                 children: [
                   Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Estimate',
-                          style: TextStyle(
+                          'Estimate-${formatBillCode(bill['id'], bill['created_at'] as String?)}',
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
                           ),
@@ -274,7 +274,7 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
+                        child: ElevatedButton(
                           onPressed: () async {
                             final navigator = Navigator.of(ctx);
                             await _markPaid(bill, !isPaid);
@@ -393,7 +393,7 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                   child: DataTable(
                                     columnSpacing: 24,
                                     columns: const [
-                                      DataColumn(label: Text('Bill #')),
+                                      DataColumn(label: Text('Estimates No')),
                                       DataColumn(label: Text('Date')),
                                       DataColumn(label: Text('Customer')),
                                       DataColumn(label: Text('Total')),
@@ -440,7 +440,7 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                             ),
                                           ),
                                           DataCell(
-                                            OutlinedButton(
+                                            TextButton(
                                               onPressed: () async {
                                                 await _markPaid(b, !isPaid);
                                               },

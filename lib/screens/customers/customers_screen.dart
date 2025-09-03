@@ -173,6 +173,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                       '₹${_totalUnpaid.toStringAsFixed(2)}',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
+                        color: Colors.red,
                       ),
                     ),
                   ],

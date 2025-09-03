@@ -2464,7 +2464,7 @@ class _PosScreenState extends State<PosScreen> {
                                                       _editingHoldId = null;
                                                     });
                                                   },
-                                            child: const Text('Estimate Only'),
+                                            child: const Text('Estimate only'),
                                           ),
                                         ),
                                         const SizedBox(width: 8),
