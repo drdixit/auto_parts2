@@ -1871,13 +1871,18 @@ class DatabaseHelper {
     }
 
     final subIds = <String, int>{};
-    subCatMap.forEach((main, subs) async {
+    // Use an explicit for-loop to await each ensureSubCat call; forEach with
+    // an async callback does not wait for the futures and can lead to race conditions
+    // causing later seed steps to not find the subcategory ids.
+    for (final entry in subCatMap.entries) {
+      final main = entry.key;
+      final subs = entry.value;
       final mid = mainIds[main]!;
       for (var i = 0; i < subs.length; i++) {
         final id = await ensureSubCat(subs[i], mid, i + 1);
         subIds['${main}_${subs[i]}'] = id;
       }
-    });
+    }
 
     // Insert representative products for each sub category
     final productSamples = <Map<String, dynamic>>[
