@@ -462,20 +462,50 @@ class DatabaseHelper {
           : 0);
       if (count > 0) return;
       final nowLocal = DateTime.now().toIso8601String();
-      await db.insert('product_inventory', {
-        'product_id': pid,
-        'supplier_name': vals['supplier_name'] ?? 'Local Supplier',
-        'supplier_contact': vals['supplier_contact'] ?? '+91-80-0000-0000',
-        'cost_price': vals['cost_price'] ?? 100.0,
-        'selling_price': vals['selling_price'] ?? 150.0,
-        'mrp': vals['mrp'] ?? ((vals['selling_price'] ?? 150.0) * 1.1),
-        'stock_quantity': vals['stock_quantity'] ?? 10,
-        'minimum_stock_level': vals['minimum_stock_level'] ?? 2,
-        'location_rack': vals['location_rack'] ?? 'S-01',
-        'is_active': 1,
-        'created_at': nowLocal,
-        'updated_at': nowLocal,
-      });
+      // Only insert inventory if there is no existing inventory row for this product
+      try {
+        final invExists = await db.rawQuery(
+          'SELECT COUNT(1) as cnt FROM product_inventory WHERE product_id = ?',
+          [pid],
+        );
+        final cnt = (invExists.isNotEmpty
+            ? (invExists.first['cnt'] as int? ?? 0)
+            : 0);
+        if (cnt == 0) {
+          await db.insert('product_inventory', {
+            'product_id': pid,
+            'supplier_name': vals['supplier_name'] ?? 'Local Supplier',
+            'supplier_contact': vals['supplier_contact'] ?? '+91-80-0000-0000',
+            'cost_price': vals['cost_price'] ?? 100.0,
+            'selling_price': vals['selling_price'] ?? 150.0,
+            'mrp': vals['mrp'] ?? ((vals['selling_price'] ?? 150.0) * 1.1),
+            'stock_quantity': vals['stock_quantity'] ?? 10,
+            'minimum_stock_level': vals['minimum_stock_level'] ?? 2,
+            'location_rack': vals['location_rack'] ?? 'S-01',
+            'is_active': 1,
+            'created_at': nowLocal,
+            'updated_at': nowLocal,
+          });
+        }
+      } catch (_) {
+        // best-effort: if the check fails, fall back to attempting insert
+        try {
+          await db.insert('product_inventory', {
+            'product_id': pid,
+            'supplier_name': vals['supplier_name'] ?? 'Local Supplier',
+            'supplier_contact': vals['supplier_contact'] ?? '+91-80-0000-0000',
+            'cost_price': vals['cost_price'] ?? 100.0,
+            'selling_price': vals['selling_price'] ?? 150.0,
+            'mrp': vals['mrp'] ?? ((vals['selling_price'] ?? 150.0) * 1.1),
+            'stock_quantity': vals['stock_quantity'] ?? 10,
+            'minimum_stock_level': vals['minimum_stock_level'] ?? 2,
+            'location_rack': vals['location_rack'] ?? 'S-01',
+            'is_active': 1,
+            'created_at': nowLocal,
+            'updated_at': nowLocal,
+          });
+        } catch (_) {}
+      }
     }
 
     // Insert a paid bill for Alice using a real product
@@ -1183,6 +1213,27 @@ class DatabaseHelper {
         continue;
       }
 
+      // If a product with same part number and manufacturer already exists, reuse it and skip inserting duplicate
+      if (pd['part'] != null) {
+        final rawPart = pd['part'].toString();
+        final partNorm = rawPart.trim().toLowerCase();
+        try {
+          final existing = await db.rawQuery(
+            'SELECT id FROM products WHERE manufacturer_id = ? AND LOWER(TRIM(part_number)) = ? LIMIT 1',
+            [manuId, partNorm],
+          );
+          if (existing.isNotEmpty) {
+            final existingId = existing.first['id'] as int;
+            // store both original and normalized keys for later lookups
+            insertedProductIdsByPart[rawPart] = existingId;
+            insertedProductIdsByPart[partNorm] = existingId;
+            continue; // skip duplicate
+          }
+        } catch (_) {
+          // ignore and proceed to insert
+        }
+      }
+
       final data = {
         'name': pd['name'],
         'part_number': pd['part'],
@@ -1200,8 +1251,12 @@ class DatabaseHelper {
 
       try {
         final id = await db.insert('products', data);
-        if (pd['part'] != null)
-          insertedProductIdsByPart[pd['part'] as String] = id;
+        if (pd['part'] != null) {
+          final rawPart = pd['part'].toString();
+          final partNorm = rawPart.trim().toLowerCase();
+          insertedProductIdsByPart[rawPart] = id;
+          insertedProductIdsByPart[partNorm] = id;
+        }
       } catch (e) {
         print('Failed to insert product ${pd['name']}: $e');
       }
@@ -1305,8 +1360,20 @@ class DatabaseHelper {
         print('Skipping inventory for missing product part $part');
         continue;
       }
-
+      // Prevent inserting duplicate inventory rows for the same product
       try {
+        final existingInv = await db.rawQuery(
+          'SELECT COUNT(1) as cnt FROM product_inventory WHERE product_id = ?',
+          [pid],
+        );
+        final invCnt = (existingInv.isNotEmpty
+            ? (existingInv.first['cnt'] as int? ?? 0)
+            : 0);
+        if (invCnt > 0) {
+          // already have inventory for this product from earlier seed steps
+          continue;
+        }
+
         await db.insert('product_inventory', {
           'product_id': pid,
           'supplier_name': inv['supplier'],
@@ -1360,29 +1427,249 @@ class DatabaseHelper {
   }
 
   Future<void> _insertSampleInventory(Database db) async {
-    // Insert inventory for the products (using product IDs 1-15)
-    await db.execute('''
-      INSERT INTO product_inventory (product_id, supplier_name, supplier_contact, cost_price, selling_price, mrp, stock_quantity, minimum_stock_level, location_rack) VALUES
-      (1, 'NGK Spark Plugs India', '+91-80-2234-5678', 180.00, 250.00, 280.00, 45, 10, 'A1-SP'),
-      (2, 'Bosch Ltd India', '+91-80-2345-6789', 120.00, 180.00, 200.00, 30, 15, 'A1-SP'),
-      (3, 'NGK Spark Plugs India', '+91-80-2234-5678', 450.00, 650.00, 750.00, 20, 5, 'A1-SP'),
-      (4, 'Lucas TVS', '+91-44-2345-6789', 280.00, 420.00, 480.00, 25, 8, 'B1-BP'),
-      (5, 'Bosch Ltd India', '+91-80-2345-6789', 320.00, 480.00, 550.00, 18, 10, 'B1-BP'),
-      (6, 'Hero MotoCorp Parts', '+91-124-234-5678', 850.00, 1200.00, 1350.00, 12, 5, 'C1-CP'),
-      (7, 'Bajaj Auto Parts', '+91-20-2345-6789', 950.00, 1350.00, 1500.00, 15, 5, 'C1-CP'),
-      (8, 'Exide Industries', '+91-33-2234-5678', 1800.00, 2400.00, 2700.00, 8, 3, 'D1-BAT'),
-      (9, 'Amaron Batteries', '+91-44-2345-6789', 1200.00, 1650.00, 1850.00, 10, 5, 'D1-BAT'),
-      (10, 'Bosch Ltd India', '+91-80-2345-6789', 85.00, 120.00, 140.00, 50, 20, 'D2-HL'),
-      (11, 'Lucas TVS', '+91-44-2345-6789', 2200.00, 3200.00, 3600.00, 6, 2, 'D2-HL'),
-      (12, 'K&N Engineering', '+91-22-2345-6789', 2800.00, 4200.00, 4800.00, 8, 3, 'E1-AF'),
-      (13, 'Bosch Ltd India', '+91-80-2345-6789', 180.00, 280.00, 320.00, 35, 15, 'E1-AF'),
-      (14, 'Honda Motorcycle Parts', '+91-124-345-6789', 2400.00, 3500.00, 3900.00, 5, 2, 'A2-PIS'),
-      (15, 'Bajaj Auto Parts', '+91-20-2345-6789', 2800.00, 4000.00, 4500.00, 4, 2, 'A2-PIS'),
-      (16, 'DID Chains India', '+91-22-3456-7890', 1800.00, 2700.00, 3000.00, 12, 5, 'C2-CHN'),
-      (17, 'TVS Motor Parts', '+91-44-3456-7890', 2200.00, 3200.00, 3600.00, 8, 3, 'C2-CHN'),
-      (18, 'Bosch Ltd India', '+91-80-2345-6789', 220.00, 350.00, 400.00, 25, 10, 'E2-OF'),
-      (19, 'TVS King Filters', '+91-44-4567-8901', 180.00, 280.00, 320.00, 30, 12, 'E2-OF')
-    ''');
+    // Insert inventory rows for representative products, but avoid duplicates
+    final rows = [
+      [
+        1,
+        'NGK Spark Plugs India',
+        '+91-80-2234-5678',
+        180.00,
+        250.00,
+        280.00,
+        45,
+        10,
+        'A1-SP',
+      ],
+      [
+        2,
+        'Bosch Ltd India',
+        '+91-80-2345-6789',
+        120.00,
+        180.00,
+        200.00,
+        30,
+        15,
+        'A1-SP',
+      ],
+      [
+        3,
+        'NGK Spark Plugs India',
+        '+91-80-2234-5678',
+        450.00,
+        650.00,
+        750.00,
+        20,
+        5,
+        'A1-SP',
+      ],
+      [
+        4,
+        'Lucas TVS',
+        '+91-44-2345-6789',
+        280.00,
+        420.00,
+        480.00,
+        25,
+        8,
+        'B1-BP',
+      ],
+      [
+        5,
+        'Bosch Ltd India',
+        '+91-80-2345-6789',
+        320.00,
+        480.00,
+        550.00,
+        18,
+        10,
+        'B1-BP',
+      ],
+      [
+        6,
+        'Hero MotoCorp Parts',
+        '+91-124-234-5678',
+        850.00,
+        1200.00,
+        1350.00,
+        12,
+        5,
+        'C1-CP',
+      ],
+      [
+        7,
+        'Bajaj Auto Parts',
+        '+91-20-2345-6789',
+        950.00,
+        1350.00,
+        1500.00,
+        15,
+        5,
+        'C1-CP',
+      ],
+      [
+        8,
+        'Exide Industries',
+        '+91-33-2234-5678',
+        1800.00,
+        2400.00,
+        2700.00,
+        8,
+        3,
+        'D1-BAT',
+      ],
+      [
+        9,
+        'Amaron Batteries',
+        '+91-44-2345-6789',
+        1200.00,
+        1650.00,
+        1850.00,
+        10,
+        5,
+        'D1-BAT',
+      ],
+      [
+        10,
+        'Bosch Ltd India',
+        '+91-80-2345-6789',
+        85.00,
+        120.00,
+        140.00,
+        50,
+        20,
+        'D2-HL',
+      ],
+      [
+        11,
+        'Lucas TVS',
+        '+91-44-2345-6789',
+        2200.00,
+        3200.00,
+        3600.00,
+        6,
+        2,
+        'D2-HL',
+      ],
+      [
+        12,
+        'K&N Engineering',
+        '+91-22-2345-6789',
+        2800.00,
+        4200.00,
+        4800.00,
+        8,
+        3,
+        'E1-AF',
+      ],
+      [
+        13,
+        'Bosch Ltd India',
+        '+91-80-2345-6789',
+        180.00,
+        280.00,
+        320.00,
+        35,
+        15,
+        'E1-AF',
+      ],
+      [
+        14,
+        'Honda Motorcycle Parts',
+        '+91-124-345-6789',
+        2400.00,
+        3500.00,
+        3900.00,
+        5,
+        2,
+        'A2-PIS',
+      ],
+      [
+        15,
+        'Bajaj Auto Parts',
+        '+91-20-2345-6789',
+        2800.00,
+        4000.00,
+        4500.00,
+        4,
+        2,
+        'A2-PIS',
+      ],
+      [
+        16,
+        'DID Chains India',
+        '+91-22-3456-7890',
+        1800.00,
+        2700.00,
+        3000.00,
+        12,
+        5,
+        'C2-CHN',
+      ],
+      [
+        17,
+        'TVS Motor Parts',
+        '+91-44-3456-7890',
+        2200.00,
+        3200.00,
+        3600.00,
+        8,
+        3,
+        'C2-CHN',
+      ],
+      [
+        18,
+        'Bosch Ltd India',
+        '+91-80-2345-6789',
+        220.00,
+        350.00,
+        400.00,
+        25,
+        10,
+        'E2-OF',
+      ],
+      [
+        19,
+        'TVS King Filters',
+        '+91-44-4567-8901',
+        180.00,
+        280.00,
+        320.00,
+        30,
+        12,
+        'E2-OF',
+      ],
+    ];
+
+    for (final r in rows) {
+      try {
+        final pid = r[0] as int;
+        final exists = await db.rawQuery(
+          'SELECT COUNT(1) as cnt FROM product_inventory WHERE product_id = ?',
+          [pid],
+        );
+        final cnt = (exists.isNotEmpty
+            ? (exists.first['cnt'] as int? ?? 0)
+            : 0);
+        if (cnt > 0) continue; // skip if inventory already present
+
+        await db.insert('product_inventory', {
+          'product_id': pid,
+          'supplier_name': r[1],
+          'supplier_contact': r[2],
+          'cost_price': r[3],
+          'selling_price': r[4],
+          'mrp': r[5],
+          'stock_quantity': r[6],
+          'minimum_stock_level': r[7],
+          'location_rack': r[8],
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+          'is_active': 1,
+        });
+      } catch (_) {
+        // ignore individual insert failures
+      }
+    }
 
     // Insert product compatibility data
     await _insertSampleCompatibility(db);
@@ -1648,14 +1935,38 @@ class DatabaseHelper {
       if (manuRes.isEmpty) continue;
       final mid2 = manuRes.first['id'] as int;
 
-      // avoid duplicates
-      final exists = await db.rawQuery(
-        'SELECT id FROM products WHERE part_number = ? AND manufacturer_id = ? LIMIT 1',
-        [p['part'], mid2],
-      );
-      if (exists.isNotEmpty) {
-        insertedByPart[p['part'] as String] = exists.first['id'] as int;
-        continue;
+      // avoid duplicates: match by exact part, part containing the part, or name containing the part (case-insensitive), scoped to same manufacturer
+      final partStr = p['part'] as String?;
+      if (partStr != null) {
+        try {
+          final rawPart = partStr.toString();
+          String core = rawPart;
+          if (rawPart.contains('-')) {
+            final parts = rawPart.split('-');
+            core = parts.isNotEmpty ? parts.last : rawPart;
+          }
+          final partNorm = rawPart.trim().toLowerCase();
+          final coreNorm = core.trim().toLowerCase();
+
+          final exists = await db.rawQuery(
+            '''SELECT id FROM products WHERE manufacturer_id = ? AND (
+                 LOWER(TRIM(part_number)) = ? OR
+                 LOWER(TRIM(part_number)) LIKE ? OR
+                 LOWER(name) LIKE ? OR
+                 LOWER(TRIM(part_number)) = ?
+               ) LIMIT 1''',
+            [mid2, partNorm, '%$partNorm%', '%$partNorm%', coreNorm],
+          );
+          if (exists.isNotEmpty) {
+            final found = exists.first['id'] as int;
+            insertedByPart[p['part'] as String] = found;
+            insertedByPart[partNorm] = found;
+            insertedByPart[coreNorm] = found;
+            continue;
+          }
+        } catch (_) {
+          // if query fails for any reason, fall back to insert
+        }
       }
 
       final pid = await db.insert('products', {
