@@ -510,6 +510,10 @@ class _PosScreenState extends State<PosScreen> {
       _editingHoldId = null;
       _bumpHoldsVersion();
     });
+    // restore keyboard focus so shortcuts (Ctrl+X / Ctrl+Z) remain active
+    try {
+      _rootFocusNode.requestFocus();
+    } catch (_) {}
   }
 
   void _openHeldBills() {
@@ -839,6 +843,7 @@ class _PosScreenState extends State<PosScreen> {
           ),
         },
         child: Focus(
+          focusNode: _rootFocusNode,
           autofocus: true,
           child: Scaffold(
             backgroundColor: AppColors.surfaceLight,
