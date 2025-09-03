@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:auto_parts2/services/customer_service.dart';
 import 'package:auto_parts2/services/product_service.dart';
+import 'package:auto_parts2/utils/bill_utils.dart';
 import 'package:auto_parts2/models/customer.dart';
 
 class CustomerBillsScreen extends StatefulWidget {
@@ -405,7 +406,14 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                       final total = (b['total'] as double);
                                       return DataRow(
                                         cells: [
-                                          DataCell(Text('${b['id']}')),
+                                          DataCell(
+                                            Text(
+                                              formatBillCode(
+                                                b['id'],
+                                                b['created_at'] as String?,
+                                              ),
+                                            ),
+                                          ),
                                           DataCell(
                                             Text(
                                               _formatDate(

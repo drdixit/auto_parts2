@@ -16,6 +16,7 @@ import 'package:auto_parts2/services/hold_service.dart';
 import 'package:auto_parts2/models/customer.dart';
 import 'package:auto_parts2/theme/app_colors.dart';
 import 'package:auto_parts2/screens/pos/dummy_invoice_dialog.dart';
+import 'package:auto_parts2/utils/bill_utils.dart';
 
 // Intents for keyboard shortcuts
 class ResetIntent extends Intent {
@@ -614,8 +615,8 @@ class _PosScreenState extends State<PosScreen> {
                       return ListTile(
                         title: Text(
                           (customer.name.isNotEmpty)
-                              ? 'Hold ${hb['id']} (${customer.name}) - ${items.length} - $totalQty'
-                              : 'Hold ${hb['id']} - ${items.length} - $totalQty',
+                              ? 'Hold ${formatBillCode(hb['id'], hb['created_at'] as String?)} (${customer.name}) - ${items.length} - $totalQty'
+                              : 'Hold ${formatBillCode(hb['id'], hb['created_at'] as String?)} - ${items.length} - $totalQty',
                         ),
                         subtitle: Text('${hb['created_at']}'),
                         trailing: Row(
