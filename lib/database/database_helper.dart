@@ -381,6 +381,9 @@ class DatabaseHelper {
     // Seed customers and sample bills (safe, idempotent)
     await _insertSampleCustomersAndBills(db);
 
+    // Ensure robust seed coverage for logically consistent data
+    await _insertRobustSeed(db);
+
     // Try to copy a bundled dummy image into the DB images directory so code that expects an image path can find it.
     try {
       final imagesDir = await getImagesDirectoryPath();
@@ -436,31 +439,96 @@ class DatabaseHelper {
       'created_at': now,
     });
 
-    // Insert a paid bill for Alice
-    final itemsAlice = [
-      {'product_id': 1, 'qty': 1, 'line_total': 250.0},
-    ];
-    await db.insert('customer_bills', {
-      'customer_id': aliceId,
-      'items': jsonEncode(itemsAlice),
-      'total': 250.0,
-      'is_paid': 1,
-      'is_held': 0,
-      'created_at': now,
-    });
+    // Helper to find a product id by part_number (fallback to any product)
+    Future<int?> findProductByPart(String part) async {
+      final r = await db.rawQuery(
+        'SELECT id FROM products WHERE part_number = ? LIMIT 1',
+        [part],
+      );
+      if (r.isNotEmpty) return r.first['id'] as int?;
+      final any = await db.rawQuery('SELECT id FROM products LIMIT 1');
+      if (any.isNotEmpty) return any.first['id'] as int?;
+      return null;
+    }
 
-    // Insert an unpaid bill (held->unpaid) for Bob
-    final itemsBob = [
-      {'product_id': 4, 'qty': 2, 'line_total': 600.0},
-    ];
-    await db.insert('customer_bills', {
-      'customer_id': bobId,
-      'items': jsonEncode(itemsBob),
-      'total': 1200.0,
-      'is_paid': 0,
-      'is_held': 0,
-      'created_at': now,
-    });
+    // Ensure inventory exists for a product
+    Future<void> ensureInventory(int pid, Map<String, dynamic> vals) async {
+      final exists = await db.rawQuery(
+        'SELECT COUNT(1) as cnt FROM product_inventory WHERE product_id = ?',
+        [pid],
+      );
+      final count = (exists.isNotEmpty
+          ? (exists.first['cnt'] as int? ?? 0)
+          : 0);
+      if (count > 0) return;
+      final nowLocal = DateTime.now().toIso8601String();
+      await db.insert('product_inventory', {
+        'product_id': pid,
+        'supplier_name': vals['supplier_name'] ?? 'Local Supplier',
+        'supplier_contact': vals['supplier_contact'] ?? '+91-80-0000-0000',
+        'cost_price': vals['cost_price'] ?? 100.0,
+        'selling_price': vals['selling_price'] ?? 150.0,
+        'mrp': vals['mrp'] ?? ((vals['selling_price'] ?? 150.0) * 1.1),
+        'stock_quantity': vals['stock_quantity'] ?? 10,
+        'minimum_stock_level': vals['minimum_stock_level'] ?? 2,
+        'location_rack': vals['location_rack'] ?? 'S-01',
+        'is_active': 1,
+        'created_at': nowLocal,
+        'updated_at': nowLocal,
+      });
+    }
+
+    // Insert a paid bill for Alice using a real product
+    final alicePid = await findProductByPart('CR8E');
+    if (alicePid != null) {
+      await ensureInventory(alicePid, {
+        'supplier_name': 'NGK Spark Plugs India',
+        'supplier_contact': '+91-80-2234-5678',
+        'cost_price': 180.0,
+        'selling_price': 250.0,
+        'mrp': 280.0,
+        'stock_quantity': 45,
+        'minimum_stock_level': 10,
+        'location_rack': 'A1-SP',
+      });
+      final itemsAlice = [
+        {'product_id': alicePid, 'qty': 1, 'line_total': 250.0},
+      ];
+      await db.insert('customer_bills', {
+        'customer_id': aliceId,
+        'items': jsonEncode(itemsAlice),
+        'total': 250.0,
+        'is_paid': 1,
+        'is_held': 0,
+        'created_at': now,
+      });
+    }
+
+    // Insert an unpaid bill for Bob using a real product
+    final bobPid = await findProductByPart('BP-F-125');
+    if (bobPid != null) {
+      await ensureInventory(bobPid, {
+        'supplier_name': 'Lucas TVS',
+        'supplier_contact': '+91-44-2345-6789',
+        'cost_price': 280.0,
+        'selling_price': 420.0,
+        'mrp': 480.0,
+        'stock_quantity': 25,
+        'minimum_stock_level': 8,
+        'location_rack': 'B1-BP',
+      });
+      final itemsBob = [
+        {'product_id': bobPid, 'qty': 2, 'line_total': 600.0},
+      ];
+      await db.insert('customer_bills', {
+        'customer_id': bobId,
+        'items': jsonEncode(itemsBob),
+        'total': 1200.0,
+        'is_paid': 0,
+        'is_held': 0,
+        'created_at': now,
+      });
+    }
   }
 
   Future<void> _createIndexes(Database db) async {
@@ -691,6 +759,12 @@ class DatabaseHelper {
       'Victory Spares',
     ];
 
+    // Fetch available product ids to reference in bills
+    final prodRows = await db.rawQuery(
+      'SELECT id FROM products ORDER BY id LIMIT 100',
+    );
+    final availableProductIds = prodRows.map((r) => r['id'] as int).toList();
+
     for (var i = 0; i < 50; i++) {
       final name =
           names[i % names.length] +
@@ -723,8 +797,8 @@ class DatabaseHelper {
       });
 
       // Now re-create the same billed items deterministically so DB and balance match
-      if (i % 3 == 0) {
-        final prod = ((i * 3) % 20) + 1;
+      if (availableProductIds.isNotEmpty && i % 3 == 0) {
+        final prod = availableProductIds[(i * 3) % availableProductIds.length];
         final tot = 450.0 + (i * 25.0);
         final items = jsonEncode([
           {'product_id': prod, 'qty': 1, 'line_total': tot},
@@ -739,8 +813,8 @@ class DatabaseHelper {
         });
       }
 
-      if (i % 5 == 0) {
-        final prod = ((i * 5) % 20) + 1;
+      if (availableProductIds.isNotEmpty && i % 5 == 0) {
+        final prod = availableProductIds[(i * 5) % availableProductIds.length];
         final tot = 1200.0 + (i * 15.0);
         final items = jsonEncode([
           {'product_id': prod, 'qty': 2, 'line_total': tot},
@@ -784,17 +858,18 @@ class DatabaseHelper {
     final piCount = (piCountRes.isNotEmpty
         ? (piCountRes.first['cnt'] as int? ?? 0)
         : 0);
-    if (piCount == 0) {
-      // Create image records for first 20 products; some marked primary, some not
-      for (var pid = 1; pid <= 20; pid++) {
+    if (piCount == 0 && availableProductIds.isNotEmpty) {
+      // Create image records for available products; some marked primary, some not
+      for (var i = 0; i < availableProductIds.length && i < 20; i++) {
+        final pid = availableProductIds[i];
         final path = dummyPath; // reuse bundled dummy image
         await db.insert('product_images', {
           'product_id': pid,
           'image_path': path,
-          'image_type': pid % 3 == 0 ? 'technical' : 'gallery',
+          'image_type': (i + 1) % 3 == 0 ? 'technical' : 'gallery',
           'alt_text': 'Seed image for product $pid',
-          'sort_order': pid,
-          'is_primary': pid % 5 == 0 ? 1 : 0,
+          'sort_order': i + 1,
+          'is_primary': (i + 1) % 5 == 0 ? 1 : 0,
           'created_at': now,
         });
       }
@@ -838,41 +913,47 @@ class DatabaseHelper {
         await db.insert('product_inventory', iv);
       }
 
-      // zero stock
-      await safeInsertInventory({
-        'product_id': 2,
-        'supplier_name': 'Edge Supplies',
-        'cost_price': 0.0,
-        'selling_price': 0.0,
-        'mrp': 0.0,
-        'stock_quantity': 0,
-        'minimum_stock_level': 0,
-        'location_rack': 'Z-0',
-      });
+      // zero stock (pick a safe product id)
+      if (availableProductIds.length >= 1) {
+        await safeInsertInventory({
+          'product_id': availableProductIds[0],
+          'supplier_name': 'Edge Supplies',
+          'cost_price': 0.0,
+          'selling_price': 0.0,
+          'mrp': 0.0,
+          'stock_quantity': 0,
+          'minimum_stock_level': 0,
+          'location_rack': 'Z-0',
+        });
+      }
 
       // very large stock
-      await safeInsertInventory({
-        'product_id': 3,
-        'supplier_name': 'Bulk Corp',
-        'cost_price': 10.0,
-        'selling_price': 15.0,
-        'mrp': 20.0,
-        'stock_quantity': 100000,
-        'minimum_stock_level': 10,
-        'location_rack': 'BULK-1',
-      });
+      if (availableProductIds.length >= 2) {
+        await safeInsertInventory({
+          'product_id': availableProductIds[1],
+          'supplier_name': 'Bulk Corp',
+          'cost_price': 10.0,
+          'selling_price': 15.0,
+          'mrp': 20.0,
+          'stock_quantity': 100000,
+          'minimum_stock_level': 10,
+          'location_rack': 'BULK-1',
+        });
+      }
 
       // previously negative/invalid prices: clamp to 0.0 to avoid validation errors
-      await safeInsertInventory({
-        'product_id': 4,
-        'supplier_name': 'Faulty Supplier',
-        'cost_price': -50.0,
-        'selling_price': -10.0,
-        'mrp': -5.0,
-        'stock_quantity': 5,
-        'minimum_stock_level': 1,
-        'location_rack': 'X-ERR',
-      });
+      if (availableProductIds.length >= 3) {
+        await safeInsertInventory({
+          'product_id': availableProductIds[2],
+          'supplier_name': 'Faulty Supplier',
+          'cost_price': -50.0,
+          'selling_price': -10.0,
+          'mrp': -5.0,
+          'stock_quantity': 5,
+          'minimum_stock_level': 1,
+          'location_rack': 'X-ERR',
+        });
+      }
     }
   }
 
@@ -891,6 +972,7 @@ class DatabaseHelper {
             '{"electrode_gap": "0.8mm", "thread_size": "M12", "reach": "19mm"}',
         'weight': 0.05,
         'warranty': 12,
+        'price': 250.0,
         'is_universal': 0,
         'is_active': 1,
       },
@@ -904,6 +986,7 @@ class DatabaseHelper {
             '{"electrode_gap": "0.6mm", "thread_size": "M14", "reach": "12.7mm"}',
         'weight': 0.06,
         'warranty': 6,
+        'price': 180.0,
         'is_universal': 0,
         'is_active': 1,
       },
@@ -917,6 +1000,7 @@ class DatabaseHelper {
             '{"electrode_gap": "0.9mm", "thread_size": "M12", "reach": "19mm", "material": "iridium"}',
         'weight': 0.05,
         'warranty': 24,
+        'price': 650.0,
         'is_universal': 0,
         'is_active': 1,
       },
@@ -931,6 +1015,7 @@ class DatabaseHelper {
             '{"material": "ceramic", "temperature_range": "-40°C to 400°C"}',
         'weight': 0.3,
         'warranty': 12,
+        'price': 420.0,
         'is_universal': 0,
         'is_active': 1,
       },
@@ -944,6 +1029,7 @@ class DatabaseHelper {
             '{"material": "organic", "temperature_range": "-30°C to 350°C"}',
         'weight': 0.25,
         'warranty': 18,
+        'price': 480.0,
         'is_universal': 0,
         'is_active': 1,
       },
@@ -958,6 +1044,7 @@ class DatabaseHelper {
             '{"thickness": "3.2mm", "outer_diameter": "125mm", "inner_diameter": "65mm"}',
         'weight': 0.8,
         'warranty': 12,
+        'price': 1200.0,
         'is_universal': 0,
         'is_active': 1,
       },
@@ -971,6 +1058,7 @@ class DatabaseHelper {
             '{"thickness": "3.5mm", "outer_diameter": "150mm", "inner_diameter": "75mm"}',
         'weight': 1.0,
         'warranty': 12,
+        'price': 1350.0,
         'is_universal': 0,
         'is_active': 1,
       },
@@ -983,6 +1071,7 @@ class DatabaseHelper {
         'description': 'Maintenance-free motorcycle battery',
         'specs': '{"voltage": "12V", "capacity": "9Ah"}',
         'weight': 2.8,
+        'price': 2400.0,
         'warranty': 18,
         'is_universal': 0,
         'is_active': 1,
@@ -995,7 +1084,74 @@ class DatabaseHelper {
         'description': 'Long-life VRLA battery for two-wheelers',
         'specs': '{"voltage": "12V", "capacity": "5Ah"}',
         'weight': 1.8,
+        'price': 1650.0,
         'warranty': 24,
+        'is_universal': 0,
+        'is_active': 1,
+      },
+      // Filters and lubricants
+      {
+        'name': 'K&N High Flow Air Filter 4X',
+        'part': 'KN-AF-4X',
+        'sub': 'Air Filters',
+        'manu': 'K&N',
+        'description': 'High flow performance air filter',
+        'specs': '{}',
+        'weight': 0.4,
+        'price': 2800.0,
+        'warranty': 6,
+        'is_universal': 0,
+        'is_active': 1,
+      },
+      {
+        'name': 'Bosch Oil Filter 150',
+        'part': 'BOS-OF-150',
+        'sub': 'Oil Filters',
+        'manu': 'Bosch',
+        'description': 'Spin-on oil filter',
+        'specs': '{}',
+        'weight': 0.3,
+        'price': 320.0,
+        'warranty': 3,
+        'is_universal': 0,
+        'is_active': 1,
+      },
+      {
+        'name': 'Castrol 4T 20W-40 Engine Oil 1L',
+        'part': 'CAST-4T-1L',
+        'sub': 'Lubricants',
+        'manu': 'Castrol',
+        'description': 'Semi-synthetic 4-stroke engine oil',
+        'specs': '{}',
+        'weight': 1.1,
+        'price': 350.0,
+        'warranty': 0,
+        'is_universal': 1,
+        'is_active': 1,
+      },
+      {
+        'name': 'TVS Chain & Sprocket Kit',
+        'part': 'TVS-CHS-01',
+        'sub': 'Chain & Sprockets',
+        'manu': 'TVS Motor',
+        'description': 'Chain and sprocket kit for commuter bikes',
+        'specs': '{}',
+        'weight': 2.0,
+        'price': 1800.0,
+        'warranty': 12,
+        'is_universal': 0,
+        'is_active': 1,
+      },
+      {
+        'name': 'Bajaj OEM Piston Kit',
+        'part': 'BAJ-PIS-150',
+        'sub': 'Pistons',
+        'manu': 'Bajaj Auto',
+        'description': 'OEM piston kit for popular models',
+        'specs': '{}',
+        'weight': 0.9,
+        'price': 3500.0,
+        'warranty': 12,
         'is_universal': 0,
         'is_active': 1,
       },
@@ -1048,6 +1204,48 @@ class DatabaseHelper {
           insertedProductIdsByPart[pd['part'] as String] = id;
       } catch (e) {
         print('Failed to insert product ${pd['name']}: $e');
+      }
+    }
+
+    // Ensure inventory exists for inserted products; use productDefs 'price' when available
+    for (final pd in productDefs) {
+      final part = pd['part'] as String?;
+      if (part == null) continue;
+      final pid = insertedProductIdsByPart[part];
+      if (pid == null) continue;
+
+      final invExists = await db.rawQuery(
+        'SELECT COUNT(1) as cnt FROM product_inventory WHERE product_id = ?',
+        [pid],
+      );
+      final cntInv = (invExists.isNotEmpty
+          ? (invExists.first['cnt'] as int? ?? 0)
+          : 0);
+      if (cntInv > 0) continue;
+
+      final price = (pd['price'] is num)
+          ? (pd['price'] as num).toDouble()
+          : null;
+      final selling = price ?? 199.0;
+      final mrp = price != null ? (selling * 1.1) : (selling * 1.2);
+
+      try {
+        await db.insert('product_inventory', {
+          'product_id': pid,
+          'supplier_name': '${pd['manu']} Distribution',
+          'supplier_contact': '+91-80-0000-0000',
+          'cost_price': (price != null) ? (price * 0.6) : 100.0,
+          'selling_price': selling,
+          'mrp': mrp,
+          'stock_quantity': 20,
+          'minimum_stock_level': 5,
+          'location_rack': 'S-DEF',
+          'is_active': 1,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      } catch (e) {
+        // ignore inventory insert failures
       }
     }
 
@@ -1145,16 +1343,18 @@ class DatabaseHelper {
       if (vm.isEmpty) continue;
       final vmId = vm.first['id'] as int;
       try {
+        // Use correct column names per schema: is_oem, fit_notes, compatibility_confirmed, added_by
         await db.insert('product_compatibility', {
           'product_id': pid,
           'vehicle_model_id': vmId,
-          'is_primary': 1,
-          'notes': 'Seed compatibility',
+          'is_oem': 0,
+          'fit_notes': 'Seed compatibility',
+          'compatibility_confirmed': 1,
+          'added_by': 'seed',
           'created_at': DateTime.now().toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
         });
       } catch (e) {
-        print('Failed to insert compatibility for part ${c['part']}: $e');
+        // best-effort seed: ignore individual failures
       }
     }
   }
@@ -1278,6 +1478,275 @@ class DatabaseHelper {
       } catch (e) {
         // ignore individual insert failures - best-effort seed
       }
+    }
+  }
+
+  // Robust idempotent seed to ensure logical FK relationships are valid.
+  Future<void> _insertRobustSeed(Database db) async {
+    // If products already exist, skip heavy seeding
+    final prodCountRes = await db.rawQuery(
+      'SELECT COUNT(1) as cnt FROM products',
+    );
+    final prodCnt = (prodCountRes.isNotEmpty
+        ? (prodCountRes.first['cnt'] as int? ?? 0)
+        : 0);
+    if (prodCnt > 30) return; // assume already seeded
+
+    final now = DateTime.now().toIso8601String();
+
+    // Ensure core manufacturers exist (idempotent)
+    final manufacturers = [
+      {'name': 'Hero MotoCorp', 'type': 'vehicle', 'country': 'India'},
+      {'name': 'Bajaj Auto', 'type': 'vehicle', 'country': 'India'},
+      {'name': 'TVS Motor', 'type': 'vehicle', 'country': 'India'},
+      {'name': 'Bosch', 'type': 'parts', 'country': 'Germany'},
+      {'name': 'NGK', 'type': 'parts', 'country': 'Japan'},
+      {'name': 'Lucas TVS', 'type': 'parts', 'country': 'India'},
+      {'name': 'Exide', 'type': 'parts', 'country': 'India'},
+      {'name': 'Amaron', 'type': 'parts', 'country': 'India'},
+    ];
+
+    Future<int> ensureManufacturer(Map<String, String> m) async {
+      final res = await db.rawQuery(
+        'SELECT id FROM manufacturers WHERE name = ? LIMIT 1',
+        [m['name']],
+      );
+      if (res.isNotEmpty) return res.first['id'] as int;
+      return await db.insert('manufacturers', {
+        'name': m['name'],
+        'manufacturer_type': m['type'],
+        'country': m['country'],
+        'created_at': now,
+        'updated_at': now,
+      });
+    }
+
+    final manuIds = <String, int>{};
+    for (final m in manufacturers) {
+      manuIds[m['name']!] = await ensureManufacturer(m.cast<String, String>());
+    }
+
+    // Ensure main categories exist
+    final mainCats = [
+      'Engine Parts',
+      'Brake System',
+      'Transmission',
+      'Electrical',
+      'Filters',
+      'Lubricants',
+    ];
+
+    Future<int> ensureMainCat(String name, int order) async {
+      final res = await db.rawQuery(
+        'SELECT id FROM main_categories WHERE name = ? LIMIT 1',
+        [name],
+      );
+      if (res.isNotEmpty) return res.first['id'] as int;
+      return await db.insert('main_categories', {
+        'name': name,
+        'description': '$name - seeded',
+        'sort_order': order,
+        'is_active': 1,
+        'created_at': now,
+        'updated_at': now,
+      });
+    }
+
+    final mainIds = <String, int>{};
+    for (var i = 0; i < mainCats.length; i++) {
+      mainIds[mainCats[i]] = await ensureMainCat(mainCats[i], i + 1);
+    }
+
+    // Ensure sub categories
+    final subCatMap = {
+      'Engine Parts': ['Spark Plugs', 'Pistons', 'Gaskets'],
+      'Brake System': ['Brake Pads', 'Brake Discs'],
+      'Transmission': ['Clutch Plates', 'Chain & Sprockets'],
+      'Electrical': ['Batteries', 'Headlights'],
+      'Filters': ['Air Filters', 'Oil Filters'],
+    };
+
+    Future<int> ensureSubCat(String name, int mainId, int order) async {
+      final res = await db.rawQuery(
+        'SELECT id FROM sub_categories WHERE name = ? AND main_category_id = ? LIMIT 1',
+        [name, mainId],
+      );
+      if (res.isNotEmpty) return res.first['id'] as int;
+      return await db.insert('sub_categories', {
+        'name': name,
+        'main_category_id': mainId,
+        'description': '$name - seeded',
+        'sort_order': order,
+        'is_active': 1,
+        'created_at': now,
+        'updated_at': now,
+      });
+    }
+
+    final subIds = <String, int>{};
+    subCatMap.forEach((main, subs) async {
+      final mid = mainIds[main]!;
+      for (var i = 0; i < subs.length; i++) {
+        final id = await ensureSubCat(subs[i], mid, i + 1);
+        subIds['${main}_${subs[i]}'] = id;
+      }
+    });
+
+    // Insert representative products for each sub category
+    final productSamples = <Map<String, dynamic>>[
+      {
+        'name': 'NGK CR8E Spark Plug',
+        'part': 'NGK-CR8E',
+        'sub': 'Spark Plugs',
+        'manu': 'NGK',
+        'price': 250.0,
+      },
+      {
+        'name': 'Bosch Brake Pad Set',
+        'part': 'BOS-BP-125',
+        'sub': 'Brake Pads',
+        'manu': 'Bosch',
+        'price': 420.0,
+      },
+      {
+        'name': 'Hero Clutch Plate',
+        'part': 'HERO-CP-125',
+        'sub': 'Clutch Plates',
+        'manu': 'Hero MotoCorp',
+        'price': 1200.0,
+      },
+      {
+        'name': 'Exide 12V 9Ah Battery',
+        'part': 'EX-12V9AH',
+        'sub': 'Batteries',
+        'manu': 'Exide',
+        'price': 2400.0,
+      },
+      {
+        'name': 'K&N Air Filter',
+        'part': 'KN-AF-01',
+        'sub': 'Air Filters',
+        'manu': 'K&N',
+        'price': 2800.0,
+      },
+    ];
+
+    final insertedByPart = <String, int>{};
+    for (final p in productSamples) {
+      // resolve lookup ids
+      final subName = p['sub'] as String;
+      final subRes = await db.rawQuery(
+        'SELECT id FROM sub_categories WHERE name = ? LIMIT 1',
+        [subName],
+      );
+      if (subRes.isEmpty) continue;
+      final sid = subRes.first['id'] as int;
+      final manuRes = await db.rawQuery(
+        'SELECT id FROM manufacturers WHERE name = ? LIMIT 1',
+        [p['manu']],
+      );
+      if (manuRes.isEmpty) continue;
+      final mid2 = manuRes.first['id'] as int;
+
+      // avoid duplicates
+      final exists = await db.rawQuery(
+        'SELECT id FROM products WHERE part_number = ? AND manufacturer_id = ? LIMIT 1',
+        [p['part'], mid2],
+      );
+      if (exists.isNotEmpty) {
+        insertedByPart[p['part'] as String] = exists.first['id'] as int;
+        continue;
+      }
+
+      final pid = await db.insert('products', {
+        'name': p['name'],
+        'part_number': p['part'],
+        'sub_category_id': sid,
+        'manufacturer_id': mid2,
+        'description': '${p['name']} - seeded',
+        'specifications': '{}',
+        'weight': 0.5,
+        'warranty_months': 12,
+        'is_universal': 0,
+        'is_active': 1,
+        'created_at': now,
+        'updated_at': now,
+      });
+      insertedByPart[p['part'] as String] = pid;
+
+      // Add inventory row
+      await db.insert('product_inventory', {
+        'product_id': pid,
+        'supplier_name': '${p['manu']} Distribution',
+        'supplier_contact': '+91-80-0000-0000',
+        'cost_price': (p['price'] as double) * 0.6,
+        'selling_price': p['price'],
+        'mrp': (p['price'] as double) * 1.1,
+        'stock_quantity': 20,
+        'minimum_stock_level': 5,
+        'location_rack': 'S-01',
+        'is_active': 1,
+        'created_at': now,
+        'updated_at': now,
+      });
+    }
+
+    // Add a couple of customers and sample bills mapping to inserted products
+    final cust1 = await db.insert('customers', {
+      'name': 'Suresh Auto Parts',
+      'address': '23 Industrial Road, Pune',
+      'mobile': '9898989898',
+      'opening_balance': 0.0,
+      'balance': 0.0,
+      'created_at': now,
+    });
+    final cust2 = await db.insert('customers', {
+      'name': 'Ramesh Garage',
+      'address': '12 Service Lane, Mumbai',
+      'mobile': '9777777777',
+      'opening_balance': 0.0,
+      'balance': 0.0,
+      'created_at': now,
+    });
+
+    final partKeys = insertedByPart.keys.toList();
+    if (partKeys.isNotEmpty) {
+      final pid = insertedByPart[partKeys.first]!;
+      final items = jsonEncode([
+        {'product_id': pid, 'qty': 2, 'line_total': 2 * 250.0},
+      ]);
+      await db.insert('customer_bills', {
+        'customer_id': cust1,
+        'items': items,
+        'total': 500.0,
+        'is_paid': 1,
+        'is_held': 0,
+        'created_at': now,
+      });
+
+      await db.insert('customer_bills', {
+        'customer_id': cust2,
+        'items': items,
+        'total': 500.0,
+        'is_paid': 0,
+        'is_held': 0,
+        'created_at': now,
+      });
+
+      // Update balances based on unpaid bills
+      final unpaidRes = await db.rawQuery(
+        'SELECT COALESCE(SUM(total),0) as unpaid FROM customer_bills WHERE customer_id = ? AND is_paid = 0',
+        [cust2],
+      );
+      final unpaid =
+          (unpaidRes.isNotEmpty ? (unpaidRes.first['unpaid'] as num? ?? 0) : 0)
+              .toDouble();
+      await db.update(
+        'customers',
+        {'balance': -unpaid},
+        where: 'id = ?',
+        whereArgs: [cust2],
+      );
     }
   }
 
