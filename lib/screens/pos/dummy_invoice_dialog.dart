@@ -245,9 +245,7 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
                               // Create as unpaid invoice
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text(
-                                    'Invoice created (dummy) - Unpaid',
-                                  ),
+                                  content: Text('Estimate created - Unpaid'),
                                 ),
                               );
                               if (widget.onCreated != null) widget.onCreated!();
@@ -265,9 +263,7 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
                               // Create as paid invoice
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text(
-                                    'Invoice created (dummy) - Paid',
-                                  ),
+                                  content: Text('Estimate created - Paid'),
                                 ),
                               );
                               if (widget.onCreated != null) widget.onCreated!();

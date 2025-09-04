@@ -697,7 +697,6 @@ class _PosScreenState extends State<PosScreen> {
                 ? null
                 : () async {
                     final nav = Navigator.of(context);
-                    final messenger = ScaffoldMessenger.of(context);
                     final confirm = await showDialog<bool>(
                       context: context,
                       builder: (context) => AlertDialog(
@@ -727,12 +726,8 @@ class _PosScreenState extends State<PosScreen> {
                         _editingHoldId = null;
                         _bumpHoldsVersion();
                       });
-                      final n = nav;
-                      final m = messenger;
-                      n.pop();
-                      m.showSnackBar(
-                        const SnackBar(content: Text('All held bills cleared')),
-                      );
+                      // Silent clear: do not show a SnackBar here
+                      nav.pop();
                     }
                   },
             child: Text(
@@ -2133,10 +2128,6 @@ class _PosScreenState extends State<PosScreen> {
                                                       // per-button delete
                                                       InkWell(
                                                         onTap: () async {
-                                                          final messenger =
-                                                              ScaffoldMessenger.of(
-                                                                context,
-                                                              );
                                                           final confirm = await showDialog<bool>(
                                                             context: context,
                                                             builder: (context) => AlertDialog(
@@ -2191,13 +2182,7 @@ class _PosScreenState extends State<PosScreen> {
                                                               }
                                                               _bumpHoldsVersion();
                                                             });
-                                                            messenger.showSnackBar(
-                                                              const SnackBar(
-                                                                content: Text(
-                                                                  'Held bill removed',
-                                                                ),
-                                                              ),
-                                                            );
+                                                            // No snackbar for single quick-hold removal (keep UX quieter)
                                                           }
                                                         },
                                                         child: Padding(
@@ -2235,10 +2220,6 @@ class _PosScreenState extends State<PosScreen> {
                                               onPressed: _heldBills.isEmpty
                                                   ? null
                                                   : () async {
-                                                      final messenger =
-                                                          ScaffoldMessenger.of(
-                                                            context,
-                                                          );
                                                       final confirm = await showDialog<bool>(
                                                         context: context,
                                                         builder: (context) {
@@ -2287,13 +2268,7 @@ class _PosScreenState extends State<PosScreen> {
                                                           _billing.clear();
                                                           _bumpHoldsVersion();
                                                         });
-                                                        messenger.showSnackBar(
-                                                          const SnackBar(
-                                                            content: Text(
-                                                              'All held bills cleared',
-                                                            ),
-                                                          ),
-                                                        );
+                                                        // Silent clear: no SnackBar
                                                       }
                                                     },
                                               icon: const Icon(Icons.clear_all),
@@ -2314,10 +2289,7 @@ class _PosScreenState extends State<PosScreen> {
                                                     _selectedCustomerId == null
                                                 ? null
                                                 : () async {
-                                                    final messenger =
-                                                        ScaffoldMessenger.of(
-                                                          context,
-                                                        );
+                                                    // no local messenger needed here; snackbars are shown by the dialog
 
                                                     // Build preview lines for the dialog
                                                     final previewLines = _billing
@@ -2465,13 +2437,6 @@ class _PosScreenState extends State<PosScreen> {
                                                     }
 
                                                     if (!mounted) return;
-                                                    messenger.showSnackBar(
-                                                      const SnackBar(
-                                                        content: Text(
-                                                          'Invoice created',
-                                                        ),
-                                                      ),
-                                                    );
                                                     setState(() {
                                                       _billing.clear();
                                                       _editingHoldId = null;

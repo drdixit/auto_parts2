@@ -121,7 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
               NavigationRailDestination(
                 icon: Icon(Icons.receipt_long_outlined),
                 selectedIcon: Icon(Icons.receipt_long),
-                label: Text('Bills'),
+                label: Text('Estimates'),
               ),
             ],
           ),
