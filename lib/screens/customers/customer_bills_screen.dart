@@ -161,6 +161,7 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
@@ -574,7 +575,9 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                             TextButton(
                                               onPressed: () =>
                                                   _showBillDetails(b),
-                                              child: const Text("see"),
+                                              child: const Icon(
+                                                Icons.visibility,
+                                              ),
                                             ),
                                           ),
                                         ],
