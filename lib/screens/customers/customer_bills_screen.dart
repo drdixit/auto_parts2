@@ -191,7 +191,10 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                             style: TextStyle(fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 8),
-                          Text(_custName(bill['customer_id'] as int)),
+                          Text(
+                            _custName(bill['customer_id'] as int),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
                         ],
                       ),
                     ),
@@ -392,13 +395,55 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                 child: SingleChildScrollView(
                                   child: DataTable(
                                     columnSpacing: 24,
-                                    columns: const [
-                                      DataColumn(label: Text('Estimates No')),
-                                      DataColumn(label: Text('Date')),
-                                      DataColumn(label: Text('Customer')),
-                                      DataColumn(label: Text('Total')),
-                                      DataColumn(label: Text('Actions')),
-                                      DataColumn(label: Text('Details')),
+                                    columns: [
+                                      DataColumn(
+                                        label: Text(
+                                          'Estimates No',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                      DataColumn(
+                                        label: Text(
+                                          'Date',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                      DataColumn(
+                                        label: Text(
+                                          'Customer',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                      DataColumn(
+                                        label: Text(
+                                          'Total',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                      DataColumn(
+                                        label: Text(
+                                          'Actions',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                      DataColumn(
+                                        label: Text(
+                                          'Details',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
                                     ],
                                     rows: sorted.map((b) {
                                       final isPaid =
@@ -425,6 +470,9 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                             Text(
                                               _custName(
                                                 b['customer_id'] as int,
+                                              ),
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
                                               ),
                                             ),
                                           ),
