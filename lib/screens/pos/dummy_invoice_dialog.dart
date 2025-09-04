@@ -6,8 +6,14 @@ class InvoiceLine {
   final String name;
   final int qty;
   final double unitPrice;
+  final String? location; // optional RAC/Location from inventory
 
-  InvoiceLine({required this.name, required this.qty, required this.unitPrice});
+  InvoiceLine({
+    required this.name,
+    required this.qty,
+    required this.unitPrice,
+    this.location,
+  });
 
   double get lineTotal => qty * unitPrice;
 }
@@ -145,7 +151,7 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Header (title removed per request; show only timestamp)
+                        // Header (show timestamp)
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
@@ -159,6 +165,7 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
                           ],
                         ),
                         const SizedBox(height: 8),
+
                         // Customer summary: prefer passed customer, else use typed fields
                         if (widget.customer != null ||
                             _customerName.text.isNotEmpty ||
@@ -168,12 +175,13 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
                             child: Text(
                               widget.customer != null
                                   ? 'To: ${widget.customer is Map ? (widget.customer['name'] ?? '') : (widget.customer.name ?? '')}${(widget.customer is Map ? (widget.customer['mobile'] ?? '') : (widget.customer.mobile ?? '')) != '' ? ' • ${(widget.customer is Map ? (widget.customer['mobile'] ?? '') : (widget.customer.mobile ?? ''))}' : ''}\n${widget.customer is Map ? (widget.customer['address'] ?? '') : (widget.customer.address ?? '')}'
-                                  : 'To: ${_customerName.text} ${_customerContact.text.isNotEmpty ? '• ${_customerContact.text}' : ''}\n${_customerAddress.text}',
+                                  : 'To: ${_customerName.text} ${_customerContact.text.isNotEmpty ? '\u2022 ${_customerContact.text}' : ''}\n${_customerAddress.text}',
                               style: const TextStyle(fontSize: 13),
                             ),
                           ),
                         const Divider(),
-                        // Lines
+
+                        // Lines: single row per item
                         Expanded(
                           child: ListView.separated(
                             itemCount: widget.lines.length,
@@ -181,29 +189,79 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
                                 const Divider(height: 8),
                             itemBuilder: (context, i) {
                               final l = widget.lines[i];
-                              return Row(
-                                children: [
-                                  Expanded(child: Text(l.name)),
-                                  SizedBox(
-                                    width: 60,
-                                    child: Text(
-                                      '${l.qty} x',
-                                      textAlign: TextAlign.right,
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 6.0,
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    // Name + inline location
+                                    Expanded(
+                                      child: RichText(
+                                        text: TextSpan(
+                                          style: DefaultTextStyle.of(
+                                            context,
+                                          ).style,
+                                          children: [
+                                            TextSpan(text: l.name),
+                                            if (l.location != null &&
+                                                l.location!.isNotEmpty) ...[
+                                              const TextSpan(text: ' • '),
+                                              TextSpan(
+                                                text: l.location!,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  SizedBox(
-                                    width: 90,
-                                    child: Text(
-                                      '₹${l.lineTotal.toStringAsFixed(2)}',
-                                      textAlign: TextAlign.right,
+
+                                    // qty x
+                                    SizedBox(
+                                      width: 56,
+                                      child: Text(
+                                        '${l.qty} x',
+                                        textAlign: TextAlign.right,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 12),
+
+                                    // single unit price
+                                    SizedBox(
+                                      width: 90,
+                                      child: Text(
+                                        '\u20b9${l.unitPrice.toStringAsFixed(2)}',
+                                        textAlign: TextAlign.right,
+                                        style: const TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+
+                                    // line total
+                                    SizedBox(
+                                      width: 90,
+                                      child: Text(
+                                        '\u20b9${l.lineTotal.toStringAsFixed(2)}',
+                                        textAlign: TextAlign.right,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               );
                             },
                           ),
                         ),
+
                         const Divider(),
                         // Totals
                         Row(
@@ -214,7 +272,7 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
                               style: TextStyle(fontWeight: FontWeight.w700),
                             ),
                             Text(
-                              '₹${_total.toStringAsFixed(2)}',
+                              '\u20b9${_total.toStringAsFixed(2)}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.w700,
                               ),

@@ -2291,26 +2291,45 @@ class _PosScreenState extends State<PosScreen> {
                                                 : () async {
                                                     // no local messenger needed here; snackbars are shown by the dialog
 
-                                                    // Build preview lines for the dialog
-                                                    final previewLines = _billing
-                                                        .map(
-                                                          (b) =>
-                                                              // InvoiceLine expects name, qty, unitPrice
-                                                              InvoiceLine(
-                                                                name:
-                                                                    b
-                                                                        .product
-                                                                        ?.name ??
-                                                                    'Unknown',
-                                                                qty: b.qty,
-                                                                unitPrice:
-                                                                    b
-                                                                        .product
-                                                                        ?.sellingPrice ??
-                                                                    0.0,
-                                                              ),
-                                                        )
-                                                        .toList();
+                                                    // Build preview lines for the dialog and include inventory location when available.
+                                                    final previewLines =
+                                                        <InvoiceLine>[];
+                                                    for (final b in _billing) {
+                                                      final name =
+                                                          b.product?.name ??
+                                                          'Unknown';
+                                                      final qty = b.qty;
+                                                      final unitPrice =
+                                                          b
+                                                              .product
+                                                              ?.sellingPrice ??
+                                                          0.0;
+                                                      String? location;
+                                                      try {
+                                                        final pid =
+                                                            b.product?.id;
+                                                        if (pid != null) {
+                                                          final inv =
+                                                              await _productService
+                                                                  .getProductInventory(
+                                                                    pid,
+                                                                  );
+                                                          if (inv != null)
+                                                            location = inv
+                                                                .locationRack;
+                                                        }
+                                                      } catch (e) {
+                                                        // ignore and leave location null
+                                                      }
+                                                      previewLines.add(
+                                                        InvoiceLine(
+                                                          name: name,
+                                                          qty: qty,
+                                                          unitPrice: unitPrice,
+                                                          location: location,
+                                                        ),
+                                                      );
+                                                    }
 
                                                     // Fetch selected customer to show in dialog (best-effort)
                                                     final customer =
