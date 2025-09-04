@@ -58,6 +58,7 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(
@@ -82,6 +83,8 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
               // Customer summary (show either passed customer or editable fields)
               Card(
                 elevation: 0,
+                color: Colors.transparent,
+                shadowColor: Colors.transparent,
                 child: Padding(
                   padding: const EdgeInsets.all(12.0),
                   child: Column(
@@ -98,7 +101,10 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
                           widget.customer is Map
                               ? (widget.customer['name'] ?? '').toString()
                               : widget.customer.name ?? '',
-                          style: const TextStyle(fontSize: 14),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                         const SizedBox(height: 6),
                         Text(
@@ -172,11 +178,44 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
                             _customerContact.text.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 8.0),
-                            child: Text(
-                              widget.customer != null
-                                  ? 'To: ${widget.customer is Map ? (widget.customer['name'] ?? '') : (widget.customer.name ?? '')}${(widget.customer is Map ? (widget.customer['mobile'] ?? '') : (widget.customer.mobile ?? '')) != '' ? ' • ${(widget.customer is Map ? (widget.customer['mobile'] ?? '') : (widget.customer.mobile ?? ''))}' : ''}\n${widget.customer is Map ? (widget.customer['address'] ?? '') : (widget.customer.address ?? '')}'
-                                  : 'To: ${_customerName.text} ${_customerContact.text.isNotEmpty ? '\u2022 ${_customerContact.text}' : ''}\n${_customerAddress.text}',
-                              style: const TextStyle(fontSize: 13),
+                            child: Text.rich(
+                              TextSpan(
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.black,
+                                ),
+                                children: [
+                                  const TextSpan(text: 'To: '),
+                                  TextSpan(
+                                    text: widget.customer != null
+                                        ? (widget.customer is Map
+                                              ? (widget.customer['name'] ?? '')
+                                              : (widget.customer.name ?? ''))
+                                        : _customerName.text,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: widget.customer != null
+                                        ? ((widget.customer is Map
+                                                          ? (widget.customer['mobile'] ??
+                                                                '')
+                                                          : (widget
+                                                                    .customer
+                                                                    .mobile ??
+                                                                '')) !=
+                                                      ''
+                                                  ? ' • ${(widget.customer is Map ? (widget.customer['mobile'] ?? '') : (widget.customer.mobile ?? ''))}'
+                                                  : '') +
+                                              '\n${widget.customer is Map ? (widget.customer['address'] ?? '') : (widget.customer.address ?? '')}'
+                                        : (_customerContact.text.isNotEmpty
+                                                  ? ' \u2022 ${_customerContact.text}'
+                                                  : '') +
+                                              '\n${_customerAddress.text}',
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         const Divider(),

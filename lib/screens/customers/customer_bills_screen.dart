@@ -184,6 +184,8 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                   const SizedBox(height: 8),
                   Card(
                     elevation: 0,
+                    color: Colors.transparent,
+                    shadowColor: Colors.transparent,
                     child: Padding(
                       padding: const EdgeInsets.all(12.0),
                       child: Column(
@@ -196,7 +198,10 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                           const SizedBox(height: 8),
                           Text(
                             _custName(bill['customer_id'] as int),
-                            style: const TextStyle(fontWeight: FontWeight.w700),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
                           ),
                         ],
                       ),
