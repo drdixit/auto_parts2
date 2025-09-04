@@ -275,26 +275,30 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                       return Row(
                                         children: [
                                           Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
+                                            child: Row(
                                               children: [
-                                                Text(pname),
+                                                Flexible(
+                                                  child: Text(
+                                                    pname,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ),
                                                 if (loc != null &&
-                                                    loc.isNotEmpty)
-                                                  Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                          top: 4.0,
-                                                        ),
+                                                    loc.isNotEmpty) ...[
+                                                  const SizedBox(width: 8),
+                                                  Flexible(
                                                     child: Text(
-                                                      'RAC/Location: $loc',
+                                                      loc,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                       style: const TextStyle(
                                                         color: Colors.grey,
                                                         fontSize: 12,
                                                       ),
                                                     ),
                                                   ),
+                                                ],
                                               ],
                                             ),
                                           ),
