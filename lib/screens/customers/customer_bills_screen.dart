@@ -96,23 +96,24 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
           ? iso.replaceFirst(' ', 'T') + 'Z'
           : iso;
       final dt = DateTime.parse(normalized).toLocal();
-      final m = <String>[
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ];
-      return '${dt.day} ${m[dt.month - 1]} ${dt.year}';
+      // Format as DD/MM/YYYY with zero-padded day and month
+      final dd = dt.day.toString().padLeft(2, '0');
+      final mm = dt.month.toString().padLeft(2, '0');
+      final yyyy = dt.year.toString();
+      return '$dd/$mm/$yyyy';
     } catch (e) {
-      return iso.split('T').first;
+      // Fallback: try to extract date part in YYYY-MM-DD and convert to DD/MM/YYYY
+      try {
+        final part = iso.split('T').first;
+        final parts = part.split('-');
+        if (parts.length >= 3) {
+          final y = parts[0];
+          final m = parts[1].padLeft(2, '0');
+          final d = parts[2].padLeft(2, '0');
+          return '$d/$m/$y';
+        }
+      } catch (_) {}
+      return iso;
     }
   }
 
@@ -573,7 +574,7 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                             TextButton(
                                               onPressed: () =>
                                                   _showBillDetails(b),
-                                              child: const Text('See'),
+                                              child: const Text("see"),
                                             ),
                                           ),
                                         ],
