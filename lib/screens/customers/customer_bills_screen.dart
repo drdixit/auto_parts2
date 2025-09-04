@@ -155,6 +155,11 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
       context: dialogContext,
       builder: (ctx) {
         final bool isPaid = bill['is_paid'] == true;
+        // defensive: try to find the customer object
+        final custObj = _customers.firstWhere(
+          (c) => c.id == (bill['customer_id'] as int),
+          orElse: () => Customer(name: '', address: '', mobile: ''),
+        );
         return Dialog(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 720, maxHeight: 640),
@@ -191,17 +196,36 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Customer',
-                            style: TextStyle(fontWeight: FontWeight.w600),
+                          // Header and bold name
+                          Row(
+                            children: [
+                              const Text(
+                                'Customer - ',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  custObj.name.isNotEmpty
+                                      ? custObj.name
+                                      : _custName(bill['customer_id'] as int),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            _custName(bill['customer_id'] as int),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                            ),
+                            custObj.mobile ?? '',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            custObj.address ?? '',
+                            style: const TextStyle(fontSize: 13),
                           ),
                         ],
                       ),

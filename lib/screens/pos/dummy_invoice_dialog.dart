@@ -90,34 +90,43 @@ class _DummyInvoiceDialogState extends State<DummyInvoiceDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Customer',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                      // Header: "Customer - <name (bold)>"
+                      Row(
+                        children: [
+                          const Text(
+                            'Customer - ',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          Expanded(
+                            child: Text(
+                              widget.customer is Map
+                                  ? (widget.customer['name'] ?? '').toString()
+                                  : (widget.customer.name ?? ''),
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
                       if (widget.customer != null) ...[
                         // customer may be a Map or an object with fields
                         Text(
+                          // phone first
                           widget.customer is Map
-                              ? (widget.customer['name'] ?? '').toString()
-                              : widget.customer.name ?? '',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          widget.customer is Map
-                              ? (widget.customer['address'] ?? '').toString()
-                              : (widget.customer.address ?? ''),
+                              ? (widget.customer['mobile'] ?? '').toString()
+                              : (widget.customer.mobile ?? ''),
                           style: const TextStyle(fontSize: 13),
                         ),
                         const SizedBox(height: 6),
                         Text(
+                          // then address
                           widget.customer is Map
-                              ? (widget.customer['mobile'] ?? '').toString()
-                              : (widget.customer.mobile ?? ''),
+                              ? (widget.customer['address'] ?? '').toString()
+                              : (widget.customer.address ?? ''),
                           style: const TextStyle(fontSize: 13),
                         ),
                       ] else ...[
