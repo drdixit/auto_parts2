@@ -220,53 +220,59 @@ class _MainCategoriesTabState extends State<_MainCategoriesTab>
 
   Widget _buildImagePreview(String? iconPath) {
     if (iconPath == null || iconPath.isEmpty) {
-      return Container(
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          color: AppColors.surfaceLight,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: AppColors.surfaceMuted),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.image_not_supported,
-              size: 20,
-              color: AppColors.textSecondary,
-            ),
-            Text(
-              'No Image',
-              style: TextStyle(fontSize: 8, color: AppColors.textSecondary),
-            ),
-          ],
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6.0),
+        child: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: AppColors.surfaceMuted),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.image_not_supported,
+                size: 20,
+                color: AppColors.textSecondary,
+              ),
+              Text(
+                'No Image',
+                style: TextStyle(fontSize: 8, color: AppColors.textSecondary),
+              ),
+            ],
+          ),
         ),
       );
     }
 
-    return GestureDetector(
-      onTap: () {
-        showDialog(
-          context: context,
-          builder: (_) =>
-              Dialog(child: Image.file(File(iconPath), fit: BoxFit.contain)),
-        );
-      },
-      child: Container(
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: AppColors.surfaceMuted),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(3),
-          child: Image.file(
-            File(iconPath),
-            width: 50,
-            height: 50,
-            fit: BoxFit.cover,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: GestureDetector(
+        onTap: () {
+          showDialog(
+            context: context,
+            builder: (_) =>
+                Dialog(child: Image.file(File(iconPath), fit: BoxFit.contain)),
+          );
+        },
+        child: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: AppColors.surfaceMuted),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: Image.file(
+              File(iconPath),
+              width: 50,
+              height: 50,
+              fit: BoxFit.cover,
+            ),
           ),
         ),
       ),
