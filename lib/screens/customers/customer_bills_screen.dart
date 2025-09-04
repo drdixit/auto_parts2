@@ -3,6 +3,7 @@ import 'package:auto_parts2/services/customer_service.dart';
 import 'package:auto_parts2/services/product_service.dart';
 import 'package:auto_parts2/utils/bill_utils.dart';
 import 'package:auto_parts2/models/customer.dart';
+import 'package:auto_parts2/models/product_inventory.dart';
 
 class CustomerBillsScreen extends StatefulWidget {
   final int? customerId;
@@ -216,24 +217,91 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                     const Divider(height: 8),
                                 itemBuilder: (context, i) {
                                   final line = items[i];
-                                  return FutureBuilder<String>(
-                                    future: _productName(
-                                      line['product_id'] as int?,
+                                  final pid = line['product_id'] as int?;
+                                  final combined = Future.wait<dynamic>([
+                                    _productName(pid),
+                                    _productService.getProductInventory(
+                                      pid ?? 0,
                                     ),
+                                  ]);
+
+                                  return FutureBuilder<List<dynamic>>(
+                                    future: combined,
                                     builder: (context, snap) {
-                                      final pname = snap.data ?? 'Product';
+                                      final pname =
+                                          (snap.data != null &&
+                                              snap.data!.isNotEmpty)
+                                          ? (snap.data![0] as String?) ??
+                                                'Product'
+                                          : 'Product';
+                                      final inv =
+                                          (snap.data != null &&
+                                              snap.data!.length > 1)
+                                          ? snap.data![1]
+                                          : null;
+
                                       final qty = (line['qty'] as int?) ?? 1;
                                       final lt =
                                           (line['line_total'] as num?)
                                               ?.toDouble() ??
                                           0.0;
+
+                                      // Extract location defensively — inventory may be a Map or a model
+                                      String? loc;
+                                      try {
+                                        if (inv != null) {
+                                          if (inv is ProductInventory) {
+                                            loc = inv.locationRack?.trim();
+                                          } else if (inv is Map) {
+                                            loc =
+                                                (inv['location_rack']
+                                                        as String?)
+                                                    ?.trim();
+                                          } else {
+                                            // last resort: attempt dynamic access
+                                            try {
+                                              final lr =
+                                                  (inv as dynamic).locationRack;
+                                              loc = (lr as String?)?.trim();
+                                            } catch (_) {
+                                              loc = null;
+                                            }
+                                          }
+                                        }
+                                      } catch (_) {
+                                        loc = null;
+                                      }
+
                                       return Row(
                                         children: [
-                                          Expanded(child: Text(pname)),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(pname),
+                                                if (loc != null &&
+                                                    loc.isNotEmpty)
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          top: 4.0,
+                                                        ),
+                                                    child: Text(
+                                                      'RAC/Location: $loc',
+                                                      style: const TextStyle(
+                                                        color: Colors.grey,
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
                                           SizedBox(
                                             width: 60,
                                             child: Text(
-                                              '$qty x',
+                                              '${qty} x',
                                               textAlign: TextAlign.right,
                                             ),
                                           ),
