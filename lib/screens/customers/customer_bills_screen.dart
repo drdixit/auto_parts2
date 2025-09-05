@@ -533,6 +533,14 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                       ),
                                       DataColumn(
                                         label: Text(
+                                          'Status',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                      DataColumn(
+                                        label: Text(
                                           'Actions',
                                           style: TextStyle(
                                             fontWeight: FontWeight.w700,
@@ -541,7 +549,7 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                       ),
                                       DataColumn(
                                         label: Text(
-                                          'Details',
+                                          'Share',
                                           style: TextStyle(
                                             fontWeight: FontWeight.w700,
                                           ),
@@ -604,8 +612,22 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                             TextButton(
                                               onPressed: () =>
                                                   _showBillDetails(b),
-                                              child: const Icon(
-                                                Icons.visibility,
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: const [
+                                                  Icon(Icons.visibility),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            TextButton(
+                                              onPressed: () {},
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: const [
+                                                  Icon(Icons.share),
+                                                ],
                                               ),
                                             ),
                                           ),
