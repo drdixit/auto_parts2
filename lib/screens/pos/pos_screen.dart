@@ -250,6 +250,10 @@ class _PosScreenState extends State<PosScreen> {
         _vehiclesExpanded = vehiclesPref;
         _manufacturersExpanded = manufacturersPref;
       });
+      // Load persisted visual toggles (default true)
+      _showSearchBar = prefs.getBool('pos_show_search') ?? true;
+      _showProductsSection = prefs.getBool('pos_show_products') ?? true;
+      _showBillSection = prefs.getBool('pos_show_bill') ?? true;
     } catch (_) {}
     // load persisted holds from DB
     _dbHeldBills = await _customerService.getHeldBills();
@@ -880,6 +884,11 @@ class _PosScreenState extends State<PosScreen> {
     setState(() => _billing.clear());
   }
 
+  // Visibility toggles for POS UI sections (not persisted)
+  bool _showSearchBar = true;
+  bool _showProductsSection = true;
+  bool _showBillSection = true;
+
   @override
   Widget build(BuildContext context) {
     return Shortcuts(
@@ -1414,939 +1423,1056 @@ class _PosScreenState extends State<PosScreen> {
                             const SizedBox(width: 16),
 
                             // Center: Product grid
-                            Expanded(
-                              flex: 5,
-                              child: Column(
-                                children: [
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 8.0,
-                                      ),
-                                      child: Text(
-                                        '${_filteredProducts.length} products',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyLarge
-                                            ?.copyWith(
-                                              color: AppColors.textSecondary,
-                                            ),
+                            if (_showProductsSection)
+                              Expanded(
+                                flex: 5,
+                                child: Column(
+                                  children: [
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 8.0,
+                                        ),
+                                        child: Text(
+                                          '${_filteredProducts.length} products',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyLarge
+                                              ?.copyWith(
+                                                color: AppColors.textSecondary,
+                                              ),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  Expanded(
-                                    child: Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: _panelDecoration,
-                                      child: LayoutBuilder(
-                                        builder: (context, constraints) {
-                                          final width = constraints.maxWidth;
-                                          // Responsive columns: compute how many columns fit by a minimum card width,
-                                          // but limit to 2 or 3 columns only (desktop-focused). This ensures 3 columns
-                                          // on wide displays (e.g. a maximized 1080p window) while using 2 columns on narrow panes.
-                                          final spacing = 8.0;
-                                          const int minCols = 2;
-                                          const int maxCols = 3;
-                                          // Minimum practical card width for our layout. Reduced so 3 columns fit on common 1080p center widths.
-                                          const double minCardWidth = 220.0;
-                                          final computedCols =
-                                              ((width + spacing) /
-                                                      (minCardWidth + spacing))
-                                                  .floor();
-                                          final int crossAxisCount =
-                                              computedCols.clamp(
-                                                minCols,
-                                                maxCols,
-                                              );
-                                          // recalc card width and derive a childAspectRatio that keeps height sensible
-                                          final cardWidth =
-                                              (width -
-                                                  (crossAxisCount - 1) *
-                                                      spacing) /
-                                              crossAxisCount;
-                                          // Make image smaller than full card width so the
-                                          // remaining text/buttons fit without overflow.
-                                          final imageHeight =
-                                              cardWidth *
-                                              0.50; // 50% of card width
-                                          // card height = image area + space for title, price and buttons
-                                          // add a slightly larger safety margin to avoid pixel rounding overflow
-                                          final desiredCardHeight =
-                                              imageHeight + 80.0;
-                                          final childAspectRatio =
-                                              cardWidth / desiredCardHeight;
-                                          // small bottom padding for visual balance
-                                          return _filteredProducts.isEmpty
-                                              ? const Center(
-                                                  child: Text('No products'),
-                                                )
-                                              : GridView.builder(
-                                                  padding: EdgeInsets.only(
-                                                    bottom: 12,
-                                                    top: spacing,
-                                                  ),
-                                                  physics:
-                                                      const AlwaysScrollableScrollPhysics(),
-                                                  shrinkWrap: false,
-                                                  gridDelegate:
-                                                      SliverGridDelegateWithFixedCrossAxisCount(
-                                                        crossAxisCount:
-                                                            crossAxisCount,
-                                                        crossAxisSpacing:
-                                                            spacing,
-                                                        mainAxisSpacing:
-                                                            spacing,
-                                                        childAspectRatio:
-                                                            childAspectRatio
-                                                                .clamp(
-                                                                  0.6,
-                                                                  1.6,
-                                                                ),
-                                                      ),
-                                                  itemCount:
-                                                      _filteredProducts.length,
-                                                  itemBuilder: (context, i) {
-                                                    final p =
-                                                        _filteredProducts[i];
-                                                    final price =
-                                                        p.sellingPrice ?? 0.0;
-                                                    final inCart = _billing
-                                                        .where(
-                                                          (b) =>
-                                                              b.product!.id ==
-                                                              p.id,
-                                                        )
-                                                        .fold<int>(
-                                                          0,
-                                                          (s, b) => s + b.qty,
-                                                        );
-                                                    return MouseRegion(
-                                                      onEnter: (_) => setState(
-                                                        () =>
-                                                            _hoveredProductId =
+                                    Expanded(
+                                      child: Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: _panelDecoration,
+                                        child: LayoutBuilder(
+                                          builder: (context, constraints) {
+                                            final width = constraints.maxWidth;
+                                            // Responsive columns: compute how many columns fit by a minimum card width,
+                                            // but limit to 2 or 3 columns only (desktop-focused). This ensures 3 columns
+                                            // on wide displays (e.g. a maximized 1080p window) while using 2 columns on narrow panes.
+                                            final spacing = 8.0;
+                                            const int minCols = 2;
+                                            const int maxCols = 3;
+                                            // Minimum practical card width for our layout. Reduced so 3 columns fit on common 1080p center widths.
+                                            const double minCardWidth = 220.0;
+                                            final computedCols =
+                                                ((width + spacing) /
+                                                        (minCardWidth +
+                                                            spacing))
+                                                    .floor();
+                                            final int crossAxisCount =
+                                                computedCols.clamp(
+                                                  minCols,
+                                                  maxCols,
+                                                );
+                                            // recalc card width and derive a childAspectRatio that keeps height sensible
+                                            final cardWidth =
+                                                (width -
+                                                    (crossAxisCount - 1) *
+                                                        spacing) /
+                                                crossAxisCount;
+                                            // Make image smaller than full card width so the
+                                            // remaining text/buttons fit without overflow.
+                                            final imageHeight =
+                                                cardWidth *
+                                                0.50; // 50% of card width
+                                            // card height = image area + space for title, price and buttons
+                                            // add a slightly larger safety margin to avoid pixel rounding overflow
+                                            final desiredCardHeight =
+                                                imageHeight + 80.0;
+                                            final childAspectRatio =
+                                                cardWidth / desiredCardHeight;
+                                            // small bottom padding for visual balance
+                                            return _filteredProducts.isEmpty
+                                                ? const Center(
+                                                    child: Text('No products'),
+                                                  )
+                                                : GridView.builder(
+                                                    padding: EdgeInsets.only(
+                                                      bottom: 12,
+                                                      top: spacing,
+                                                    ),
+                                                    physics:
+                                                        const AlwaysScrollableScrollPhysics(),
+                                                    shrinkWrap: false,
+                                                    gridDelegate:
+                                                        SliverGridDelegateWithFixedCrossAxisCount(
+                                                          crossAxisCount:
+                                                              crossAxisCount,
+                                                          crossAxisSpacing:
+                                                              spacing,
+                                                          mainAxisSpacing:
+                                                              spacing,
+                                                          childAspectRatio:
+                                                              childAspectRatio
+                                                                  .clamp(
+                                                                    0.6,
+                                                                    1.6,
+                                                                  ),
+                                                        ),
+                                                    itemCount: _filteredProducts
+                                                        .length,
+                                                    itemBuilder: (context, i) {
+                                                      final p =
+                                                          _filteredProducts[i];
+                                                      final price =
+                                                          p.sellingPrice ?? 0.0;
+                                                      final inCart = _billing
+                                                          .where(
+                                                            (b) =>
+                                                                b.product!.id ==
                                                                 p.id,
-                                                      ),
-                                                      onExit: (_) => setState(
-                                                        () =>
-                                                            _hoveredProductId =
-                                                                null,
-                                                      ),
-                                                      child: AnimatedPhysicalModel(
-                                                        duration:
-                                                            const Duration(
-                                                              milliseconds: 180,
-                                                            ),
-                                                        curve: Curves.easeOut,
-                                                        elevation:
-                                                            _hoveredProductId ==
-                                                                p.id
-                                                            ? 8
-                                                            : 2,
-                                                        shape:
-                                                            BoxShape.rectangle,
-                                                        shadowColor: AppColors
-                                                            .textSecondary
-                                                            .withAlpha(
-                                                              (0.6 * 255)
-                                                                  .round(),
-                                                            ),
-                                                        color:
-                                                            AppColors.surface,
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              _cardRadius,
-                                                            ),
-                                                        child: Transform.scale(
-                                                          scale:
+                                                          )
+                                                          .fold<int>(
+                                                            0,
+                                                            (s, b) => s + b.qty,
+                                                          );
+                                                      return MouseRegion(
+                                                        onEnter: (_) => setState(
+                                                          () =>
+                                                              _hoveredProductId =
+                                                                  p.id,
+                                                        ),
+                                                        onExit: (_) => setState(
+                                                          () =>
+                                                              _hoveredProductId =
+                                                                  null,
+                                                        ),
+                                                        child: AnimatedPhysicalModel(
+                                                          duration:
+                                                              const Duration(
+                                                                milliseconds:
+                                                                    180,
+                                                              ),
+                                                          curve: Curves.easeOut,
+                                                          elevation:
                                                               _hoveredProductId ==
                                                                   p.id
-                                                              ? 1.02
-                                                              : 1.0,
-                                                          child: Material(
-                                                            color: AppColors
-                                                                .surface,
-                                                            elevation: 0,
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  _cardRadius,
-                                                                ),
-                                                            child: GestureDetector(
-                                                              behavior:
-                                                                  HitTestBehavior
-                                                                      .translucent,
-                                                              onSecondaryTap: () =>
-                                                                  _removeFromBilling(
-                                                                    p,
+                                                              ? 8
+                                                              : 2,
+                                                          shape: BoxShape
+                                                              .rectangle,
+                                                          shadowColor: AppColors
+                                                              .textSecondary
+                                                              .withAlpha(
+                                                                (0.6 * 255)
+                                                                    .round(),
+                                                              ),
+                                                          color:
+                                                              AppColors.surface,
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                _cardRadius,
+                                                              ),
+                                                          child: Transform.scale(
+                                                            scale:
+                                                                _hoveredProductId ==
+                                                                    p.id
+                                                                ? 1.02
+                                                                : 1.0,
+                                                            child: Material(
+                                                              color: AppColors
+                                                                  .surface,
+                                                              elevation: 0,
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    _cardRadius,
                                                                   ),
-                                                              child: InkWell(
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      _cardRadius,
-                                                                    ),
-                                                                onTap: () =>
-                                                                    _addToBilling(
-                                                                      p,
-                                                                    ),
-                                                                child: Padding(
-                                                                  padding:
-                                                                      const EdgeInsets.symmetric(
-                                                                        horizontal:
-                                                                            8.0,
-                                                                        vertical:
-                                                                            4.0,
-                                                                      ),
-                                                                  child: Column(
-                                                                    crossAxisAlignment:
-                                                                        CrossAxisAlignment
-                                                                            .start,
-                                                                    children: [
-                                                                      SizedBox(
-                                                                        height:
-                                                                            imageHeight,
-                                                                        child: ClipRRect(
-                                                                          borderRadius: BorderRadius.circular(
-                                                                            _cardRadius -
-                                                                                4,
-                                                                          ),
-                                                                          child:
-                                                                              p.primaryImagePath !=
-                                                                                      null &&
-                                                                                  p.primaryImagePath!.isNotEmpty
-                                                                              ? Container(
-                                                                                  color: AppColors.surfaceMuted,
-                                                                                  alignment: Alignment.center,
-                                                                                  child: Image.file(
-                                                                                    File(
-                                                                                      p.primaryImagePath!,
-                                                                                    ),
-                                                                                    fit: BoxFit.contain,
-                                                                                    width:
-                                                                                        cardWidth *
-                                                                                        0.9,
-                                                                                    height:
-                                                                                        imageHeight *
-                                                                                        0.9,
-                                                                                    errorBuilder:
-                                                                                        (
-                                                                                          _,
-                                                                                          __,
-                                                                                          ___,
-                                                                                        ) => Container(
-                                                                                          color: AppColors.surfaceMuted,
-                                                                                          alignment: Alignment.center,
-                                                                                          child: const Text(
-                                                                                            'No image',
-                                                                                          ),
-                                                                                        ),
-                                                                                  ),
-                                                                                )
-                                                                              : Container(
-                                                                                  color: AppColors.surfaceMuted,
-                                                                                  alignment: Alignment.center,
-                                                                                  child: const Text(
-                                                                                    'No image',
-                                                                                  ),
-                                                                                ),
+                                                              child: GestureDetector(
+                                                                behavior:
+                                                                    HitTestBehavior
+                                                                        .translucent,
+                                                                onSecondaryTap:
+                                                                    () =>
+                                                                        _removeFromBilling(
+                                                                          p,
                                                                         ),
+                                                                child: InkWell(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        _cardRadius,
                                                                       ),
-                                                                      // tighten vertical spacing and allow title two lines
-                                                                      const SizedBox(
-                                                                        height:
-                                                                            4,
+                                                                  onTap: () =>
+                                                                      _addToBilling(
+                                                                        p,
                                                                       ),
-                                                                      Text(
-                                                                        p.name,
-                                                                        maxLines:
-                                                                            2,
-                                                                        overflow:
-                                                                            TextOverflow.ellipsis,
-                                                                        style: const TextStyle(
-                                                                          fontSize:
-                                                                              13.0,
-                                                                          fontWeight:
-                                                                              FontWeight.w600,
-                                                                        ),
-                                                                      ),
-                                                                      const SizedBox(
-                                                                        height:
-                                                                            2,
-                                                                      ),
-                                                                      Row(
-                                                                        mainAxisAlignment:
-                                                                            MainAxisAlignment.spaceBetween,
-                                                                        children: [
-                                                                          Text(
-                                                                            '₹${price.toStringAsFixed(2)}',
-                                                                            style: TextStyle(
-                                                                              color: AppColors.textPrimary,
-                                                                              fontWeight: FontWeight.bold,
+                                                                  child: Padding(
+                                                                    padding: const EdgeInsets.symmetric(
+                                                                      horizontal:
+                                                                          8.0,
+                                                                      vertical:
+                                                                          4.0,
+                                                                    ),
+                                                                    child: Column(
+                                                                      crossAxisAlignment:
+                                                                          CrossAxisAlignment
+                                                                              .start,
+                                                                      children: [
+                                                                        SizedBox(
+                                                                          height:
+                                                                              imageHeight,
+                                                                          child: ClipRRect(
+                                                                            borderRadius: BorderRadius.circular(
+                                                                              _cardRadius -
+                                                                                  4,
                                                                             ),
+                                                                            child:
+                                                                                p.primaryImagePath !=
+                                                                                        null &&
+                                                                                    p.primaryImagePath!.isNotEmpty
+                                                                                ? Container(
+                                                                                    color: AppColors.surfaceMuted,
+                                                                                    alignment: Alignment.center,
+                                                                                    child: Image.file(
+                                                                                      File(
+                                                                                        p.primaryImagePath!,
+                                                                                      ),
+                                                                                      fit: BoxFit.contain,
+                                                                                      width:
+                                                                                          cardWidth *
+                                                                                          0.9,
+                                                                                      height:
+                                                                                          imageHeight *
+                                                                                          0.9,
+                                                                                      errorBuilder:
+                                                                                          (
+                                                                                            _,
+                                                                                            __,
+                                                                                            ___,
+                                                                                          ) => Container(
+                                                                                            color: AppColors.surfaceMuted,
+                                                                                            alignment: Alignment.center,
+                                                                                            child: const Text(
+                                                                                              'No image',
+                                                                                            ),
+                                                                                          ),
+                                                                                    ),
+                                                                                  )
+                                                                                : Container(
+                                                                                    color: AppColors.surfaceMuted,
+                                                                                    alignment: Alignment.center,
+                                                                                    child: const Text(
+                                                                                      'No image',
+                                                                                    ),
+                                                                                  ),
                                                                           ),
-                                                                          Row(
-                                                                            children: [
-                                                                              IconButton(
-                                                                                iconSize: 18,
-                                                                                padding: const EdgeInsets.all(
-                                                                                  4,
-                                                                                ),
-                                                                                constraints: const BoxConstraints(),
-                                                                                icon: const Icon(
-                                                                                  Icons.remove_circle_outline,
-                                                                                ),
-                                                                                onPressed: () => _removeFromBilling(
-                                                                                  p,
-                                                                                ),
-                                                                                splashRadius: 18,
+                                                                        ),
+                                                                        // tighten vertical spacing and allow title two lines
+                                                                        const SizedBox(
+                                                                          height:
+                                                                              4,
+                                                                        ),
+                                                                        Text(
+                                                                          p.name,
+                                                                          maxLines:
+                                                                              2,
+                                                                          overflow:
+                                                                              TextOverflow.ellipsis,
+                                                                          style: const TextStyle(
+                                                                            fontSize:
+                                                                                13.0,
+                                                                            fontWeight:
+                                                                                FontWeight.w600,
+                                                                          ),
+                                                                        ),
+                                                                        const SizedBox(
+                                                                          height:
+                                                                              2,
+                                                                        ),
+                                                                        Row(
+                                                                          mainAxisAlignment:
+                                                                              MainAxisAlignment.spaceBetween,
+                                                                          children: [
+                                                                            Text(
+                                                                              '₹${price.toStringAsFixed(2)}',
+                                                                              style: TextStyle(
+                                                                                color: AppColors.textPrimary,
+                                                                                fontWeight: FontWeight.bold,
                                                                               ),
-                                                                              Container(
-                                                                                padding: const EdgeInsets.symmetric(
-                                                                                  horizontal: 8,
-                                                                                  vertical: 4,
+                                                                            ),
+                                                                            Row(
+                                                                              children: [
+                                                                                IconButton(
+                                                                                  iconSize: 18,
+                                                                                  padding: const EdgeInsets.all(
+                                                                                    4,
+                                                                                  ),
+                                                                                  constraints: const BoxConstraints(),
+                                                                                  icon: const Icon(
+                                                                                    Icons.remove_circle_outline,
+                                                                                  ),
+                                                                                  onPressed: () => _removeFromBilling(
+                                                                                    p,
+                                                                                  ),
+                                                                                  splashRadius: 18,
                                                                                 ),
-                                                                                decoration: BoxDecoration(
-                                                                                  color:
-                                                                                      inCart >
-                                                                                          0
-                                                                                      ? _chipSelectedColor
-                                                                                      : AppColors.transparent,
-                                                                                  borderRadius: BorderRadius.circular(
-                                                                                    6,
+                                                                                Container(
+                                                                                  padding: const EdgeInsets.symmetric(
+                                                                                    horizontal: 8,
+                                                                                    vertical: 4,
+                                                                                  ),
+                                                                                  decoration: BoxDecoration(
+                                                                                    color:
+                                                                                        inCart >
+                                                                                            0
+                                                                                        ? _chipSelectedColor
+                                                                                        : AppColors.transparent,
+                                                                                    borderRadius: BorderRadius.circular(
+                                                                                      6,
+                                                                                    ),
+                                                                                  ),
+                                                                                  child: Text(
+                                                                                    '$inCart',
+                                                                                    style: const TextStyle(
+                                                                                      fontWeight: FontWeight.w600,
+                                                                                    ),
                                                                                   ),
                                                                                 ),
-                                                                                child: Text(
-                                                                                  '$inCart',
-                                                                                  style: const TextStyle(
-                                                                                    fontWeight: FontWeight.w600,
+                                                                                IconButton(
+                                                                                  iconSize: 18,
+                                                                                  padding: const EdgeInsets.all(
+                                                                                    4,
                                                                                   ),
+                                                                                  constraints: const BoxConstraints(),
+                                                                                  icon: const Icon(
+                                                                                    Icons.add_circle_outline,
+                                                                                  ),
+                                                                                  onPressed: () => _addToBilling(
+                                                                                    p,
+                                                                                  ),
+                                                                                  splashRadius: 18,
                                                                                 ),
-                                                                              ),
-                                                                              IconButton(
-                                                                                iconSize: 18,
-                                                                                padding: const EdgeInsets.all(
-                                                                                  4,
-                                                                                ),
-                                                                                constraints: const BoxConstraints(),
-                                                                                icon: const Icon(
-                                                                                  Icons.add_circle_outline,
-                                                                                ),
-                                                                                onPressed: () => _addToBilling(
-                                                                                  p,
-                                                                                ),
-                                                                                splashRadius: 18,
-                                                                              ),
-                                                                            ],
-                                                                          ),
-                                                                        ],
-                                                                      ),
-                                                                    ],
+                                                                              ],
+                                                                            ),
+                                                                          ],
+                                                                        ),
+                                                                      ],
+                                                                    ),
                                                                   ),
                                                                 ),
                                                               ),
                                                             ),
                                                           ),
                                                         ),
-                                                      ),
-                                                    );
-                                                  },
-                                                );
-                                        },
+                                                      );
+                                                    },
+                                                  );
+                                          },
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
 
                             const SizedBox(width: 16),
 
-                            SizedBox(
-                              width: rightWidth,
-                              child: Container(
-                                decoration: _panelDecoration,
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Billing',
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .titleLarge
-                                                  ?.copyWith(
-                                                    fontWeight: FontWeight.bold,
-                                                    color: _accentColor,
-                                                  ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              '${_billing.length} items',
-                                              style: Theme.of(
-                                                context,
-                                              ).textTheme.bodySmall,
-                                            ),
-                                          ],
-                                        ),
-                                        const Spacer(),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 12),
-                                    // Customer selection: required before creating an invoice
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Autocomplete<Customer>(
-                                            optionsBuilder: (textEditingValue) {
-                                              if (textEditingValue
-                                                  .text
-                                                  .isEmpty) {
-                                                return _customers;
-                                              }
-                                              final q = textEditingValue.text
-                                                  .toLowerCase();
-                                              return _customers.where((c) {
-                                                return (c.name
-                                                        .toLowerCase()
-                                                        .contains(q) ||
-                                                    (c.mobile ?? '')
-                                                        .toLowerCase()
-                                                        .contains(q) ||
-                                                    (c.address ?? '')
-                                                        .toLowerCase()
-                                                        .contains(q));
-                                              }).toList();
-                                            },
-                                            displayStringForOption: (c) =>
-                                                '${c.name} ${c.mobile ?? ''}',
-                                            fieldViewBuilder:
-                                                (
+                            if (_showBillSection)
+                              SizedBox(
+                                width: rightWidth,
+                                child: Container(
+                                  decoration: _panelDecoration,
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Billing',
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .titleLarge
+                                                    ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: _accentColor,
+                                                    ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                '${_billing.length} items',
+                                                style: Theme.of(
                                                   context,
-                                                  controller,
-                                                  focusNode,
-                                                  onFieldSubmitted,
-                                                ) {
-                                                  // Avoid clobbering user input while the field is focused.
-                                                  // Resolve selected customer name if possible, otherwise fall back
-                                                  // to the preserved display name from a held bill.
-                                                  String displayText =
-                                                      _customerDisplayName ??
-                                                      '';
-                                                  if (_selectedCustomerId !=
-                                                      null) {
-                                                    final resolved = _customers
-                                                        .firstWhere(
-                                                          (c) =>
-                                                              c.id ==
-                                                              _selectedCustomerId,
-                                                          orElse: () =>
-                                                              Customer(
-                                                                name: '',
-                                                                address: '',
-                                                                mobile: '',
-                                                              ),
-                                                        );
-                                                    if (resolved
-                                                        .name
-                                                        .isNotEmpty) {
-                                                      displayText =
-                                                          resolved.name;
-                                                      // also keep the preserved display name in sync
-                                                      _customerDisplayName =
-                                                          resolved.name;
-                                                    }
-                                                  }
-
-                                                  // Only update the controller when the field is not focused
-                                                  // (so typing by the user isn't overwritten) and when the text differs.
-                                                  if (!focusNode.hasFocus &&
-                                                      controller.text !=
-                                                          displayText) {
-                                                    controller.text =
-                                                        displayText;
-                                                  }
-
-                                                  return TextField(
-                                                    controller: controller,
-                                                    focusNode: focusNode,
-                                                    decoration:
-                                                        const InputDecoration(
-                                                          labelText: 'Customer',
-                                                          hintText:
-                                                              'Search customers by name, mobile or address',
-                                                        ),
-                                                    onSubmitted: (_) =>
-                                                        onFieldSubmitted(),
-                                                  );
-                                                },
-                                            onSelected: (c) {
-                                              setState(() {
-                                                _selectedCustomerId = c.id;
-                                                _customerDisplayName = c.name;
-                                              });
-                                            },
-                                            optionsViewBuilder:
-                                                (context, onSelected, options) {
-                                                  return Material(
-                                                    elevation: 4,
-                                                    child: ListView(
-                                                      padding: EdgeInsets.zero,
-                                                      shrinkWrap: true,
-                                                      children: options.map((
-                                                        c,
-                                                      ) {
-                                                        return ListTile(
-                                                          title: Text(c.name),
-                                                          subtitle: Text(
-                                                            '${c.mobile ?? ''} ${c.address ?? ''}',
-                                                          ),
-                                                          onTap: () =>
-                                                              onSelected(c),
-                                                        );
-                                                      }).toList(),
-                                                    ),
-                                                  );
-                                                },
+                                                ).textTheme.bodySmall,
+                                              ),
+                                            ],
                                           ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        OutlinedButton(
-                                          onPressed: () async {
-                                            // show create customer dialog
-                                            final nameCtrl =
-                                                TextEditingController();
-                                            final addrCtrl =
-                                                TextEditingController();
-                                            final mobileCtrl =
-                                                TextEditingController();
-                                            final created = await showDialog<Customer?>(
-                                              context: context,
-                                              builder: (context) => AlertDialog(
-                                                title: const Text(
-                                                  'Create Customer',
-                                                ),
-                                                content: Column(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    TextField(
-                                                      controller: nameCtrl,
-                                                      decoration:
-                                                          const InputDecoration(
-                                                            labelText: 'Name',
-                                                          ),
-                                                    ),
-                                                    TextField(
-                                                      controller: addrCtrl,
+                                          const Spacer(),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      // Customer selection: required before creating an invoice
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Autocomplete<Customer>(
+                                              optionsBuilder:
+                                                  (textEditingValue) {
+                                                    if (textEditingValue
+                                                        .text
+                                                        .isEmpty) {
+                                                      return _customers;
+                                                    }
+                                                    final q = textEditingValue
+                                                        .text
+                                                        .toLowerCase();
+                                                    return _customers.where((
+                                                      c,
+                                                    ) {
+                                                      return (c.name
+                                                              .toLowerCase()
+                                                              .contains(q) ||
+                                                          (c.mobile ?? '')
+                                                              .toLowerCase()
+                                                              .contains(q) ||
+                                                          (c.address ?? '')
+                                                              .toLowerCase()
+                                                              .contains(q));
+                                                    }).toList();
+                                                  },
+                                              displayStringForOption: (c) =>
+                                                  '${c.name} ${c.mobile ?? ''}',
+                                              fieldViewBuilder:
+                                                  (
+                                                    context,
+                                                    controller,
+                                                    focusNode,
+                                                    onFieldSubmitted,
+                                                  ) {
+                                                    // Avoid clobbering user input while the field is focused.
+                                                    // Resolve selected customer name if possible, otherwise fall back
+                                                    // to the preserved display name from a held bill.
+                                                    String displayText =
+                                                        _customerDisplayName ??
+                                                        '';
+                                                    if (_selectedCustomerId !=
+                                                        null) {
+                                                      final resolved =
+                                                          _customers.firstWhere(
+                                                            (c) =>
+                                                                c.id ==
+                                                                _selectedCustomerId,
+                                                            orElse: () =>
+                                                                Customer(
+                                                                  name: '',
+                                                                  address: '',
+                                                                  mobile: '',
+                                                                ),
+                                                          );
+                                                      if (resolved
+                                                          .name
+                                                          .isNotEmpty) {
+                                                        displayText =
+                                                            resolved.name;
+                                                        // also keep the preserved display name in sync
+                                                        _customerDisplayName =
+                                                            resolved.name;
+                                                      }
+                                                    }
+
+                                                    // Only update the controller when the field is not focused
+                                                    // (so typing by the user isn't overwritten) and when the text differs.
+                                                    if (!focusNode.hasFocus &&
+                                                        controller.text !=
+                                                            displayText) {
+                                                      controller.text =
+                                                          displayText;
+                                                    }
+
+                                                    return TextField(
+                                                      controller: controller,
+                                                      focusNode: focusNode,
                                                       decoration:
                                                           const InputDecoration(
                                                             labelText:
-                                                                'Address',
+                                                                'Customer',
+                                                            hintText:
+                                                                'Search customers by name, mobile or address',
                                                           ),
+                                                      onSubmitted: (_) =>
+                                                          onFieldSubmitted(),
+                                                    );
+                                                  },
+                                              onSelected: (c) {
+                                                setState(() {
+                                                  _selectedCustomerId = c.id;
+                                                  _customerDisplayName = c.name;
+                                                });
+                                              },
+                                              optionsViewBuilder:
+                                                  (
+                                                    context,
+                                                    onSelected,
+                                                    options,
+                                                  ) {
+                                                    return Material(
+                                                      elevation: 4,
+                                                      child: ListView(
+                                                        padding:
+                                                            EdgeInsets.zero,
+                                                        shrinkWrap: true,
+                                                        children: options.map((
+                                                          c,
+                                                        ) {
+                                                          return ListTile(
+                                                            title: Text(c.name),
+                                                            subtitle: Text(
+                                                              '${c.mobile ?? ''} ${c.address ?? ''}',
+                                                            ),
+                                                            onTap: () =>
+                                                                onSelected(c),
+                                                          );
+                                                        }).toList(),
+                                                      ),
+                                                    );
+                                                  },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          OutlinedButton(
+                                            onPressed: () async {
+                                              // show create customer dialog
+                                              final nameCtrl =
+                                                  TextEditingController();
+                                              final addrCtrl =
+                                                  TextEditingController();
+                                              final mobileCtrl =
+                                                  TextEditingController();
+                                              final created = await showDialog<Customer?>(
+                                                context: context,
+                                                builder: (context) => AlertDialog(
+                                                  title: const Text(
+                                                    'Create Customer',
+                                                  ),
+                                                  content: Column(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      TextField(
+                                                        controller: nameCtrl,
+                                                        decoration:
+                                                            const InputDecoration(
+                                                              labelText: 'Name',
+                                                            ),
+                                                      ),
+                                                      TextField(
+                                                        controller: addrCtrl,
+                                                        decoration:
+                                                            const InputDecoration(
+                                                              labelText:
+                                                                  'Address',
+                                                            ),
+                                                      ),
+                                                      TextField(
+                                                        controller: mobileCtrl,
+                                                        decoration:
+                                                            const InputDecoration(
+                                                              labelText:
+                                                                  'Mobile',
+                                                            ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () =>
+                                                          Navigator.of(
+                                                            context,
+                                                          ).pop(null),
+                                                      child: const Text(
+                                                        'Cancel',
+                                                      ),
                                                     ),
-                                                    TextField(
-                                                      controller: mobileCtrl,
-                                                      decoration:
-                                                          const InputDecoration(
-                                                            labelText: 'Mobile',
-                                                          ),
+                                                    ElevatedButton(
+                                                      onPressed: () async {
+                                                        if (nameCtrl.text
+                                                            .trim()
+                                                            .isEmpty) {
+                                                          return;
+                                                        }
+                                                        final c = Customer(
+                                                          name: nameCtrl.text
+                                                              .trim(),
+                                                          address: addrCtrl.text
+                                                              .trim(),
+                                                          mobile: mobileCtrl
+                                                              .text
+                                                              .trim(),
+                                                        );
+                                                        final navigator =
+                                                            Navigator.of(
+                                                              context,
+                                                            );
+                                                        final id =
+                                                            await _customerService
+                                                                .createCustomer(
+                                                                  c,
+                                                                );
+                                                        c.id = id;
+                                                        navigator.pop(c);
+                                                      },
+                                                      child: const Text(
+                                                        'Create',
+                                                      ),
                                                     ),
                                                   ],
                                                 ),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed: () =>
-                                                        Navigator.of(
-                                                          context,
-                                                        ).pop(null),
-                                                    child: const Text('Cancel'),
-                                                  ),
-                                                  ElevatedButton(
-                                                    onPressed: () async {
-                                                      if (nameCtrl.text
-                                                          .trim()
-                                                          .isEmpty) {
-                                                        return;
-                                                      }
-                                                      final c = Customer(
-                                                        name: nameCtrl.text
-                                                            .trim(),
-                                                        address: addrCtrl.text
-                                                            .trim(),
-                                                        mobile: mobileCtrl.text
-                                                            .trim(),
-                                                      );
-                                                      final navigator =
-                                                          Navigator.of(context);
-                                                      final id =
-                                                          await _customerService
-                                                              .createCustomer(
-                                                                c,
-                                                              );
-                                                      c.id = id;
-                                                      navigator.pop(c);
-                                                    },
-                                                    child: const Text('Create'),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                            if (created != null) {
-                                              _customers =
-                                                  await _customerService
-                                                      .getAllCustomers();
-                                              if (!mounted) return;
-                                              setState(
-                                                () => _selectedCustomerId =
-                                                    created.id,
                                               );
-                                            }
-                                          },
-                                          child: const Text('New'),
-                                        ),
-                                      ],
-                                    ),
-                                    Expanded(
-                                      child: _billing.isEmpty
-                                          ? const Center(
-                                              child: Text('No items'),
-                                            )
-                                          : ListView.builder(
-                                              itemCount: _billing.length,
-                                              itemBuilder: (context, i) {
-                                                final b = _billing[i];
-                                                return Card(
-                                                  elevation: 0,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          10,
-                                                        ),
-                                                  ),
-                                                  margin:
-                                                      const EdgeInsets.symmetric(
-                                                        vertical: 6,
-                                                      ),
-                                                  child: Padding(
-                                                    padding:
+                                              if (created != null) {
+                                                _customers =
+                                                    await _customerService
+                                                        .getAllCustomers();
+                                                if (!mounted) return;
+                                                setState(
+                                                  () => _selectedCustomerId =
+                                                      created.id,
+                                                );
+                                              }
+                                            },
+                                            child: const Text('New'),
+                                          ),
+                                        ],
+                                      ),
+                                      Expanded(
+                                        child: _billing.isEmpty
+                                            ? const Center(
+                                                child: Text('No items'),
+                                              )
+                                            : ListView.builder(
+                                                itemCount: _billing.length,
+                                                itemBuilder: (context, i) {
+                                                  final b = _billing[i];
+                                                  return Card(
+                                                    elevation: 0,
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            10,
+                                                          ),
+                                                    ),
+                                                    margin:
                                                         const EdgeInsets.symmetric(
-                                                          horizontal: 8,
-                                                          vertical: 8,
+                                                          vertical: 6,
                                                         ),
-                                                    child: Row(
-                                                      children: [
-                                                        // Delete at front
-                                                        InkWell(
-                                                          onTap: () =>
-                                                              _deleteFromBilling(
-                                                                b.product!,
-                                                              ),
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                8,
-                                                              ),
-                                                          child: Container(
-                                                            padding:
-                                                                const EdgeInsets.all(
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 8,
+                                                            vertical: 8,
+                                                          ),
+                                                      child: Row(
+                                                        children: [
+                                                          // Delete at front
+                                                          InkWell(
+                                                            onTap: () =>
+                                                                _deleteFromBilling(
+                                                                  b.product!,
+                                                                ),
+                                                            borderRadius:
+                                                                BorderRadius.circular(
                                                                   8,
                                                                 ),
-                                                            decoration:
-                                                                BoxDecoration(
-                                                                  color: Colors
-                                                                      .red[50],
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        8,
-                                                                      ),
-                                                                ),
-                                                            child: Icon(
-                                                              Icons
-                                                                  .delete_outline,
-                                                              size: 18,
-                                                              color: Colors
-                                                                  .red[700],
+                                                            child: Container(
+                                                              padding:
+                                                                  const EdgeInsets.all(
+                                                                    8,
+                                                                  ),
+                                                              decoration:
+                                                                  BoxDecoration(
+                                                                    color: Colors
+                                                                        .red[50],
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          8,
+                                                                        ),
+                                                                  ),
+                                                              child: Icon(
+                                                                Icons
+                                                                    .delete_outline,
+                                                                size: 18,
+                                                                color: Colors
+                                                                    .red[700],
+                                                              ),
                                                             ),
                                                           ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 12,
-                                                        ),
+                                                          const SizedBox(
+                                                            width: 12,
+                                                          ),
+                                                          Expanded(
+                                                            child: Column(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              children: [
+                                                                Text(
+                                                                  b
+                                                                      .product!
+                                                                      .name,
+                                                                  maxLines: 1,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  style: const TextStyle(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
+                                                                  ),
+                                                                ),
+                                                                const SizedBox(
+                                                                  height: 4,
+                                                                ),
+                                                                Text(
+                                                                  '₹${(b.product!.sellingPrice ?? 0).toStringAsFixed(2)} each',
+                                                                  style: Theme.of(
+                                                                    context,
+                                                                  ).textTheme.bodySmall,
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 8,
+                                                          ),
+                                                          // Quantity controls
+                                                          Container(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  horizontal: 6,
+                                                                  vertical: 4,
+                                                                ),
+                                                            decoration: BoxDecoration(
+                                                              color: AppColors
+                                                                  .surfaceLight,
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    8,
+                                                                  ),
+                                                              border: Border.all(
+                                                                color: AppColors
+                                                                    .surfaceMuted
+                                                                    .withAlpha(
+                                                                      (0.8 * 255)
+                                                                          .round(),
+                                                                    ),
+                                                              ),
+                                                            ),
+                                                            child: Row(
+                                                              children: [
+                                                                InkWell(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        6,
+                                                                      ),
+                                                                  onTap: () =>
+                                                                      _removeFromBilling(
+                                                                        b.product!,
+                                                                      ),
+                                                                  child: const Padding(
+                                                                    padding: EdgeInsets.symmetric(
+                                                                      horizontal:
+                                                                          6,
+                                                                      vertical:
+                                                                          4,
+                                                                    ),
+                                                                    child: Icon(
+                                                                      Icons
+                                                                          .remove,
+                                                                      size: 18,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                                const SizedBox(
+                                                                  width: 6,
+                                                                ),
+                                                                Text(
+                                                                  '${b.qty}',
+                                                                  style: const TextStyle(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
+                                                                  ),
+                                                                ),
+                                                                const SizedBox(
+                                                                  width: 6,
+                                                                ),
+                                                                InkWell(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        6,
+                                                                      ),
+                                                                  onTap: () =>
+                                                                      _addToBilling(
+                                                                        b.product!,
+                                                                      ),
+                                                                  child: const Padding(
+                                                                    padding: EdgeInsets.symmetric(
+                                                                      horizontal:
+                                                                          6,
+                                                                      vertical:
+                                                                          4,
+                                                                    ),
+                                                                    child: Icon(
+                                                                      Icons.add,
+                                                                      size: 18,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 8,
+                                                          ),
+                                                          // Line total
+                                                          Text(
+                                                            '₹${(b.lineTotal).toStringAsFixed(2)}',
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                      ),
+                                      const Divider(),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Total',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleMedium
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                          ),
+                                          Text(
+                                            '₹${_billingTotal.toStringAsFixed(2)}',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleMedium
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: _accentColor,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      // Quick access held bills: show up to 5 recent holds as buttons
+                                      const SizedBox(height: 8),
+                                      ValueListenableBuilder<int>(
+                                        valueListenable: _holdsVersion,
+                                        builder: (context, holdsVersion, _) {
+                                          final displayHolds = _heldBills
+                                              .reversed
+                                              .take(5)
+                                              .toList();
+                                          return Wrap(
+                                            spacing: 8,
+                                            runSpacing: 6,
+                                            crossAxisAlignment:
+                                                WrapCrossAlignment.center,
+                                            children: [
+                                              // Hold current bill button
+                                              ElevatedButton.icon(
+                                                style: ElevatedButton.styleFrom(
+                                                  elevation: 0,
+                                                  backgroundColor: AppColors
+                                                      .surfaceMuted
+                                                      .withAlpha(
+                                                        (0.8 * 255).round(),
+                                                      ),
+                                                  foregroundColor:
+                                                      AppColors.textPrimary,
+                                                ),
+                                                onPressed: _billing.isEmpty
+                                                    ? null
+                                                    : _holdCurrentBill,
+                                                icon: const Icon(
+                                                  Icons.pause_circle,
+                                                ),
+                                                label: const Text('Hold'),
+                                              ),
+                                              // Quick-held buttons (recent first) - fixed width, with delete
+                                              ...displayHolds.map((hb) {
+                                                final totalQty = hb.items
+                                                    .fold<int>(
+                                                      0,
+                                                      (s, it) => s + it.qty,
+                                                    );
+                                                return SizedBox(
+                                                  width: 92,
+                                                  child: OutlinedButton(
+                                                    onPressed: () =>
+                                                        _loadHeldBill(hb),
+                                                    style: OutlinedButton.styleFrom(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 8,
+                                                            vertical: 6,
+                                                          ),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .spaceBetween,
+                                                      children: [
                                                         Expanded(
                                                           child: Column(
                                                             crossAxisAlignment:
                                                                 CrossAxisAlignment
                                                                     .start,
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .min,
                                                             children: [
+                                                              // show customer name (if any) + item-count on the quick-hold button
                                                               Text(
-                                                                b.product!.name,
-                                                                maxLines: 1,
-                                                                overflow:
-                                                                    TextOverflow
-                                                                        .ellipsis,
-                                                                style: const TextStyle(
+                                                                hb.customerName !=
+                                                                            null &&
+                                                                        hb
+                                                                            .customerName!
+                                                                            .isNotEmpty
+                                                                    ? '${hb.customerName}\n${hb.items.length}-$totalQty'
+                                                                    : '${hb.items.length}-$totalQty',
+                                                                style: TextStyle(
+                                                                  fontSize: 11,
                                                                   fontWeight:
                                                                       FontWeight
                                                                           .w600,
+                                                                  color: AppColors
+                                                                      .textPrimary,
                                                                 ),
-                                                              ),
-                                                              const SizedBox(
-                                                                height: 4,
-                                                              ),
-                                                              Text(
-                                                                '₹${(b.product!.sellingPrice ?? 0).toStringAsFixed(2)} each',
-                                                                style: Theme.of(
-                                                                  context,
-                                                                ).textTheme.bodySmall,
+                                                                maxLines: 2,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
                                                               ),
                                                             ],
                                                           ),
                                                         ),
-                                                        const SizedBox(
-                                                          width: 8,
-                                                        ),
-                                                        // Quantity controls
-                                                        Container(
-                                                          padding:
-                                                              const EdgeInsets.symmetric(
-                                                                horizontal: 6,
-                                                                vertical: 4,
-                                                              ),
-                                                          decoration: BoxDecoration(
-                                                            color: AppColors
-                                                                .surfaceLight,
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  8,
+                                                        // per-button delete
+                                                        InkWell(
+                                                          onTap: () async {
+                                                            final confirm = await showDialog<bool>(
+                                                              context: context,
+                                                              builder: (context) => AlertDialog(
+                                                                title: const Text(
+                                                                  'Delete hold?',
                                                                 ),
-                                                            border: Border.all(
+                                                                content: const Text(
+                                                                  'Remove this held bill?',
+                                                                ),
+                                                                actions: [
+                                                                  TextButton(
+                                                                    onPressed: () =>
+                                                                        Navigator.of(
+                                                                          context,
+                                                                        ).pop(
+                                                                          false,
+                                                                        ),
+                                                                    child: const Text(
+                                                                      'Cancel',
+                                                                    ),
+                                                                  ),
+                                                                  TextButton(
+                                                                    onPressed: () =>
+                                                                        Navigator.of(
+                                                                          context,
+                                                                        ).pop(
+                                                                          true,
+                                                                        ),
+                                                                    child: const Text(
+                                                                      'Delete',
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            );
+                                                            if (confirm ==
+                                                                true) {
+                                                              if (!mounted) {
+                                                                return;
+                                                              }
+                                                              setState(() {
+                                                                _heldBills
+                                                                    .remove(hb);
+                                                                if (_editingHoldId ==
+                                                                    hb.id) {
+                                                                  _editingHoldId =
+                                                                      null;
+                                                                  _billing
+                                                                      .clear();
+                                                                }
+                                                                _bumpHoldsVersion();
+                                                              });
+                                                              // No snackbar for single quick-hold removal (keep UX quieter)
+                                                            }
+                                                          },
+                                                          child: Padding(
+                                                            padding:
+                                                                const EdgeInsets.only(
+                                                                  left: 6,
+                                                                ),
+                                                            child: Icon(
+                                                              Icons.close,
+                                                              size: 16,
                                                               color: AppColors
-                                                                  .surfaceMuted
+                                                                  .error
                                                                   .withAlpha(
                                                                     (0.8 * 255)
                                                                         .round(),
                                                                   ),
                                                             ),
                                                           ),
-                                                          child: Row(
-                                                            children: [
-                                                              InkWell(
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      6,
-                                                                    ),
-                                                                onTap: () =>
-                                                                    _removeFromBilling(
-                                                                      b.product!,
-                                                                    ),
-                                                                child: const Padding(
-                                                                  padding:
-                                                                      EdgeInsets.symmetric(
-                                                                        horizontal:
-                                                                            6,
-                                                                        vertical:
-                                                                            4,
-                                                                      ),
-                                                                  child: Icon(
-                                                                    Icons
-                                                                        .remove,
-                                                                    size: 18,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              const SizedBox(
-                                                                width: 6,
-                                                              ),
-                                                              Text(
-                                                                '${b.qty}',
-                                                                style: const TextStyle(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w600,
-                                                                ),
-                                                              ),
-                                                              const SizedBox(
-                                                                width: 6,
-                                                              ),
-                                                              InkWell(
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      6,
-                                                                    ),
-                                                                onTap: () =>
-                                                                    _addToBilling(
-                                                                      b.product!,
-                                                                    ),
-                                                                child: const Padding(
-                                                                  padding:
-                                                                      EdgeInsets.symmetric(
-                                                                        horizontal:
-                                                                            6,
-                                                                        vertical:
-                                                                            4,
-                                                                      ),
-                                                                  child: Icon(
-                                                                    Icons.add,
-                                                                    size: 18,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 8,
-                                                        ),
-                                                        // Line total
-                                                        Text(
-                                                          '₹${(b.lineTotal).toStringAsFixed(2)}',
-                                                          style:
-                                                              const TextStyle(
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                              ),
                                                         ),
                                                       ],
                                                     ),
                                                   ),
                                                 );
-                                              },
-                                            ),
-                                    ),
-                                    const Divider(),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'Total',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                        ),
-                                        Text(
-                                          '₹${_billingTotal.toStringAsFixed(2)}',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.bold,
-                                                color: _accentColor,
-                                              ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 12),
-                                    // Quick access held bills: show up to 5 recent holds as buttons
-                                    const SizedBox(height: 8),
-                                    ValueListenableBuilder<int>(
-                                      valueListenable: _holdsVersion,
-                                      builder: (context, holdsVersion, _) {
-                                        final displayHolds = _heldBills.reversed
-                                            .take(5)
-                                            .toList();
-                                        return Wrap(
-                                          spacing: 8,
-                                          runSpacing: 6,
-                                          crossAxisAlignment:
-                                              WrapCrossAlignment.center,
-                                          children: [
-                                            // Hold current bill button
-                                            ElevatedButton.icon(
-                                              style: ElevatedButton.styleFrom(
-                                                elevation: 0,
-                                                backgroundColor: AppColors
-                                                    .surfaceMuted
-                                                    .withAlpha(
-                                                      (0.8 * 255).round(),
-                                                    ),
-                                                foregroundColor:
-                                                    AppColors.textPrimary,
-                                              ),
-                                              onPressed: _billing.isEmpty
-                                                  ? null
-                                                  : _holdCurrentBill,
-                                              icon: const Icon(
-                                                Icons.pause_circle,
-                                              ),
-                                              label: const Text('Hold'),
-                                            ),
-                                            // Quick-held buttons (recent first) - fixed width, with delete
-                                            ...displayHolds.map((hb) {
-                                              final totalQty = hb.items
-                                                  .fold<int>(
-                                                    0,
-                                                    (s, it) => s + it.qty,
-                                                  );
-                                              return SizedBox(
-                                                width: 92,
-                                                child: OutlinedButton(
-                                                  onPressed: () =>
-                                                      _loadHeldBill(hb),
-                                                  style: OutlinedButton.styleFrom(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 8,
-                                                          vertical: 6,
-                                                        ),
+                                              }),
+                                              // If there are more than 5 holds, show a 'More' button to open full list
+                                              if (_heldBills.length > 5)
+                                                OutlinedButton(
+                                                  onPressed: _openHeldBills,
+                                                  child: Text(
+                                                    'More (${_heldBills.length})',
                                                   ),
-                                                  child: Row(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .spaceBetween,
-                                                    children: [
-                                                      Expanded(
-                                                        child: Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          mainAxisSize:
-                                                              MainAxisSize.min,
-                                                          children: [
-                                                            // show customer name (if any) + item-count on the quick-hold button
-                                                            Text(
-                                                              hb.customerName !=
-                                                                          null &&
-                                                                      hb
-                                                                          .customerName!
-                                                                          .isNotEmpty
-                                                                  ? '${hb.customerName}\n${hb.items.length}-$totalQty'
-                                                                  : '${hb.items.length}-$totalQty',
-                                                              style: TextStyle(
-                                                                fontSize: 11,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                                color: AppColors
-                                                                    .textPrimary,
-                                                              ),
-                                                              maxLines: 2,
-                                                              overflow:
-                                                                  TextOverflow
-                                                                      .ellipsis,
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                      // per-button delete
-                                                      InkWell(
-                                                        onTap: () async {
-                                                          final confirm = await showDialog<bool>(
-                                                            context: context,
-                                                            builder: (context) => AlertDialog(
+                                                ),
+                                              // Clear all holds button
+                                              OutlinedButton.icon(
+                                                onPressed: _heldBills.isEmpty
+                                                    ? null
+                                                    : () async {
+                                                        final confirm = await showDialog<bool>(
+                                                          context: context,
+                                                          builder: (context) {
+                                                            return AlertDialog(
                                                               title: const Text(
-                                                                'Delete hold?',
+                                                                'Clear all holds?',
                                                               ),
                                                               content: const Text(
-                                                                'Remove this held bill?',
+                                                                'This will remove all held bills. This action cannot be undone.',
                                                               ),
                                                               actions: [
                                                                 TextButton(
@@ -2368,330 +2494,400 @@ class _PosScreenState extends State<PosScreen> {
                                                                       ).pop(
                                                                         true,
                                                                       ),
-                                                                  child:
-                                                                      const Text(
-                                                                        'Delete',
-                                                                      ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          );
-                                                          if (confirm == true) {
-                                                            if (!mounted) {
-                                                              return;
-                                                            }
-                                                            setState(() {
-                                                              _heldBills.remove(
-                                                                hb,
-                                                              );
-                                                              if (_editingHoldId ==
-                                                                  hb.id) {
-                                                                _editingHoldId =
-                                                                    null;
-                                                                _billing
-                                                                    .clear();
-                                                              }
-                                                              _bumpHoldsVersion();
-                                                            });
-                                                            // No snackbar for single quick-hold removal (keep UX quieter)
-                                                          }
-                                                        },
-                                                        child: Padding(
-                                                          padding:
-                                                              const EdgeInsets.only(
-                                                                left: 6,
-                                                              ),
-                                                          child: Icon(
-                                                            Icons.close,
-                                                            size: 16,
-                                                            color: AppColors
-                                                                .error
-                                                                .withAlpha(
-                                                                  (0.8 * 255)
-                                                                      .round(),
-                                                                ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              );
-                                            }),
-                                            // If there are more than 5 holds, show a 'More' button to open full list
-                                            if (_heldBills.length > 5)
-                                              OutlinedButton(
-                                                onPressed: _openHeldBills,
-                                                child: Text(
-                                                  'More (${_heldBills.length})',
-                                                ),
-                                              ),
-                                            // Clear all holds button
-                                            OutlinedButton.icon(
-                                              onPressed: _heldBills.isEmpty
-                                                  ? null
-                                                  : () async {
-                                                      final confirm = await showDialog<bool>(
-                                                        context: context,
-                                                        builder: (context) {
-                                                          return AlertDialog(
-                                                            title: const Text(
-                                                              'Clear all holds?',
-                                                            ),
-                                                            content: const Text(
-                                                              'This will remove all held bills. This action cannot be undone.',
-                                                            ),
-                                                            actions: [
-                                                              TextButton(
-                                                                onPressed: () =>
-                                                                    Navigator.of(
-                                                                      context,
-                                                                    ).pop(
-                                                                      false,
+                                                                  child: const Text(
+                                                                    'Clear',
+                                                                    style: TextStyle(
+                                                                      color: Colors
+                                                                          .red,
                                                                     ),
-                                                                child:
-                                                                    const Text(
-                                                                      'Cancel',
-                                                                    ),
-                                                              ),
-                                                              TextButton(
-                                                                onPressed: () =>
-                                                                    Navigator.of(
-                                                                      context,
-                                                                    ).pop(true),
-                                                                child: const Text(
-                                                                  'Clear',
-                                                                  style: TextStyle(
-                                                                    color: Colors
-                                                                        .red,
                                                                   ),
                                                                 ),
-                                                              ),
-                                                            ],
-                                                          );
-                                                        },
-                                                      );
-                                                      if (confirm == true) {
-                                                        if (!mounted) return;
-                                                        setState(() {
-                                                          _heldBills.clear();
-                                                          _editingHoldId = null;
-                                                          _billing.clear();
-                                                          _bumpHoldsVersion();
-                                                        });
-                                                        // Silent clear: no SnackBar
-                                                      }
-                                                    },
-                                              icon: const Icon(Icons.clear_all),
-                                              label: const Text('Clear All'),
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    ),
-
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: ElevatedButton(
-                                            onPressed:
-                                                _billing.isEmpty ||
-                                                    _selectedCustomerId == null
-                                                ? null
-                                                : () async {
-                                                    // no local messenger needed here; snackbars are shown by the dialog
-
-                                                    // Build preview lines for the dialog and include inventory location when available.
-                                                    final previewLines =
-                                                        <InvoiceLine>[];
-                                                    for (final b in _billing) {
-                                                      final name =
-                                                          b.product?.name ??
-                                                          'Unknown';
-                                                      final qty = b.qty;
-                                                      final unitPrice =
-                                                          b
-                                                              .product
-                                                              ?.sellingPrice ??
-                                                          0.0;
-                                                      String? location;
-                                                      try {
-                                                        final pid =
-                                                            b.product?.id;
-                                                        if (pid != null) {
-                                                          final inv =
-                                                              await _productService
-                                                                  .getProductInventory(
-                                                                    pid,
-                                                                  );
-                                                          if (inv != null)
-                                                            location = inv
-                                                                .locationRack;
-                                                        }
-                                                      } catch (e) {
-                                                        // ignore and leave location null
-                                                      }
-                                                      previewLines.add(
-                                                        InvoiceLine(
-                                                          name: name,
-                                                          qty: qty,
-                                                          unitPrice: unitPrice,
-                                                          location: location,
-                                                        ),
-                                                      );
-                                                    }
-
-                                                    // Fetch selected customer to show in dialog (best-effort)
-                                                    final customer =
-                                                        _selectedCustomerId !=
-                                                            null
-                                                        ? await _customerService
-                                                              .getCustomerById(
-                                                                _selectedCustomerId!,
-                                                              )
-                                                        : null;
-
-                                                    // Show Estimate preview dialog. If user cancels the dialog (closes), abort creation.
-                                                    final confirmed =
-                                                        await showDialog<bool?>(
-                                                          context: context,
-                                                          builder: (ctx) =>
-                                                              DummyInvoiceDialog(
-                                                                lines:
-                                                                    previewLines,
-                                                                customer:
-                                                                    customer,
-                                                              ),
-                                                        );
-                                                    if (confirmed == null) {
-                                                      // user closed the dialog; do not create invoice
-                                                      return;
-                                                    }
-
-                                                    // confirmed is non-null here and indicates paid/unpaid (true=paid, false=unpaid)
-                                                    final bool paidChoice =
-                                                        confirmed;
-
-                                                    final items = _billing
-                                                        .map(
-                                                          (b) => {
-                                                            'product_id':
-                                                                b.product!.id,
-                                                            'qty': b.qty,
-                                                            'line_total':
-                                                                b.lineTotal,
+                                                              ],
+                                                            );
                                                           },
-                                                        )
-                                                        .toList();
-                                                    final total = _billingTotal;
+                                                        );
+                                                        if (confirm == true) {
+                                                          if (!mounted) return;
+                                                          setState(() {
+                                                            _heldBills.clear();
+                                                            _editingHoldId =
+                                                                null;
+                                                            _billing.clear();
+                                                            _bumpHoldsVersion();
+                                                          });
+                                                          // Silent clear: no SnackBar
+                                                        }
+                                                      },
+                                                icon: const Icon(
+                                                  Icons.clear_all,
+                                                ),
+                                                label: const Text('Clear All'),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      ),
 
-                                                    if (_editingHoldId !=
-                                                        null) {
-                                                      if (_editingHoldId! > 0) {
-                                                        // persisted DB hold -> finalize it with chosen paid flag
-                                                        await _customerService
-                                                            .finalizeHeldBill(
-                                                              _editingHoldId!,
-                                                              markPaid:
-                                                                  paidChoice,
-                                                            );
-                                                        _dbHeldBills =
-                                                            await _customerService
-                                                                .getHeldBills();
-                                                      } else {
-                                                        // temp in-memory hold: find it and persist as invoice
-                                                        final idx = _heldBills
-                                                            .indexWhere(
-                                                              (h) =>
-                                                                  h.id ==
-                                                                  _editingHoldId,
-                                                            );
-                                                        if (idx != -1) {
-                                                          final temp =
-                                                              _heldBills[idx];
-                                                          final itemsForDb = temp
-                                                              .items
-                                                              .map(
-                                                                (b) => {
-                                                                  'product_id': b
-                                                                      .product
-                                                                      ?.id,
-                                                                  'qty': b.qty,
-                                                                  'line_total':
-                                                                      b.lineTotal,
-                                                                },
-                                                              )
-                                                              .toList();
-                                                          final totalForDb =
-                                                              itemsForDb.fold<
-                                                                double
-                                                              >(
-                                                                0.0,
-                                                                (s, it) =>
-                                                                    s +
-                                                                    (it['line_total']
-                                                                            as double? ??
-                                                                        0.0),
-                                                              );
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: ElevatedButton(
+                                              onPressed:
+                                                  _billing.isEmpty ||
+                                                      _selectedCustomerId ==
+                                                          null
+                                                  ? null
+                                                  : () async {
+                                                      // no local messenger needed here; snackbars are shown by the dialog
+
+                                                      // Build preview lines for the dialog and include inventory location when available.
+                                                      final previewLines =
+                                                          <InvoiceLine>[];
+                                                      for (final b
+                                                          in _billing) {
+                                                        final name =
+                                                            b.product?.name ??
+                                                            'Unknown';
+                                                        final qty = b.qty;
+                                                        final unitPrice =
+                                                            b
+                                                                .product
+                                                                ?.sellingPrice ??
+                                                            0.0;
+                                                        String? location;
+                                                        try {
+                                                          final pid =
+                                                              b.product?.id;
+                                                          if (pid != null) {
+                                                            final inv =
+                                                                await _productService
+                                                                    .getProductInventory(
+                                                                      pid,
+                                                                    );
+                                                            if (inv != null)
+                                                              location = inv
+                                                                  .locationRack;
+                                                          }
+                                                        } catch (e) {
+                                                          // ignore and leave location null
+                                                        }
+                                                        previewLines.add(
+                                                          InvoiceLine(
+                                                            name: name,
+                                                            qty: qty,
+                                                            unitPrice:
+                                                                unitPrice,
+                                                            location: location,
+                                                          ),
+                                                        );
+                                                      }
+
+                                                      // Fetch selected customer to show in dialog (best-effort)
+                                                      final customer =
+                                                          _selectedCustomerId !=
+                                                              null
+                                                          ? await _customerService
+                                                                .getCustomerById(
+                                                                  _selectedCustomerId!,
+                                                                )
+                                                          : null;
+
+                                                      // Show Estimate preview dialog. If user cancels the dialog (closes), abort creation.
+                                                      final confirmed =
+                                                          await showDialog<
+                                                            bool?
+                                                          >(
+                                                            context: context,
+                                                            builder: (ctx) =>
+                                                                DummyInvoiceDialog(
+                                                                  lines:
+                                                                      previewLines,
+                                                                  customer:
+                                                                      customer,
+                                                                ),
+                                                          );
+                                                      if (confirmed == null) {
+                                                        // user closed the dialog; do not create invoice
+                                                        return;
+                                                      }
+
+                                                      // confirmed is non-null here and indicates paid/unpaid (true=paid, false=unpaid)
+                                                      final bool paidChoice =
+                                                          confirmed;
+
+                                                      final items = _billing
+                                                          .map(
+                                                            (b) => {
+                                                              'product_id':
+                                                                  b.product!.id,
+                                                              'qty': b.qty,
+                                                              'line_total':
+                                                                  b.lineTotal,
+                                                            },
+                                                          )
+                                                          .toList();
+                                                      final total =
+                                                          _billingTotal;
+
+                                                      if (_editingHoldId !=
+                                                          null) {
+                                                        if (_editingHoldId! >
+                                                            0) {
+                                                          // persisted DB hold -> finalize it with chosen paid flag
                                                           await _customerService
-                                                              .createCustomerBill(
-                                                                customerId:
-                                                                    temp.customerId ??
-                                                                    _selectedCustomerId!,
-                                                                items:
-                                                                    itemsForDb,
-                                                                total:
-                                                                    totalForDb,
-                                                                isPaid:
+                                                              .finalizeHeldBill(
+                                                                _editingHoldId!,
+                                                                markPaid:
                                                                     paidChoice,
                                                               );
-                                                          // remove temp hold
-                                                          setState(() {
-                                                            _heldBills.removeAt(
-                                                              idx,
-                                                            );
-                                                          });
+                                                          _dbHeldBills =
+                                                              await _customerService
+                                                                  .getHeldBills();
+                                                        } else {
+                                                          // temp in-memory hold: find it and persist as invoice
+                                                          final idx = _heldBills
+                                                              .indexWhere(
+                                                                (h) =>
+                                                                    h.id ==
+                                                                    _editingHoldId,
+                                                              );
+                                                          if (idx != -1) {
+                                                            final temp =
+                                                                _heldBills[idx];
+                                                            final itemsForDb = temp
+                                                                .items
+                                                                .map(
+                                                                  (b) => {
+                                                                    'product_id': b
+                                                                        .product
+                                                                        ?.id,
+                                                                    'qty':
+                                                                        b.qty,
+                                                                    'line_total':
+                                                                        b.lineTotal,
+                                                                  },
+                                                                )
+                                                                .toList();
+                                                            final totalForDb =
+                                                                itemsForDb.fold<
+                                                                  double
+                                                                >(
+                                                                  0.0,
+                                                                  (s, it) =>
+                                                                      s +
+                                                                      (it['line_total']
+                                                                              as double? ??
+                                                                          0.0),
+                                                                );
+                                                            await _customerService
+                                                                .createCustomerBill(
+                                                                  customerId:
+                                                                      temp.customerId ??
+                                                                      _selectedCustomerId!,
+                                                                  items:
+                                                                      itemsForDb,
+                                                                  total:
+                                                                      totalForDb,
+                                                                  isPaid:
+                                                                      paidChoice,
+                                                                );
+                                                            // remove temp hold
+                                                            setState(() {
+                                                              _heldBills
+                                                                  .removeAt(
+                                                                    idx,
+                                                                  );
+                                                            });
+                                                          }
                                                         }
+                                                      } else {
+                                                        // No editing hold -> standard create
+                                                        await _customerService
+                                                            .createCustomerBill(
+                                                              customerId:
+                                                                  _selectedCustomerId!,
+                                                              items: items,
+                                                              total: total,
+                                                              isPaid:
+                                                                  paidChoice,
+                                                            );
                                                       }
-                                                    } else {
-                                                      // No editing hold -> standard create
-                                                      await _customerService
-                                                          .createCustomerBill(
-                                                            customerId:
-                                                                _selectedCustomerId!,
-                                                            items: items,
-                                                            total: total,
-                                                            isPaid: paidChoice,
-                                                          );
-                                                    }
 
-                                                    if (!mounted) return;
-                                                    setState(() {
-                                                      _billing.clear();
-                                                      _editingHoldId = null;
-                                                    });
-                                                  },
-                                            child: const Text('Estimate only'),
+                                                      if (!mounted) return;
+                                                      setState(() {
+                                                        _billing.clear();
+                                                        _editingHoldId = null;
+                                                      });
+                                                    },
+                                              child: const Text(
+                                                'Estimate only',
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: OutlinedButton(
-                                            onPressed: _billing.isEmpty
-                                                ? null
-                                                : () => setState(
-                                                    () => _billing.clear(),
-                                                  ),
-                                            child: const Text('Clear'),
+                                          const SizedBox(width: 8),
+                                          // Settings button - opens a dialog to toggle visible sections
+                                          OutlinedButton.icon(
+                                            onPressed: () async {
+                                              final result = await showDialog<Map<String, bool>>(
+                                                context: context,
+                                                builder: (ctx) {
+                                                  // local copies while dialog is open
+                                                  bool showSearch =
+                                                      _showSearchBar;
+                                                  bool showProducts =
+                                                      _showProductsSection;
+                                                  bool showBill =
+                                                      _showBillSection;
+                                                  return StatefulBuilder(
+                                                    builder: (ctx, setDlgState) {
+                                                      return AlertDialog(
+                                                        title: const Text(
+                                                          'POS Settings',
+                                                        ),
+                                                        content: Column(
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
+                                                          children: [
+                                                            SwitchListTile(
+                                                              title: const Text(
+                                                                'Show search product',
+                                                              ),
+                                                              value: showSearch,
+                                                              onChanged: (v) =>
+                                                                  setDlgState(
+                                                                    () =>
+                                                                        showSearch =
+                                                                            v,
+                                                                  ),
+                                                            ),
+                                                            SwitchListTile(
+                                                              title: const Text(
+                                                                'Show filters section',
+                                                              ),
+                                                              value:
+                                                                  _showFilters,
+                                                              onChanged: (v) =>
+                                                                  setState(
+                                                                    () =>
+                                                                        _showFilters =
+                                                                            v,
+                                                                  ),
+                                                            ),
+                                                            SwitchListTile(
+                                                              title: const Text(
+                                                                'Show products section',
+                                                              ),
+                                                              value:
+                                                                  showProducts,
+                                                              onChanged: (v) =>
+                                                                  setDlgState(
+                                                                    () =>
+                                                                        showProducts =
+                                                                            v,
+                                                                  ),
+                                                            ),
+                                                            SwitchListTile(
+                                                              title: const Text(
+                                                                'Show bill section',
+                                                              ),
+                                                              value: showBill,
+                                                              onChanged: (v) =>
+                                                                  setDlgState(
+                                                                    () =>
+                                                                        showBill =
+                                                                            v,
+                                                                  ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        actions: [
+                                                          TextButton(
+                                                            onPressed: () =>
+                                                                Navigator.of(
+                                                                  ctx,
+                                                                ).pop(null),
+                                                            child: const Text(
+                                                              'Cancel',
+                                                            ),
+                                                          ),
+                                                          ElevatedButton(
+                                                            onPressed: () async {
+                                                              try {
+                                                                final prefs =
+                                                                    await SharedPreferences.getInstance();
+                                                                await prefs.setBool(
+                                                                  'pos_show_search',
+                                                                  showSearch,
+                                                                );
+                                                                await prefs.setBool(
+                                                                  'pos_show_products',
+                                                                  showProducts,
+                                                                );
+                                                                await prefs.setBool(
+                                                                  'pos_show_bill',
+                                                                  showBill,
+                                                                );
+                                                                await prefs.setBool(
+                                                                  'pos_show_filters',
+                                                                  _showFilters,
+                                                                );
+                                                              } catch (_) {}
+                                                              Navigator.of(
+                                                                ctx,
+                                                              ).pop({
+                                                                'search':
+                                                                    showSearch,
+                                                                'products':
+                                                                    showProducts,
+                                                                'bill':
+                                                                    showBill,
+                                                              });
+                                                            },
+                                                            child: const Text(
+                                                              'Apply',
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      );
+                                                    },
+                                                  );
+                                                },
+                                              );
+                                              if (result != null) {
+                                                setState(() {
+                                                  _showSearchBar =
+                                                      result['search'] ??
+                                                      _showSearchBar;
+                                                  _showProductsSection =
+                                                      result['products'] ??
+                                                      _showProductsSection;
+                                                  _showBillSection =
+                                                      result['bill'] ??
+                                                      _showBillSection;
+                                                });
+                                              }
+                                            },
+                                            icon: const Icon(Icons.settings),
+                                            label: const Text('Settings'),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: OutlinedButton(
+                                              onPressed: _billing.isEmpty
+                                                  ? null
+                                                  : () => setState(
+                                                      () => _billing.clear(),
+                                                    ),
+                                              child: const Text('Clear'),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
                           ],
                         );
                       },
@@ -2757,45 +2953,49 @@ class _PosScreenState extends State<PosScreen> {
           ),
 
           // Centered search bar (desktop, understated)
-          Expanded(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 680),
-                child: Container(
-                  height: 42,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: TextField(
-                    focusNode: _searchFocusNode,
-                    controller: _searchController,
-                    onChanged: _onSearchChanged,
-                    textInputAction: TextInputAction.search,
-                    decoration: InputDecoration(
-                      hintText: 'Search products...',
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      prefixIconConstraints: const BoxConstraints(
-                        minWidth: 36,
-                        minHeight: 36,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                      isDense: true,
-                      filled: true,
-                      fillColor: AppColors.surfaceMuted,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: AppColors.transparent),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(
-                          color: AppColors.surfaceMuted.withAlpha(
-                            (0.12 * 255).round(),
+          if (_showSearchBar)
+            Expanded(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 680),
+                  child: Container(
+                    height: 42,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: TextField(
+                      focusNode: _searchFocusNode,
+                      controller: _searchController,
+                      onChanged: _onSearchChanged,
+                      textInputAction: TextInputAction.search,
+                      decoration: InputDecoration(
+                        hintText: 'Search products...',
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        prefixIconConstraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 10,
+                        ),
+                        isDense: true,
+                        filled: true,
+                        fillColor: AppColors.surfaceMuted,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: AppColors.transparent),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(
+                            color: AppColors.surfaceMuted.withAlpha(
+                              (0.12 * 255).round(),
+                            ),
                           ),
                         ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(
-                          color: _accentColor.withAlpha((0.18 * 255).round()),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(
+                            color: _accentColor.withAlpha((0.18 * 255).round()),
+                          ),
                         ),
                       ),
                     ),
@@ -2803,7 +3003,6 @@ class _PosScreenState extends State<PosScreen> {
                 ),
               ),
             ),
-          ),
 
           // Shortcuts hint
           Row(
