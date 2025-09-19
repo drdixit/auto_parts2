@@ -104,8 +104,15 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  tooltip: 'POS Settings',
+                  tooltip: 'Settings',
                   onPressed: () async {
+                    // Ensure POS screen is active so its state is mounted and we can call into it.
+                    if (_selectedIndex != 2) {
+                      setState(() => _selectedIndex = 2);
+                      // wait a short time for the POS screen to mount
+                      await Future.delayed(const Duration(milliseconds: 150));
+                    }
+
                     // If POS state exists, open its settings dialog so the dialog logic is centralized
                     final result = await (_posKey.currentState as dynamic)
                         ?.openSettingsDialog();
