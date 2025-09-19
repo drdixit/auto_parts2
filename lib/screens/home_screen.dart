@@ -16,11 +16,13 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0; // start on Dashboard tab by default
   bool _isLoading = true;
+  // Keyed POS screen so we can call into its state (open settings, refresh)
+  final GlobalKey _posKey = GlobalKey();
 
-  final List<Widget> _screens = [
+  late final List<Widget> _screens = [
     const DashboardTab(),
     const MainCategoriesScreen(),
-    const PosScreen(),
+    PosScreen(key: _posKey),
     const CustomersScreen(),
     const CustomerBillsScreen(),
   ];
@@ -97,6 +99,29 @@ class _HomeScreenState extends State<HomeScreen> {
               });
             },
             labelType: NavigationRailLabelType.all,
+            // trailing area: quick actions such as settings
+            trailing: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'POS Settings',
+                  onPressed: () async {
+                    // If POS state exists, open its settings dialog so the dialog logic is centralized
+                    final result = await (_posKey.currentState as dynamic)
+                        ?.openSettingsDialog();
+                    if (result != null) {
+                      // settings applied; if POS is active, refresh its state
+                      if (_selectedIndex == 2) {
+                        await (_posKey.currentState as dynamic)
+                            ?.refreshSettingsFromPrefs();
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.settings),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
             destinations: const [
               NavigationRailDestination(
                 icon: Icon(Icons.dashboard_outlined),

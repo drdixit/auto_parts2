@@ -157,6 +157,95 @@ class _PosScreenState extends State<PosScreen> {
     });
   }
 
+  // Opens the POS settings dialog and returns a map of toggles if Apply pressed.
+  Future<Map<String, bool>?> _openPosSettingsDialog() async {
+    return await showDialog<Map<String, bool>>(
+      context: context,
+      builder: (ctx) {
+        bool showSearch = _showSearchBar;
+        bool showProducts = _showProductsSection;
+        bool showBill = _showBillSection;
+        return StatefulBuilder(
+          builder: (ctx, setDlgState) {
+            return AlertDialog(
+              title: const Text('POS Settings'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SwitchListTile(
+                    title: const Text('Show search product'),
+                    value: showSearch,
+                    onChanged: (v) => setDlgState(() => showSearch = v),
+                  ),
+                  SwitchListTile(
+                    title: const Text('Show filters section'),
+                    value: _showFilters,
+                    onChanged: (v) => setState(() => _showFilters = v),
+                  ),
+                  SwitchListTile(
+                    title: const Text('Show products section'),
+                    value: showProducts,
+                    onChanged: (v) => setDlgState(() => showProducts = v),
+                  ),
+                  SwitchListTile(
+                    title: const Text('Show bill section'),
+                    value: showBill,
+                    onChanged: (v) => setDlgState(() => showBill = v),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(null),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    try {
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setBool('pos_show_search', showSearch);
+                      await prefs.setBool('pos_show_products', showProducts);
+                      await prefs.setBool('pos_show_bill', showBill);
+                      await prefs.setBool('pos_show_filters', _showFilters);
+                    } catch (_) {}
+                    Navigator.of(ctx).pop({
+                      'search': showSearch,
+                      'products': showProducts,
+                      'bill': showBill,
+                    });
+                  },
+                  child: const Text('Apply'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Public wrapper so external widgets (e.g., HomeScreen) can open the POS settings dialog
+  Future<Map<String, bool>?> openSettingsDialog() async =>
+      await _openPosSettingsDialog();
+
+  // Refresh visible toggles from SharedPreferences (call when external settings changed)
+  Future<void> refreshSettingsFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final showSearch = prefs.getBool('pos_show_search') ?? true;
+      final showProducts = prefs.getBool('pos_show_products') ?? true;
+      final showBill = prefs.getBool('pos_show_bill') ?? true;
+      final showFilters = prefs.getBool('pos_show_filters') ?? _showFilters;
+      if (!mounted) return;
+      setState(() {
+        _showSearchBar = showSearch;
+        _showProductsSection = showProducts;
+        _showBillSection = showBill;
+        _showFilters = showFilters;
+      });
+    } catch (_) {}
+  }
+
   void _toggleFilters() {
     setState(() => _showFilters = !_showFilters);
     // persist user preference
@@ -2726,134 +2815,11 @@ class _PosScreenState extends State<PosScreen> {
                                             ),
                                           ),
                                           const SizedBox(width: 8),
-                                          // Settings button - opens a dialog to toggle visible sections
+                                          // Settings button - open shared POS settings dialog
                                           OutlinedButton.icon(
                                             onPressed: () async {
-                                              final result = await showDialog<Map<String, bool>>(
-                                                context: context,
-                                                builder: (ctx) {
-                                                  // local copies while dialog is open
-                                                  bool showSearch =
-                                                      _showSearchBar;
-                                                  bool showProducts =
-                                                      _showProductsSection;
-                                                  bool showBill =
-                                                      _showBillSection;
-                                                  return StatefulBuilder(
-                                                    builder: (ctx, setDlgState) {
-                                                      return AlertDialog(
-                                                        title: const Text(
-                                                          'POS Settings',
-                                                        ),
-                                                        content: Column(
-                                                          mainAxisSize:
-                                                              MainAxisSize.min,
-                                                          children: [
-                                                            SwitchListTile(
-                                                              title: const Text(
-                                                                'Show search product',
-                                                              ),
-                                                              value: showSearch,
-                                                              onChanged: (v) =>
-                                                                  setDlgState(
-                                                                    () =>
-                                                                        showSearch =
-                                                                            v,
-                                                                  ),
-                                                            ),
-                                                            SwitchListTile(
-                                                              title: const Text(
-                                                                'Show filters section',
-                                                              ),
-                                                              value:
-                                                                  _showFilters,
-                                                              onChanged: (v) =>
-                                                                  setState(
-                                                                    () =>
-                                                                        _showFilters =
-                                                                            v,
-                                                                  ),
-                                                            ),
-                                                            SwitchListTile(
-                                                              title: const Text(
-                                                                'Show products section',
-                                                              ),
-                                                              value:
-                                                                  showProducts,
-                                                              onChanged: (v) =>
-                                                                  setDlgState(
-                                                                    () =>
-                                                                        showProducts =
-                                                                            v,
-                                                                  ),
-                                                            ),
-                                                            SwitchListTile(
-                                                              title: const Text(
-                                                                'Show bill section',
-                                                              ),
-                                                              value: showBill,
-                                                              onChanged: (v) =>
-                                                                  setDlgState(
-                                                                    () =>
-                                                                        showBill =
-                                                                            v,
-                                                                  ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                        actions: [
-                                                          TextButton(
-                                                            onPressed: () =>
-                                                                Navigator.of(
-                                                                  ctx,
-                                                                ).pop(null),
-                                                            child: const Text(
-                                                              'Cancel',
-                                                            ),
-                                                          ),
-                                                          ElevatedButton(
-                                                            onPressed: () async {
-                                                              try {
-                                                                final prefs =
-                                                                    await SharedPreferences.getInstance();
-                                                                await prefs.setBool(
-                                                                  'pos_show_search',
-                                                                  showSearch,
-                                                                );
-                                                                await prefs.setBool(
-                                                                  'pos_show_products',
-                                                                  showProducts,
-                                                                );
-                                                                await prefs.setBool(
-                                                                  'pos_show_bill',
-                                                                  showBill,
-                                                                );
-                                                                await prefs.setBool(
-                                                                  'pos_show_filters',
-                                                                  _showFilters,
-                                                                );
-                                                              } catch (_) {}
-                                                              Navigator.of(
-                                                                ctx,
-                                                              ).pop({
-                                                                'search':
-                                                                    showSearch,
-                                                                'products':
-                                                                    showProducts,
-                                                                'bill':
-                                                                    showBill,
-                                                              });
-                                                            },
-                                                            child: const Text(
-                                                              'Apply',
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      );
-                                                    },
-                                                  );
-                                                },
-                                              );
+                                              final result =
+                                                  await _openPosSettingsDialog();
                                               if (result != null) {
                                                 setState(() {
                                                   _showSearchBar =
