@@ -3,6 +3,7 @@ import 'categories/main_categories_screen.dart';
 import 'pos/pos_screen.dart';
 import 'customers/customers_screen.dart';
 import 'customers/customer_bills_screen.dart';
+import 'settings_screen.dart';
 import 'package:auto_parts2/database/database_helper.dart';
 import 'package:auto_parts2/theme/app_colors.dart';
 
@@ -106,22 +107,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 IconButton(
                   tooltip: 'Settings',
                   onPressed: () async {
-                    // Ensure POS screen is active so its state is mounted and we can call into it.
-                    if (_selectedIndex != 2) {
-                      setState(() => _selectedIndex = 2);
-                      // wait a short time for the POS screen to mount
-                      await Future.delayed(const Duration(milliseconds: 150));
-                    }
+                    // Open the centralized Settings screen
+                    final applied = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                    );
 
-                    // If POS state exists, open its settings dialog so the dialog logic is centralized
-                    final result = await (_posKey.currentState as dynamic)
-                        ?.openSettingsDialog();
-                    if (result != null) {
-                      // settings applied; if POS is active, refresh its state
-                      if (_selectedIndex == 2) {
-                        await (_posKey.currentState as dynamic)
-                            ?.refreshSettingsFromPrefs();
-                      }
+                    // If user applied settings, refresh POS state (if available)
+                    if (applied == true) {
+                      await (_posKey.currentState as dynamic)
+                          ?.refreshSettingsFromPrefs();
                     }
                   },
                   icon: const Icon(Icons.settings),
