@@ -17,6 +17,7 @@ import 'package:auto_parts2/models/customer.dart';
 import 'package:auto_parts2/theme/app_colors.dart';
 import 'package:auto_parts2/screens/pos/dummy_invoice_dialog.dart';
 import 'package:auto_parts2/utils/bill_utils.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Intents for keyboard shortcuts
 class ResetIntent extends Intent {
@@ -153,6 +154,12 @@ class _PosScreenState extends State<PosScreen> {
 
   void _toggleFilters() {
     setState(() => _showFilters = !_showFilters);
+    // persist user preference
+    try {
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setBool('pos_show_filters', _showFilters);
+      });
+    } catch (_) {}
   }
 
   @override
@@ -190,6 +197,14 @@ class _PosScreenState extends State<PosScreen> {
       _visibleVehicles = List.from(_vehicles);
       _filteredProducts = List.from(_allProducts);
     });
+    // load persisted UI prefs (filters panel visibility)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final v = prefs.getBool('pos_show_filters');
+      if (v != null) {
+        setState(() => _showFilters = v);
+      }
+    } catch (_) {}
     // load persisted holds from DB
     _dbHeldBills = await _customerService.getHeldBills();
     // build sub->main map
