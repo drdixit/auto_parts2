@@ -29,9 +29,13 @@ class ResetIntent extends Intent {
 class BillingItem {
   final Product? product;
   int qty;
-  BillingItem({this.product, this.qty = 1});
+  double? unitPrice; // optional custom unit price per billing line
 
-  double get lineTotal => (product?.sellingPrice ?? 0.0) * qty;
+  BillingItem({this.product, this.qty = 1, this.unitPrice});
+
+  double get effectiveUnitPrice => unitPrice ?? (product?.sellingPrice ?? 0.0);
+
+  double get lineTotal => effectiveUnitPrice * qty;
 }
 
 class PosScreen extends StatefulWidget {
@@ -471,7 +475,8 @@ class _PosScreenState extends State<PosScreen> {
         orElse: () => BillingItem(product: p, qty: 0),
       );
       if (existing.qty == 0) {
-        _billing.add(BillingItem(product: p));
+        // initialize line with product's selling price as default unitPrice
+        _billing.add(BillingItem(product: p, unitPrice: p.sellingPrice));
       } else {
         existing.qty += 1;
       }
@@ -501,7 +506,13 @@ class _PosScreenState extends State<PosScreen> {
   void _holdCurrentBill() {
     // If we're editing an existing held bill, update it in-place; otherwise create a new hold.
     final itemsCopy = List<BillingItem>.from(
-      _billing.map((b) => BillingItem(product: b.product, qty: b.qty)),
+      _billing.map(
+        (b) => BillingItem(
+          product: b.product,
+          qty: b.qty,
+          unitPrice: b.unitPrice ?? b.product?.sellingPrice,
+        ),
+      ),
     );
     if (_editingHoldId != null) {
       final idx = _heldBills.indexWhere((h) => h.id == _editingHoldId);
@@ -944,6 +955,7 @@ class _PosScreenState extends State<PosScreen> {
       for (final it in items) {
         final pid = it['product_id'] as int?;
         final qty = it['qty'] as int? ?? 1;
+        final unitPrice = (it['unit_price'] as num?)?.toDouble();
         final product = _allProducts.firstWhere(
           (p) => p.id == pid,
           orElse: () => Product(
@@ -954,7 +966,13 @@ class _PosScreenState extends State<PosScreen> {
             sellingPrice: 0.0,
           ),
         );
-        _billing.add(BillingItem(product: product, qty: qty));
+        _billing.add(
+          BillingItem(
+            product: product,
+            qty: qty,
+            unitPrice: unitPrice ?? product.sellingPrice,
+          ),
+        );
       }
       _editingHoldId = hb['id'] as int?;
       // restore selected customer if present
@@ -2224,11 +2242,77 @@ class _PosScreenState extends State<PosScreen> {
                                                                 const SizedBox(
                                                                   height: 4,
                                                                 ),
-                                                                Text(
-                                                                  '₹${(b.product!.sellingPrice ?? 0).toStringAsFixed(2)} each',
-                                                                  style: Theme.of(
-                                                                    context,
-                                                                  ).textTheme.bodySmall,
+                                                                InkWell(
+                                                                  onTap: () async {
+                                                                    final ctrl = TextEditingController(
+                                                                      text: (b.effectiveUnitPrice)
+                                                                          .toStringAsFixed(
+                                                                            2,
+                                                                          ),
+                                                                    );
+                                                                    final confirmed = await showDialog<double?>(
+                                                                      context:
+                                                                          context,
+                                                                      builder: (ctx) => AlertDialog(
+                                                                        title: const Text(
+                                                                          'Edit unit price',
+                                                                        ),
+                                                                        content: TextField(
+                                                                          controller:
+                                                                              ctrl,
+                                                                          keyboardType: const TextInputType.numberWithOptions(
+                                                                            decimal:
+                                                                                true,
+                                                                          ),
+                                                                          decoration: const InputDecoration(
+                                                                            labelText:
+                                                                                'Unit price',
+                                                                          ),
+                                                                        ),
+                                                                        actions: [
+                                                                          TextButton(
+                                                                            onPressed: () =>
+                                                                                Navigator.of(
+                                                                                  ctx,
+                                                                                ).pop(
+                                                                                  null,
+                                                                                ),
+                                                                            child: const Text(
+                                                                              'Cancel',
+                                                                            ),
+                                                                          ),
+                                                                          ElevatedButton(
+                                                                            onPressed: () {
+                                                                              final v = double.tryParse(
+                                                                                ctrl.text,
+                                                                              );
+                                                                              Navigator.of(
+                                                                                ctx,
+                                                                              ).pop(
+                                                                                v,
+                                                                              );
+                                                                            },
+                                                                            child: const Text(
+                                                                              'Save',
+                                                                            ),
+                                                                          ),
+                                                                        ],
+                                                                      ),
+                                                                    );
+                                                                    if (confirmed !=
+                                                                        null) {
+                                                                      setState(() {
+                                                                        b.unitPrice =
+                                                                            confirmed;
+                                                                      });
+                                                                    }
+                                                                  },
+                                                                  child: Text(
+                                                                    '₹${(b.effectiveUnitPrice).toStringAsFixed(2)} each',
+                                                                    style: Theme.of(
+                                                                      context,
+                                                                    ).textTheme.bodySmall,
+                                                                  ),
                                                                 ),
                                                               ],
                                                             ),
@@ -2642,11 +2726,8 @@ class _PosScreenState extends State<PosScreen> {
                                                             b.product?.name ??
                                                             'Unknown';
                                                         final qty = b.qty;
-                                                        final unitPrice =
-                                                            b
-                                                                .product
-                                                                ?.sellingPrice ??
-                                                            0.0;
+                                                        final unitPrice = b
+                                                            .effectiveUnitPrice;
                                                         String? location;
                                                         try {
                                                           final pid =
@@ -2714,6 +2795,8 @@ class _PosScreenState extends State<PosScreen> {
                                                               'product_id':
                                                                   b.product!.id,
                                                               'qty': b.qty,
+                                                              'unit_price': b
+                                                                  .effectiveUnitPrice,
                                                               'line_total':
                                                                   b.lineTotal,
                                                             },
@@ -2756,6 +2839,8 @@ class _PosScreenState extends State<PosScreen> {
                                                                         ?.id,
                                                                     'qty':
                                                                         b.qty,
+                                                                    'unit_price':
+                                                                        b.effectiveUnitPrice,
                                                                     'line_total':
                                                                         b.lineTotal,
                                                                   },
