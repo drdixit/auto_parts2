@@ -2410,15 +2410,92 @@ class _PosScreenState extends State<PosScreen> {
                                                           const SizedBox(
                                                             width: 8,
                                                           ),
-                                                          // Line total
-                                                          Text(
-                                                            '₹${(b.lineTotal).toStringAsFixed(2)}',
-                                                            style:
-                                                                const TextStyle(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .bold,
+                                                          // Line total (editable: owner can set total which adjusts unit price)
+                                                          InkWell(
+                                                            onTap: () async {
+                                                              final ctrl =
+                                                                  TextEditingController(
+                                                                    text: b
+                                                                        .lineTotal
+                                                                        .toStringAsFixed(
+                                                                          2,
+                                                                        ),
+                                                                  );
+                                                              final confirmed = await showDialog<double?>(
+                                                                context:
+                                                                    context,
+                                                                builder: (ctx) => AlertDialog(
+                                                                  title: const Text(
+                                                                    'Edit line total',
+                                                                  ),
+                                                                  content: TextField(
+                                                                    controller:
+                                                                        ctrl,
+                                                                    keyboardType:
+                                                                        const TextInputType.numberWithOptions(
+                                                                          decimal:
+                                                                              true,
+                                                                        ),
+                                                                    decoration: const InputDecoration(
+                                                                      labelText:
+                                                                          'Line total',
+                                                                    ),
+                                                                  ),
+                                                                  actions: [
+                                                                    TextButton(
+                                                                      onPressed: () =>
+                                                                          Navigator.of(
+                                                                            ctx,
+                                                                          ).pop(
+                                                                            null,
+                                                                          ),
+                                                                      child: const Text(
+                                                                        'Cancel',
+                                                                      ),
+                                                                    ),
+                                                                    ElevatedButton(
+                                                                      onPressed: () {
+                                                                        final v =
+                                                                            double.tryParse(
+                                                                              ctrl.text,
+                                                                            );
+                                                                        Navigator.of(
+                                                                          ctx,
+                                                                        ).pop(
+                                                                          v,
+                                                                        );
+                                                                      },
+                                                                      child: const Text(
+                                                                        'Save',
+                                                                      ),
+                                                                    ),
+                                                                  ],
                                                                 ),
+                                                              );
+                                                              if (confirmed !=
+                                                                  null) {
+                                                                setState(() {
+                                                                  // avoid division by zero; if qty <= 0, assign unitPrice = confirmed
+                                                                  if (b.qty <=
+                                                                      0) {
+                                                                    b.unitPrice =
+                                                                        confirmed;
+                                                                  } else {
+                                                                    b.unitPrice =
+                                                                        confirmed /
+                                                                        b.qty;
+                                                                  }
+                                                                });
+                                                              }
+                                                            },
+                                                            child: Text(
+                                                              '₹${(b.lineTotal).toStringAsFixed(2)}',
+                                                              style: const TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                              ),
+                                                            ),
                                                           ),
                                                         ],
                                                       ),

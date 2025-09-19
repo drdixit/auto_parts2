@@ -20,11 +20,23 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
   List<Map<String, dynamic>> _bills = [];
   List<Customer> _customers = [];
   bool _loading = true;
+  // Search
+  final TextEditingController _searchController = TextEditingController();
+  String _filterQuery = '';
 
   @override
   void initState() {
     super.initState();
     _load();
+    _searchController.addListener(() {
+      setState(() => _filterQuery = _searchController.text.trim());
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -484,10 +496,59 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                     children: [
                       // Header intentionally removed (replaced by AppBar title)
                       const SizedBox(height: 8),
+                      // Search bar for filtering estimates by customer name or estimate number
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _searchController,
+                                decoration: InputDecoration(
+                                  prefixIcon: const Icon(Icons.search),
+                                  hintText:
+                                      'Search by customer name or estimate no',
+                                  suffixIcon: _filterQuery.isNotEmpty
+                                      ? IconButton(
+                                          icon: const Icon(Icons.clear),
+                                          onPressed: () {
+                                            _searchController.clear();
+                                          },
+                                        )
+                                      : null,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       Expanded(
                         child: LayoutBuilder(
                           builder: (context, constraints) {
-                            final sorted = [..._bills];
+                            // Apply filtering
+                            final lower = _filterQuery.toLowerCase();
+                            final filtered = _filterQuery.isEmpty
+                                ? _bills
+                                : _bills.where((b) {
+                                    final idStr = '${b['id'] ?? ''}';
+                                    final createdAt =
+                                        b['created_at'] as String?;
+                                    final formatted = formatBillCode(
+                                      b['id'],
+                                      createdAt,
+                                    ).toLowerCase();
+                                    final custName = (b['customer_id'] != null)
+                                        ? _custName(
+                                            b['customer_id'] as int,
+                                          ).toLowerCase()
+                                        : '';
+                                    return idStr.toLowerCase().contains(
+                                          lower,
+                                        ) ||
+                                        formatted.contains(lower) ||
+                                        custName.contains(lower);
+                                  }).toList();
+                            final sorted = [...filtered];
                             sorted.sort(_compareBills);
                             return SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
