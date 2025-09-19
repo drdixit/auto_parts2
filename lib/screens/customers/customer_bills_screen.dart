@@ -616,6 +616,14 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                           ),
                                         ),
                                       ),
+                                      DataColumn(
+                                        label: Text(
+                                          'Credit Note',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
                                     ],
                                     rows: sorted.map((b) {
                                       final isPaid =
@@ -623,6 +631,7 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                       final total = (b['total'] as double);
                                       return DataRow(
                                         cells: [
+                                          // Estimates No
                                           DataCell(
                                             Text(
                                               formatBillCode(
@@ -631,6 +640,7 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                               ),
                                             ),
                                           ),
+                                          // Date
                                           DataCell(
                                             Text(
                                               _formatDate(
@@ -638,6 +648,7 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                               ),
                                             ),
                                           ),
+                                          // Customer
                                           DataCell(
                                             Text(
                                               _custName(
@@ -648,6 +659,7 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                               ),
                                             ),
                                           ),
+                                          // Total
                                           DataCell(
                                             Text(
                                               '₹${total.toStringAsFixed(2)}',
@@ -659,6 +671,7 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                               ),
                                             ),
                                           ),
+                                          // Status (Paid/Unpaid)
                                           DataCell(
                                             TextButton(
                                               onPressed: () async {
@@ -669,27 +682,38 @@ class _CustomerBillsScreenState extends State<CustomerBillsScreen> {
                                               ),
                                             ),
                                           ),
+                                          // Actions (view)
                                           DataCell(
                                             TextButton(
                                               onPressed: () =>
                                                   _showBillDetails(b),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: const [
-                                                  Icon(Icons.visibility),
-                                                ],
+                                              child: const Icon(
+                                                Icons.visibility,
                                               ),
                                             ),
                                           ),
+                                          // Share
                                           DataCell(
                                             TextButton(
                                               onPressed: () {},
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: const [
-                                                  Icon(Icons.share),
-                                                ],
-                                              ),
+                                              child: const Icon(Icons.share),
+                                            ),
+                                          ),
+                                          // Credit Note (dummy)
+                                          DataCell(
+                                            IconButton(
+                                              onPressed: () {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      'Create credit note — TODO',
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                              icon: const Icon(Icons.note_add),
                                             ),
                                           ),
                                         ],
