@@ -133,6 +133,8 @@ class _PosScreenState extends State<PosScreen> {
 
   // Hover state for product cards
   int? _hoveredProductId;
+  // Controls visibility of the left filters panel. Default hidden per request.
+  bool _showFilters = false;
   // Root focus node (kept for stability; keyboard handled via Shortcuts/Actions)
   final FocusNode _rootFocusNode = FocusNode();
   // Hover state for product cards
@@ -147,6 +149,10 @@ class _PosScreenState extends State<PosScreen> {
       setState(() => _searchQuery = _searchController.text);
       _onSearchChanged(_searchController.text);
     });
+  }
+
+  void _toggleFilters() {
+    setState(() => _showFilters = !_showFilters);
   }
 
   @override
@@ -861,343 +867,411 @@ class _PosScreenState extends State<PosScreen> {
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            SizedBox(
-                              width: leftWidth,
-                              child: Container(
-                                decoration: _panelDecoration,
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.tune,
-                                          color: AppColors.textSecondary,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Filters',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                        ),
-                                        const Spacer(),
-                                        IconButton(
-                                          onPressed: _resetAllFilters,
-                                          icon: const Icon(Icons.refresh),
-                                          tooltip: 'Reset filters',
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Expanded(
-                                      child: SingleChildScrollView(
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 250),
+                              child: _showFilters
+                                  ? SizedBox(
+                                      key: const ValueKey('filters_open'),
+                                      width: leftWidth,
+                                      child: Container(
+                                        decoration: _panelDecoration,
+                                        padding: const EdgeInsets.all(12),
                                         child: Column(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            const Text(
-                                              'Main Category',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Wrap(
-                                              spacing: 6,
-                                              runSpacing: 6,
+                                            Row(
                                               children: [
-                                                FilterChip(
-                                                  label: const Text('All'),
-                                                  selected:
-                                                      _selectedMainCategoryId ==
-                                                      null,
-                                                  onSelected: (_) =>
-                                                      _selectMainCategory(null),
-                                                  backgroundColor:
-                                                      AppColors.transparent,
-                                                  selectedColor:
-                                                      _chipSelectedColor,
-                                                  checkmarkColor: _accentColor,
-                                                  labelStyle: TextStyle(
-                                                    color:
-                                                        _selectedMainCategoryId ==
-                                                            null
-                                                        ? _accentColor
-                                                        : AppColors
-                                                              .textSecondary,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          12,
-                                                        ),
-                                                    side: BorderSide(
-                                                      color:
-                                                          _selectedMainCategoryId ==
-                                                              null
-                                                          ? _accentColor
-                                                                .withAlpha(
-                                                                  (0.18 * 255)
-                                                                      .round(),
-                                                                )
-                                                          : AppColors
-                                                                .surfaceMuted
-                                                                .withAlpha(
-                                                                  (0.18 * 255)
-                                                                      .round(),
-                                                                ),
-                                                    ),
-                                                  ),
-                                                  showCheckmark: true,
+                                                Icon(
+                                                  Icons.tune,
+                                                  color:
+                                                      AppColors.textSecondary,
                                                 ),
-                                                ..._mainCategories.map((c) {
-                                                  final sel =
-                                                      _selectedMainCategoryId ==
-                                                      c.id;
-                                                  return FilterChip(
-                                                    label: Text(c.name),
-                                                    selected: sel,
-                                                    onSelected: (_) =>
-                                                        _selectMainCategory(
-                                                          c.id,
-                                                        ),
-                                                    backgroundColor:
-                                                        AppColors.transparent,
-                                                    selectedColor:
-                                                        _chipSelectedColor,
-                                                    checkmarkColor:
-                                                        _accentColor,
-                                                    labelStyle: TextStyle(
-                                                      color: sel
-                                                          ? _accentColor
-                                                          : AppColors
-                                                                .textSecondary,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            12,
-                                                          ),
-                                                      side: BorderSide(
-                                                        color: sel
-                                                            ? _accentColor
-                                                                  .withAlpha(
-                                                                    (0.18 * 255)
-                                                                        .round(),
-                                                                  )
-                                                            : AppColors
-                                                                  .surfaceMuted
-                                                                  .withAlpha(
-                                                                    (0.12 * 255)
-                                                                        .round(),
-                                                                  ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'Filters',
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .titleMedium
+                                                      ?.copyWith(
+                                                        fontWeight:
+                                                            FontWeight.bold,
                                                       ),
-                                                    ),
-                                                    showCheckmark: true,
-                                                  );
-                                                }),
+                                                ),
+                                                const Spacer(),
+                                                IconButton(
+                                                  onPressed: _resetAllFilters,
+                                                  icon: const Icon(
+                                                    Icons.refresh,
+                                                  ),
+                                                  tooltip: 'Reset filters',
+                                                ),
+                                                IconButton(
+                                                  onPressed: _toggleFilters,
+                                                  icon: const Icon(
+                                                    Icons.chevron_left,
+                                                  ),
+                                                  tooltip: 'Hide filters',
+                                                ),
                                               ],
                                             ),
-                                            const SizedBox(height: 12),
-                                            const Divider(),
-                                            const SizedBox(height: 8),
-                                            const Text(
-                                              'Sub Categories',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w600,
+                                            const SizedBox(height: 6),
+                                            Expanded(
+                                              child: SingleChildScrollView(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Text(
+                                                      'Main Category',
+                                                      style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    Wrap(
+                                                      spacing: 6,
+                                                      runSpacing: 6,
+                                                      children: [
+                                                        FilterChip(
+                                                          label: const Text(
+                                                            'All',
+                                                          ),
+                                                          selected:
+                                                              _selectedMainCategoryId ==
+                                                              null,
+                                                          onSelected: (_) =>
+                                                              _selectMainCategory(
+                                                                null,
+                                                              ),
+                                                          backgroundColor:
+                                                              AppColors
+                                                                  .transparent,
+                                                          selectedColor:
+                                                              _chipSelectedColor,
+                                                          checkmarkColor:
+                                                              _accentColor,
+                                                          labelStyle: TextStyle(
+                                                            color:
+                                                                _selectedMainCategoryId ==
+                                                                    null
+                                                                ? _accentColor
+                                                                : AppColors
+                                                                      .textSecondary,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                          ),
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                            side: BorderSide(
+                                                              color:
+                                                                  _selectedMainCategoryId ==
+                                                                      null
+                                                                  ? _accentColor.withAlpha(
+                                                                      (0.18 * 255)
+                                                                          .round(),
+                                                                    )
+                                                                  : AppColors
+                                                                        .surfaceMuted
+                                                                        .withAlpha(
+                                                                          (0.18 *
+                                                                                  255)
+                                                                              .round(),
+                                                                        ),
+                                                            ),
+                                                          ),
+                                                          showCheckmark: true,
+                                                        ),
+                                                        ..._mainCategories.map((
+                                                          c,
+                                                        ) {
+                                                          final sel =
+                                                              _selectedMainCategoryId ==
+                                                              c.id;
+                                                          return FilterChip(
+                                                            label: Text(c.name),
+                                                            selected: sel,
+                                                            onSelected: (_) =>
+                                                                _selectMainCategory(
+                                                                  c.id,
+                                                                ),
+                                                            backgroundColor:
+                                                                AppColors
+                                                                    .transparent,
+                                                            selectedColor:
+                                                                _chipSelectedColor,
+                                                            checkmarkColor:
+                                                                _accentColor,
+                                                            labelStyle: TextStyle(
+                                                              color: sel
+                                                                  ? _accentColor
+                                                                  : AppColors
+                                                                        .textSecondary,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                            ),
+                                                            shape: RoundedRectangleBorder(
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    12,
+                                                                  ),
+                                                              side: BorderSide(
+                                                                color: sel
+                                                                    ? _accentColor.withAlpha(
+                                                                        (0.18 *
+                                                                                255)
+                                                                            .round(),
+                                                                      )
+                                                                    : AppColors.surfaceMuted.withAlpha(
+                                                                        (0.12 *
+                                                                                255)
+                                                                            .round(),
+                                                                      ),
+                                                              ),
+                                                            ),
+                                                            showCheckmark: true,
+                                                          );
+                                                        }),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 12),
+                                                    const Divider(),
+                                                    const SizedBox(height: 8),
+                                                    const Text(
+                                                      'Sub Categories',
+                                                      style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    Wrap(
+                                                      spacing: 6,
+                                                      runSpacing: 6,
+                                                      children: _visibleSubCategories.map((
+                                                        s,
+                                                      ) {
+                                                        final sel =
+                                                            _selectedSubCategoryIds
+                                                                .contains(s.id);
+                                                        return FilterChip(
+                                                          label: Text(s.name),
+                                                          selected: sel,
+                                                          onSelected: (_) =>
+                                                              _toggleSubCategory(
+                                                                s.id!,
+                                                              ),
+                                                          backgroundColor:
+                                                              AppColors
+                                                                  .transparent,
+                                                          selectedColor:
+                                                              _chipSelectedColor,
+                                                          checkmarkColor:
+                                                              _accentColor,
+                                                          labelStyle: TextStyle(
+                                                            color: sel
+                                                                ? _accentColor
+                                                                : AppColors
+                                                                      .textSecondary,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                          ),
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                            side: BorderSide(
+                                                              color: sel
+                                                                  ? _accentColor.withAlpha(
+                                                                      (0.18 * 255)
+                                                                          .round(),
+                                                                    )
+                                                                  : AppColors
+                                                                        .surfaceMuted
+                                                                        .withAlpha(
+                                                                          (0.12 *
+                                                                                  255)
+                                                                              .round(),
+                                                                        ),
+                                                            ),
+                                                          ),
+                                                          showCheckmark: true,
+                                                        );
+                                                      }).toList(),
+                                                    ),
+                                                    const SizedBox(height: 12),
+                                                    const Text(
+                                                      'Vehicles',
+                                                      style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    Wrap(
+                                                      spacing: 6,
+                                                      runSpacing: 6,
+                                                      children: _visibleVehicles.map((
+                                                        v,
+                                                      ) {
+                                                        final sel =
+                                                            _selectedVehicleIds
+                                                                .contains(v.id);
+                                                        return FilterChip(
+                                                          label: Text(
+                                                            v.displayName,
+                                                          ),
+                                                          selected: sel,
+                                                          onSelected: (_) =>
+                                                              _toggleVehicle(
+                                                                v.id!,
+                                                              ),
+                                                          backgroundColor:
+                                                              AppColors
+                                                                  .transparent,
+                                                          selectedColor:
+                                                              _chipSelectedColor,
+                                                          checkmarkColor:
+                                                              _accentColor,
+                                                          labelStyle: TextStyle(
+                                                            color: sel
+                                                                ? _accentColor
+                                                                : AppColors
+                                                                      .textSecondary,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                          ),
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                            side: BorderSide(
+                                                              color: sel
+                                                                  ? _accentColor.withAlpha(
+                                                                      (0.18 * 255)
+                                                                          .round(),
+                                                                    )
+                                                                  : AppColors
+                                                                        .surfaceMuted
+                                                                        .withAlpha(
+                                                                          (0.12 *
+                                                                                  255)
+                                                                              .round(),
+                                                                        ),
+                                                            ),
+                                                          ),
+                                                          showCheckmark: true,
+                                                        );
+                                                      }).toList(),
+                                                    ),
+                                                    const SizedBox(height: 12),
+                                                    const Text(
+                                                      'Manufacturers',
+                                                      style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    Wrap(
+                                                      spacing: 6,
+                                                      runSpacing: 6,
+                                                      children: _productManufacturers.map((
+                                                        m,
+                                                      ) {
+                                                        final sel =
+                                                            _selectedProductManufacturerIds
+                                                                .contains(m.id);
+                                                        return FilterChip(
+                                                          label: Text(m.name),
+                                                          selected: sel,
+                                                          onSelected: (_) => setState(() {
+                                                            if (_selectedProductManufacturerIds
+                                                                .contains(
+                                                                  m.id,
+                                                                )) {
+                                                              _selectedProductManufacturerIds
+                                                                  .remove(m.id);
+                                                            } else {
+                                                              _selectedProductManufacturerIds
+                                                                  .add(m.id!);
+                                                            }
+                                                            _applyFilters();
+                                                          }),
+                                                          backgroundColor:
+                                                              AppColors
+                                                                  .transparent,
+                                                          selectedColor:
+                                                              _chipSelectedColor,
+                                                          checkmarkColor:
+                                                              _accentColor,
+                                                          labelStyle: TextStyle(
+                                                            color: sel
+                                                                ? _accentColor
+                                                                : AppColors
+                                                                      .textSecondary,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                          ),
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                            side: BorderSide(
+                                                              color: sel
+                                                                  ? _accentColor.withAlpha(
+                                                                      (0.18 * 255)
+                                                                          .round(),
+                                                                    )
+                                                                  : AppColors
+                                                                        .surfaceMuted
+                                                                        .withAlpha(
+                                                                          (0.12 *
+                                                                                  255)
+                                                                              .round(),
+                                                                        ),
+                                                            ),
+                                                          ),
+                                                          showCheckmark: true,
+                                                        );
+                                                      }).toList(),
+                                                    ),
+                                                    const SizedBox(height: 12),
+                                                  ],
+                                                ),
                                               ),
                                             ),
-                                            const SizedBox(height: 8),
-                                            Wrap(
-                                              spacing: 6,
-                                              runSpacing: 6,
-                                              children: _visibleSubCategories.map((
-                                                s,
-                                              ) {
-                                                final sel =
-                                                    _selectedSubCategoryIds
-                                                        .contains(s.id);
-                                                return FilterChip(
-                                                  label: Text(s.name),
-                                                  selected: sel,
-                                                  onSelected: (_) =>
-                                                      _toggleSubCategory(s.id!),
-                                                  backgroundColor:
-                                                      AppColors.transparent,
-                                                  selectedColor:
-                                                      _chipSelectedColor,
-                                                  checkmarkColor: _accentColor,
-                                                  labelStyle: TextStyle(
-                                                    color: sel
-                                                        ? _accentColor
-                                                        : AppColors
-                                                              .textSecondary,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          12,
-                                                        ),
-                                                    side: BorderSide(
-                                                      color: sel
-                                                          ? _accentColor
-                                                                .withAlpha(
-                                                                  (0.18 * 255)
-                                                                      .round(),
-                                                                )
-                                                          : AppColors
-                                                                .surfaceMuted
-                                                                .withAlpha(
-                                                                  (0.12 * 255)
-                                                                      .round(),
-                                                                ),
-                                                    ),
-                                                  ),
-                                                  showCheckmark: true,
-                                                );
-                                              }).toList(),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                  : SizedBox(
+                                      key: const ValueKey('filters_closed'),
+                                      width: 56,
+                                      child: Container(
+                                        decoration: _panelDecoration,
+                                        padding: const EdgeInsets.all(8),
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            IconButton(
+                                              onPressed: _toggleFilters,
+                                              icon: const Icon(Icons.tune),
+                                              tooltip: 'Show filters',
                                             ),
-                                            const SizedBox(height: 12),
-                                            const Text(
-                                              'Vehicles',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Wrap(
-                                              spacing: 6,
-                                              runSpacing: 6,
-                                              children: _visibleVehicles.map((
-                                                v,
-                                              ) {
-                                                final sel = _selectedVehicleIds
-                                                    .contains(v.id);
-                                                return FilterChip(
-                                                  label: Text(v.displayName),
-                                                  selected: sel,
-                                                  onSelected: (_) =>
-                                                      _toggleVehicle(v.id!),
-                                                  backgroundColor:
-                                                      AppColors.transparent,
-                                                  selectedColor:
-                                                      _chipSelectedColor,
-                                                  checkmarkColor: _accentColor,
-                                                  labelStyle: TextStyle(
-                                                    color: sel
-                                                        ? _accentColor
-                                                        : AppColors
-                                                              .textSecondary,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          12,
-                                                        ),
-                                                    side: BorderSide(
-                                                      color: sel
-                                                          ? _accentColor
-                                                                .withAlpha(
-                                                                  (0.18 * 255)
-                                                                      .round(),
-                                                                )
-                                                          : AppColors
-                                                                .surfaceMuted
-                                                                .withAlpha(
-                                                                  (0.12 * 255)
-                                                                      .round(),
-                                                                ),
-                                                    ),
-                                                  ),
-                                                  showCheckmark: true,
-                                                );
-                                              }).toList(),
-                                            ),
-                                            const SizedBox(height: 12),
-                                            const Text(
-                                              'Manufacturers',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Wrap(
-                                              spacing: 6,
-                                              runSpacing: 6,
-                                              children: _productManufacturers.map((
-                                                m,
-                                              ) {
-                                                final sel =
-                                                    _selectedProductManufacturerIds
-                                                        .contains(m.id);
-                                                return FilterChip(
-                                                  label: Text(m.name),
-                                                  selected: sel,
-                                                  onSelected: (_) => setState(() {
-                                                    if (_selectedProductManufacturerIds
-                                                        .contains(m.id)) {
-                                                      _selectedProductManufacturerIds
-                                                          .remove(m.id);
-                                                    } else {
-                                                      _selectedProductManufacturerIds
-                                                          .add(m.id!);
-                                                    }
-                                                    _applyFilters();
-                                                  }),
-                                                  backgroundColor:
-                                                      AppColors.transparent,
-                                                  selectedColor:
-                                                      _chipSelectedColor,
-                                                  checkmarkColor: _accentColor,
-                                                  labelStyle: TextStyle(
-                                                    color: sel
-                                                        ? _accentColor
-                                                        : AppColors
-                                                              .textSecondary,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          12,
-                                                        ),
-                                                    side: BorderSide(
-                                                      color: sel
-                                                          ? _accentColor
-                                                                .withAlpha(
-                                                                  (0.18 * 255)
-                                                                      .round(),
-                                                                )
-                                                          : AppColors
-                                                                .surfaceMuted
-                                                                .withAlpha(
-                                                                  (0.12 * 255)
-                                                                      .round(),
-                                                                ),
-                                                    ),
-                                                  ),
-                                                  showCheckmark: true,
-                                                );
-                                              }).toList(),
-                                            ),
-                                            const SizedBox(height: 12),
                                           ],
                                         ),
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
                             ),
 
                             const SizedBox(width: 16),
