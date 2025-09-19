@@ -165,6 +165,7 @@ class _PosScreenState extends State<PosScreen> {
         bool showSearch = _showSearchBar;
         bool showProducts = _showProductsSection;
         bool showBill = _showBillSection;
+        bool showFilters = _showFilters;
         return StatefulBuilder(
           builder: (ctx, setDlgState) {
             return AlertDialog(
@@ -179,8 +180,8 @@ class _PosScreenState extends State<PosScreen> {
                   ),
                   SwitchListTile(
                     title: const Text('Show filters section'),
-                    value: _showFilters,
-                    onChanged: (v) => setState(() => _showFilters = v),
+                    value: showFilters,
+                    onChanged: (v) => setDlgState(() => showFilters = v),
                   ),
                   SwitchListTile(
                     title: const Text('Show products section'),
@@ -206,7 +207,9 @@ class _PosScreenState extends State<PosScreen> {
                       await prefs.setBool('pos_show_search', showSearch);
                       await prefs.setBool('pos_show_products', showProducts);
                       await prefs.setBool('pos_show_bill', showBill);
-                      await prefs.setBool('pos_show_filters', _showFilters);
+                      await prefs.setBool('pos_show_filters', showFilters);
+                      // apply to parent state so UI reflects choice immediately
+                      if (mounted) setState(() => _showFilters = showFilters);
                     } catch (_) {}
                     Navigator.of(ctx).pop({
                       'search': showSearch,
@@ -2815,28 +2818,6 @@ class _PosScreenState extends State<PosScreen> {
                                             ),
                                           ),
                                           const SizedBox(width: 8),
-                                          // Settings button - open shared POS settings dialog
-                                          OutlinedButton.icon(
-                                            onPressed: () async {
-                                              final result =
-                                                  await _openPosSettingsDialog();
-                                              if (result != null) {
-                                                setState(() {
-                                                  _showSearchBar =
-                                                      result['search'] ??
-                                                      _showSearchBar;
-                                                  _showProductsSection =
-                                                      result['products'] ??
-                                                      _showProductsSection;
-                                                  _showBillSection =
-                                                      result['bill'] ??
-                                                      _showBillSection;
-                                                });
-                                              }
-                                            },
-                                            icon: const Icon(Icons.settings),
-                                            label: const Text('Settings'),
-                                          ),
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: OutlinedButton(
