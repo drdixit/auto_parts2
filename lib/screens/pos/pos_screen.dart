@@ -119,6 +119,9 @@ class _PosScreenState extends State<PosScreen> {
   List<Customer> _customers = [];
   int? _selectedCustomerId;
   String? _customerDisplayName;
+  // Cache of last purchased unit prices for the currently selected customer.
+  // Key: productId -> value: last purchased unit price (or null if unknown)
+  final Map<int, double?> _lastPriceCache = {};
   // persisted holds: no local sequence id required
   // If non-null, we're editing/updating an existing held bill with this id.
   int? _editingHoldId;
@@ -476,16 +479,16 @@ class _PosScreenState extends State<PosScreen> {
           .getLastPurchasedUnitPrice(_selectedCustomerId!, p.id!)
           .then((lastPrice) {
             setState(() {
+              // Cache the customer's last price for this product for informational display
+              if (p.id != null) _lastPriceCache[p.id!] = lastPrice;
               final existing = _billing.firstWhere(
                 (b) => b.product!.id == p.id,
                 orElse: () => BillingItem(product: p, qty: 0),
               );
               if (existing.qty == 0) {
+                // Do NOT override the billing line price; keep product's selling price as default
                 _billing.add(
-                  BillingItem(
-                    product: p,
-                    unitPrice: lastPrice ?? p.sellingPrice,
-                  ),
+                  BillingItem(product: p, unitPrice: p.sellingPrice),
                 );
               } else {
                 existing.qty += 1;
@@ -495,6 +498,8 @@ class _PosScreenState extends State<PosScreen> {
           .catchError((_) {
             // fallback to default behavior on error
             setState(() {
+              // Ensure cache is clear for this product on error
+              if (p.id != null) _lastPriceCache.remove(p.id);
               final existing = _billing.firstWhere(
                 (b) => b.product!.id == p.id,
                 orElse: () => BillingItem(product: p, qty: 0),
@@ -1059,19 +1064,11 @@ class _PosScreenState extends State<PosScreen> {
     if (!mounted) return;
 
     setState(() {
+      // Populate the last-price cache for informational display. Do not overwrite billing prices.
       for (final e in results) {
         final pid = e.key;
         final lastPrice = e.value;
-        if (lastPrice != null) {
-          final idx = productIndex[pid];
-          if (idx != null && idx >= 0 && idx < _billing.length) {
-            final item = _billing[idx];
-            // Only update if different to avoid unnecessary rebuilds
-            if ((item.unitPrice ?? item.product?.sellingPrice) != lastPrice) {
-              item.unitPrice = lastPrice;
-            }
-          }
-        }
+        _lastPriceCache[pid] = lastPrice;
       }
     });
   }
@@ -2409,6 +2406,35 @@ class _PosScreenState extends State<PosScreen> {
                                                                     ).textTheme.bodySmall,
                                                                   ),
                                                                 ),
+                                                                // Show customer's last purchased price (informational only)
+                                                                if (b.product?.id !=
+                                                                        null &&
+                                                                    _lastPriceCache
+                                                                        .containsKey(
+                                                                          b.product!.id,
+                                                                        ))
+                                                                  Padding(
+                                                                    padding:
+                                                                        const EdgeInsets.only(
+                                                                          left:
+                                                                              8.0,
+                                                                        ),
+                                                                    child: Text(
+                                                                      _lastPriceCache[b.product!.id] !=
+                                                                              null
+                                                                          ? 'Last: \u20b9${(_lastPriceCache[b.product!.id]!).toStringAsFixed(2)}'
+                                                                          : 'Last: -',
+                                                                      style: Theme.of(context)
+                                                                          .textTheme
+                                                                          .bodySmall
+                                                                          ?.copyWith(
+                                                                            color:
+                                                                                AppColors.textSecondary,
+                                                                            fontStyle:
+                                                                                FontStyle.italic,
+                                                                          ),
+                                                                    ),
+                                                                  ),
                                                               ],
                                                             ),
                                                           ),
