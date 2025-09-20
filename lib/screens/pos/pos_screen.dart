@@ -469,18 +469,60 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   void _addToBilling(Product p) {
-    setState(() {
-      final existing = _billing.firstWhere(
-        (b) => b.product!.id == p.id,
-        orElse: () => BillingItem(product: p, qty: 0),
-      );
-      if (existing.qty == 0) {
-        // initialize line with product's selling price as default unitPrice
-        _billing.add(BillingItem(product: p, unitPrice: p.sellingPrice));
-      } else {
-        existing.qty += 1;
-      }
-    });
+    // If a customer is selected, try to fetch their last purchased unit price for this product.
+    if (_selectedCustomerId != null && p.id != null) {
+      // perform async lookup and then update state
+      _customerService
+          .getLastPurchasedUnitPrice(_selectedCustomerId!, p.id!)
+          .then((lastPrice) {
+            setState(() {
+              final existing = _billing.firstWhere(
+                (b) => b.product!.id == p.id,
+                orElse: () => BillingItem(product: p, qty: 0),
+              );
+              if (existing.qty == 0) {
+                _billing.add(
+                  BillingItem(
+                    product: p,
+                    unitPrice: lastPrice ?? p.sellingPrice,
+                  ),
+                );
+              } else {
+                existing.qty += 1;
+              }
+            });
+          })
+          .catchError((_) {
+            // fallback to default behavior on error
+            setState(() {
+              final existing = _billing.firstWhere(
+                (b) => b.product!.id == p.id,
+                orElse: () => BillingItem(product: p, qty: 0),
+              );
+              if (existing.qty == 0) {
+                _billing.add(
+                  BillingItem(product: p, unitPrice: p.sellingPrice),
+                );
+              } else {
+                existing.qty += 1;
+              }
+            });
+          });
+    } else {
+      // No customer selected: use default product price
+      setState(() {
+        final existing = _billing.firstWhere(
+          (b) => b.product!.id == p.id,
+          orElse: () => BillingItem(product: p, qty: 0),
+        );
+        if (existing.qty == 0) {
+          // initialize line with product's selling price as default unitPrice
+          _billing.add(BillingItem(product: p, unitPrice: p.sellingPrice));
+        } else {
+          existing.qty += 1;
+        }
+      });
+    }
   }
 
   void _removeFromBilling(Product p) {
@@ -985,6 +1027,52 @@ class _PosScreenState extends State<PosScreen> {
         _customerDisplayName = hb['customer_name'] as String?;
       }
       _searchController.text = hb['searchQuery'] ?? '';
+    });
+  }
+
+  /// For each billing line, try to fetch the customer's last purchased unit price
+  /// for that product. If found, update the line's unitPrice to that value.
+  /// Runs asynchronously and updates state when results arrive.
+  void _applyCustomerLastPrices(int customerId) async {
+    // Snapshot current billing products to avoid repeatedly querying the same product
+    final Map<int, int> productIndex = {};
+    for (var i = 0; i < _billing.length; i++) {
+      final p = _billing[i].product;
+      if (p?.id != null) productIndex[p!.id!] = i;
+    }
+    if (productIndex.isEmpty) return;
+
+    // For each product, query last purchased unit price concurrently
+    final futures = productIndex.keys.map((pid) async {
+      try {
+        final last = await _customerService.getLastPurchasedUnitPrice(
+          customerId,
+          pid,
+        );
+        return MapEntry(pid, last);
+      } catch (_) {
+        return MapEntry(pid, null);
+      }
+    }).toList();
+
+    final results = await Future.wait(futures);
+    if (!mounted) return;
+
+    setState(() {
+      for (final e in results) {
+        final pid = e.key;
+        final lastPrice = e.value;
+        if (lastPrice != null) {
+          final idx = productIndex[pid];
+          if (idx != null && idx >= 0 && idx < _billing.length) {
+            final item = _billing[idx];
+            // Only update if different to avoid unnecessary rebuilds
+            if ((item.unitPrice ?? item.product?.sellingPrice) != lastPrice) {
+              item.unitPrice = lastPrice;
+            }
+          }
+        }
+      }
     });
   }
 
@@ -2019,6 +2107,13 @@ class _PosScreenState extends State<PosScreen> {
                                                   _selectedCustomerId = c.id;
                                                   _customerDisplayName = c.name;
                                                 });
+                                                // After selecting a customer, try to adjust existing billing lines
+                                                // to the customer's last purchased prices (if any).
+                                                if (c.id != null) {
+                                                  _applyCustomerLastPrices(
+                                                    c.id!,
+                                                  );
+                                                }
                                               },
                                               optionsViewBuilder:
                                                   (

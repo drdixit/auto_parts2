@@ -254,6 +254,52 @@ class CustomerService {
     }).toList();
   }
 
+  /// Return the last recorded unit_price for [productId] purchased by [customerId].
+  /// If no previous purchase found, returns null.
+  Future<double?> getLastPurchasedUnitPrice(
+    int customerId,
+    int productId,
+  ) async {
+    final db = await _dbHelper.database;
+    // Search recent bills for this customer for an item matching product_id and having unit_price
+    // Safer approach: fetch recent bills for the customer and decode items in Dart
+    final rows = await db.query(
+      'customer_bills',
+      where: 'customer_id = ?',
+      whereArgs: [customerId],
+      orderBy: 'created_at DESC',
+      limit: 200,
+    );
+
+    for (final r in rows) {
+      try {
+        final itemsJson = r['items'] as String?;
+        if (itemsJson == null) continue;
+        final items = (jsonDecode(itemsJson) as List)
+            .cast<Map<String, dynamic>>();
+        for (final it in items) {
+          // product_id might be stored as int or string
+          final pidRaw = it['product_id'];
+          final pid = pidRaw is int
+              ? pidRaw
+              : (int.tryParse(pidRaw?.toString() ?? '') ?? null);
+          if (pid == productId) {
+            final upRaw = it['unit_price'];
+            double? up;
+            if (upRaw is num)
+              up = upRaw.toDouble();
+            else if (upRaw is String)
+              up = double.tryParse(upRaw);
+            if (up != null) return up;
+          }
+        }
+      } catch (_) {
+        // ignore malformed JSON and continue
+      }
+    }
+    return null;
+  }
+
   Future<int> markBillPaid(int billId, {bool paid = true}) async {
     final db = await _dbHelper.database;
     return await db.transaction<int>((txn) async {
