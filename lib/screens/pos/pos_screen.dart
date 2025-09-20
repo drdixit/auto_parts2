@@ -1123,12 +1123,14 @@ class _PosScreenState extends State<PosScreen> {
                     child: LayoutBuilder(
                       builder: (context, outer) {
                         final outerWidth = outer.maxWidth;
+                        // Slightly favor billing panel width so product name in billing lines has more room.
                         final leftWidth = outerWidth < 1000
                             ? 320.0
-                            : (outerWidth * 0.22).clamp(320.0, 420.0);
+                            : (outerWidth * 0.20).clamp(320.0, 420.0);
+                        // Increase default/rightWidth proportion and clamps to avoid overflow on wide screens.
                         final rightWidth = outerWidth < 1000
-                            ? 360.0
-                            : (outerWidth * 0.20).clamp(360.0, 520.0);
+                            ? 420.0
+                            : (outerWidth * 0.26).clamp(420.0, 720.0);
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -2311,30 +2313,36 @@ class _PosScreenState extends State<PosScreen> {
                                                           const SizedBox(
                                                             width: 12,
                                                           ),
+                                                          // Product name, unit price and last price in single horizontal line
                                                           Expanded(
-                                                            child: Column(
+                                                            child: Row(
                                                               crossAxisAlignment:
                                                                   CrossAxisAlignment
-                                                                      .start,
+                                                                      .center,
                                                               children: [
-                                                                Text(
-                                                                  b
-                                                                      .product!
-                                                                      .name,
-                                                                  maxLines: 1,
-                                                                  overflow:
-                                                                      TextOverflow
-                                                                          .ellipsis,
-                                                                  style: const TextStyle(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w600,
+                                                                // Product name - expands to available width
+                                                                Expanded(
+                                                                  child: Text(
+                                                                    b
+                                                                        .product!
+                                                                        .name,
+                                                                    maxLines: 1,
+                                                                    overflow:
+                                                                        TextOverflow
+                                                                            .ellipsis,
+                                                                    style: const TextStyle(
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w600,
+                                                                    ),
                                                                   ),
                                                                 ),
                                                                 const SizedBox(
-                                                                  height: 4,
+                                                                  width: 12,
                                                                 ),
-                                                                InkWell(
+
+                                                                // Unit price (editable)
+                                                                GestureDetector(
                                                                   onTap: () async {
                                                                     final ctrl = TextEditingController(
                                                                       text: (b.effectiveUnitPrice)
@@ -2392,48 +2400,44 @@ class _PosScreenState extends State<PosScreen> {
                                                                       ),
                                                                     );
                                                                     if (confirmed !=
-                                                                        null) {
-                                                                      setState(() {
-                                                                        b.unitPrice =
-                                                                            confirmed;
-                                                                      });
-                                                                    }
+                                                                        null)
+                                                                      setState(
+                                                                        () => b.unitPrice =
+                                                                            confirmed,
+                                                                      );
                                                                   },
                                                                   child: Text(
-                                                                    '₹${(b.effectiveUnitPrice).toStringAsFixed(2)} each',
+                                                                    '₹${(b.effectiveUnitPrice).toStringAsFixed(2)}',
                                                                     style: Theme.of(
                                                                       context,
                                                                     ).textTheme.bodySmall,
                                                                   ),
                                                                 ),
-                                                                // Show customer's last purchased price (informational only)
+                                                                const SizedBox(
+                                                                  width: 12,
+                                                                ),
+
+                                                                // Last price (informational)
                                                                 if (b.product?.id !=
                                                                         null &&
                                                                     _lastPriceCache
                                                                         .containsKey(
                                                                           b.product!.id,
                                                                         ))
-                                                                  Padding(
-                                                                    padding:
-                                                                        const EdgeInsets.only(
-                                                                          left:
-                                                                              8.0,
+                                                                  Text(
+                                                                    _lastPriceCache[b.product!.id] !=
+                                                                            null
+                                                                        ? 'Last: \u20b9${(_lastPriceCache[b.product!.id]!).toStringAsFixed(2)}'
+                                                                        : 'Last: -',
+                                                                    style: Theme.of(context)
+                                                                        .textTheme
+                                                                        .bodySmall
+                                                                        ?.copyWith(
+                                                                          color:
+                                                                              AppColors.textSecondary,
+                                                                          fontStyle:
+                                                                              FontStyle.italic,
                                                                         ),
-                                                                    child: Text(
-                                                                      _lastPriceCache[b.product!.id] !=
-                                                                              null
-                                                                          ? 'Last: \u20b9${(_lastPriceCache[b.product!.id]!).toStringAsFixed(2)}'
-                                                                          : 'Last: -',
-                                                                      style: Theme.of(context)
-                                                                          .textTheme
-                                                                          .bodySmall
-                                                                          ?.copyWith(
-                                                                            color:
-                                                                                AppColors.textSecondary,
-                                                                            fontStyle:
-                                                                                FontStyle.italic,
-                                                                          ),
-                                                                    ),
                                                                   ),
                                                               ],
                                                             ),
