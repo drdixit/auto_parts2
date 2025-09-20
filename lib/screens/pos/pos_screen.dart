@@ -2338,7 +2338,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                   ),
                                                                 ),
                                                                 const SizedBox(
-                                                                  width: 12,
+                                                                  width: 6,
                                                                 ),
 
                                                                 // Single constrained price cell containing unit price (editable) and last price (informational)
@@ -2346,9 +2346,9 @@ class _PosScreenState extends State<PosScreen> {
                                                                   constraints:
                                                                       const BoxConstraints(
                                                                         minWidth:
-                                                                            120,
+                                                                            90,
                                                                         maxWidth:
-                                                                            200,
+                                                                            120,
                                                                       ),
                                                                   child: Column(
                                                                     crossAxisAlignment:
