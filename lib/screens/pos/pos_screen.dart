@@ -2313,7 +2313,7 @@ class _PosScreenState extends State<PosScreen> {
                                                           const SizedBox(
                                                             width: 12,
                                                           ),
-                                                          // Product name, unit price and last price in single horizontal line
+                                                          // Product name and a single bounded "price cell" (unit + last) so name can expand fully
                                                           Expanded(
                                                             child: Row(
                                                               crossAxisAlignment:
@@ -2341,104 +2341,128 @@ class _PosScreenState extends State<PosScreen> {
                                                                   width: 12,
                                                                 ),
 
-                                                                // Unit price (editable)
-                                                                GestureDetector(
-                                                                  onTap: () async {
-                                                                    final ctrl = TextEditingController(
-                                                                      text: (b.effectiveUnitPrice)
-                                                                          .toStringAsFixed(
-                                                                            2,
-                                                                          ),
-                                                                    );
-                                                                    final confirmed = await showDialog<double?>(
-                                                                      context:
-                                                                          context,
-                                                                      builder: (ctx) => AlertDialog(
-                                                                        title: const Text(
-                                                                          'Edit unit price',
-                                                                        ),
-                                                                        content: TextField(
-                                                                          controller:
-                                                                              ctrl,
-                                                                          keyboardType: const TextInputType.numberWithOptions(
-                                                                            decimal:
-                                                                                true,
-                                                                          ),
-                                                                          decoration: const InputDecoration(
-                                                                            labelText:
-                                                                                'Unit price',
-                                                                          ),
-                                                                        ),
-                                                                        actions: [
-                                                                          TextButton(
-                                                                            onPressed: () =>
-                                                                                Navigator.of(
-                                                                                  ctx,
-                                                                                ).pop(
-                                                                                  null,
-                                                                                ),
-                                                                            child: const Text(
-                                                                              'Cancel',
-                                                                            ),
-                                                                          ),
-                                                                          ElevatedButton(
-                                                                            onPressed: () {
-                                                                              final v = double.tryParse(
-                                                                                ctrl.text,
-                                                                              );
-                                                                              Navigator.of(
-                                                                                ctx,
-                                                                              ).pop(
-                                                                                v,
-                                                                              );
-                                                                            },
-                                                                            child: const Text(
-                                                                              'Save',
-                                                                            ),
-                                                                          ),
-                                                                        ],
+                                                                // Single constrained price cell containing unit price (editable) and last price (informational)
+                                                                ConstrainedBox(
+                                                                  constraints:
+                                                                      const BoxConstraints(
+                                                                        minWidth:
+                                                                            120,
+                                                                        maxWidth:
+                                                                            200,
                                                                       ),
-                                                                    );
-                                                                    if (confirmed !=
-                                                                        null)
-                                                                      setState(
-                                                                        () => b.unitPrice =
-                                                                            confirmed,
-                                                                      );
-                                                                  },
-                                                                  child: Text(
-                                                                    '₹${(b.effectiveUnitPrice).toStringAsFixed(2)}',
-                                                                    style: Theme.of(
-                                                                      context,
-                                                                    ).textTheme.bodySmall,
-                                                                  ),
-                                                                ),
-                                                                const SizedBox(
-                                                                  width: 12,
-                                                                ),
-
-                                                                // Last price (informational)
-                                                                if (b.product?.id !=
-                                                                        null &&
-                                                                    _lastPriceCache
-                                                                        .containsKey(
-                                                                          b.product!.id,
-                                                                        ))
-                                                                  Text(
-                                                                    _lastPriceCache[b.product!.id] !=
-                                                                            null
-                                                                        ? 'Last: \u20b9${(_lastPriceCache[b.product!.id]!).toStringAsFixed(2)}'
-                                                                        : 'Last: -',
-                                                                    style: Theme.of(context)
-                                                                        .textTheme
-                                                                        .bodySmall
-                                                                        ?.copyWith(
-                                                                          color:
-                                                                              AppColors.textSecondary,
-                                                                          fontStyle:
-                                                                              FontStyle.italic,
+                                                                  child: Column(
+                                                                    crossAxisAlignment:
+                                                                        CrossAxisAlignment
+                                                                            .end,
+                                                                    mainAxisSize:
+                                                                        MainAxisSize
+                                                                            .min,
+                                                                    children: [
+                                                                      // Unit price - keep editable behavior
+                                                                      GestureDetector(
+                                                                        onTap: () async {
+                                                                          final ctrl = TextEditingController(
+                                                                            text: (b.effectiveUnitPrice).toStringAsFixed(
+                                                                              2,
+                                                                            ),
+                                                                          );
+                                                                          final confirmed =
+                                                                              await showDialog<
+                                                                                double?
+                                                                              >(
+                                                                                context: context,
+                                                                                builder:
+                                                                                    (
+                                                                                      ctx,
+                                                                                    ) => AlertDialog(
+                                                                                      title: const Text(
+                                                                                        'Edit unit price',
+                                                                                      ),
+                                                                                      content: TextField(
+                                                                                        controller: ctrl,
+                                                                                        keyboardType: const TextInputType.numberWithOptions(
+                                                                                          decimal: true,
+                                                                                        ),
+                                                                                        decoration: const InputDecoration(
+                                                                                          labelText: 'Unit price',
+                                                                                        ),
+                                                                                      ),
+                                                                                      actions: [
+                                                                                        TextButton(
+                                                                                          onPressed: () =>
+                                                                                              Navigator.of(
+                                                                                                ctx,
+                                                                                              ).pop(
+                                                                                                null,
+                                                                                              ),
+                                                                                          child: const Text(
+                                                                                            'Cancel',
+                                                                                          ),
+                                                                                        ),
+                                                                                        ElevatedButton(
+                                                                                          onPressed: () {
+                                                                                            final v = double.tryParse(
+                                                                                              ctrl.text,
+                                                                                            );
+                                                                                            Navigator.of(
+                                                                                              ctx,
+                                                                                            ).pop(
+                                                                                              v,
+                                                                                            );
+                                                                                          },
+                                                                                          child: const Text(
+                                                                                            'Save',
+                                                                                          ),
+                                                                                        ),
+                                                                                      ],
+                                                                                    ),
+                                                                              );
+                                                                          if (confirmed !=
+                                                                              null)
+                                                                            setState(
+                                                                              () => b.unitPrice = confirmed,
+                                                                            );
+                                                                        },
+                                                                        child: Text(
+                                                                          '₹${(b.effectiveUnitPrice).toStringAsFixed(2)}',
+                                                                          style:
+                                                                              Theme.of(
+                                                                                context,
+                                                                              ).textTheme.bodySmall?.copyWith(
+                                                                                fontWeight: FontWeight.w600,
+                                                                              ),
                                                                         ),
+                                                                      ),
+                                                                      const SizedBox(
+                                                                        height:
+                                                                            4,
+                                                                      ),
+                                                                      // Last price (informational) - stays non-interactive
+                                                                      if (b.product?.id !=
+                                                                              null &&
+                                                                          _lastPriceCache.containsKey(
+                                                                            b.product!.id,
+                                                                          ))
+                                                                        Text(
+                                                                          _lastPriceCache[b.product!.id] !=
+                                                                                  null
+                                                                              ? 'Last: \u20b9${(_lastPriceCache[b.product!.id]!).toStringAsFixed(2)}'
+                                                                              : 'Last: -',
+                                                                          style:
+                                                                              Theme.of(
+                                                                                context,
+                                                                              ).textTheme.bodySmall?.copyWith(
+                                                                                color: AppColors.textSecondary,
+                                                                                fontStyle: FontStyle.italic,
+                                                                              ),
+                                                                          maxLines:
+                                                                              1,
+                                                                          overflow:
+                                                                              TextOverflow.ellipsis,
+                                                                        ),
+                                                                    ],
                                                                   ),
+                                                                ),
                                                               ],
                                                             ),
                                                           ),
