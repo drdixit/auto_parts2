@@ -1656,7 +1656,7 @@ class _PosScreenState extends State<PosScreen> {
                                             const int minCols = 2;
                                             const int maxCols = 3;
                                             // Minimum practical card width for our layout. Reduced so 3 columns fit on common 1080p center widths.
-                                            const double minCardWidth = 220.0;
+                                            const double minCardWidth = 180.0;
                                             final computedCols =
                                                 ((width + spacing) /
                                                         (minCardWidth +
@@ -1677,11 +1677,11 @@ class _PosScreenState extends State<PosScreen> {
                                             // remaining text/buttons fit without overflow.
                                             final imageHeight =
                                                 cardWidth *
-                                                0.50; // 50% of card width
+                                                0.44; // slightly smaller image
                                             // card height = image area + space for title, price and buttons
-                                            // add a slightly larger safety margin to avoid pixel rounding overflow
+                                            // slightly increased safety margin to avoid overflow
                                             final desiredCardHeight =
-                                                imageHeight + 80.0;
+                                                imageHeight + 76.0;
                                             final childAspectRatio =
                                                 cardWidth / desiredCardHeight;
                                             // small bottom padding for visual balance
@@ -1803,7 +1803,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                       horizontal:
                                                                           8.0,
                                                                       vertical:
-                                                                          4.0,
+                                                                          2.0,
                                                                     ),
                                                                     child: Column(
                                                                       crossAxisAlignment:
@@ -1872,7 +1872,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                               TextOverflow.ellipsis,
                                                                           style: const TextStyle(
                                                                             fontSize:
-                                                                                13.0,
+                                                                                12.0,
                                                                             fontWeight:
                                                                                 FontWeight.w600,
                                                                           ),
@@ -1890,14 +1890,15 @@ class _PosScreenState extends State<PosScreen> {
                                                                               style: TextStyle(
                                                                                 color: AppColors.textPrimary,
                                                                                 fontWeight: FontWeight.bold,
+                                                                                fontSize: 13,
                                                                               ),
                                                                             ),
                                                                             Row(
                                                                               children: [
                                                                                 IconButton(
-                                                                                  iconSize: 18,
+                                                                                  iconSize: 16,
                                                                                   padding: const EdgeInsets.all(
-                                                                                    4,
+                                                                                    2,
                                                                                   ),
                                                                                   constraints: const BoxConstraints(),
                                                                                   icon: const Icon(
@@ -1906,7 +1907,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                                   onPressed: () => _removeFromBilling(
                                                                                     p,
                                                                                   ),
-                                                                                  splashRadius: 18,
+                                                                                  splashRadius: 16,
                                                                                 ),
                                                                                 Container(
                                                                                   padding: const EdgeInsets.symmetric(
@@ -1931,9 +1932,9 @@ class _PosScreenState extends State<PosScreen> {
                                                                                   ),
                                                                                 ),
                                                                                 IconButton(
-                                                                                  iconSize: 18,
+                                                                                  iconSize: 16,
                                                                                   padding: const EdgeInsets.all(
-                                                                                    4,
+                                                                                    2,
                                                                                   ),
                                                                                   constraints: const BoxConstraints(),
                                                                                   icon: const Icon(
@@ -1942,7 +1943,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                                   onPressed: () => _addToBilling(
                                                                                     p,
                                                                                   ),
-                                                                                  splashRadius: 18,
+                                                                                  splashRadius: 16,
                                                                                 ),
                                                                               ],
                                                                             ),
