@@ -2311,7 +2311,7 @@ class _PosScreenState extends State<PosScreen> {
                                                             ),
                                                           ),
                                                           const SizedBox(
-                                                            width: 12,
+                                                            width: 6,
                                                           ),
                                                           // Product name and a single bounded "price cell" (unit + last) so name can expand fully
                                                           Expanded(
@@ -2326,7 +2326,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                     b
                                                                         .product!
                                                                         .name,
-                                                                    maxLines: 1,
+                                                                    maxLines: 2,
                                                                     overflow:
                                                                         TextOverflow
                                                                             .ellipsis,
@@ -2334,11 +2334,13 @@ class _PosScreenState extends State<PosScreen> {
                                                                       fontWeight:
                                                                           FontWeight
                                                                               .w600,
+                                                                      fontSize:
+                                                                          13.0,
                                                                     ),
                                                                   ),
                                                                 ),
                                                                 const SizedBox(
-                                                                  width: 6,
+                                                                  width: 2,
                                                                 ),
 
                                                                 // Single constrained price cell containing unit price (editable) and last price (informational)
@@ -2346,9 +2348,9 @@ class _PosScreenState extends State<PosScreen> {
                                                                   constraints:
                                                                       const BoxConstraints(
                                                                         minWidth:
-                                                                            90,
+                                                                            64,
                                                                         maxWidth:
-                                                                            120,
+                                                                            88,
                                                                       ),
                                                                   child: Column(
                                                                     crossAxisAlignment:
@@ -2429,13 +2431,14 @@ class _PosScreenState extends State<PosScreen> {
                                                                               Theme.of(
                                                                                 context,
                                                                               ).textTheme.bodySmall?.copyWith(
+                                                                                fontSize: 11,
                                                                                 fontWeight: FontWeight.w600,
                                                                               ),
                                                                         ),
                                                                       ),
                                                                       const SizedBox(
                                                                         height:
-                                                                            4,
+                                                                            2,
                                                                       ),
                                                                       // Last price (informational) - stays non-interactive
                                                                       if (b.product?.id !=
@@ -2452,6 +2455,7 @@ class _PosScreenState extends State<PosScreen> {
                                                                               Theme.of(
                                                                                 context,
                                                                               ).textTheme.bodySmall?.copyWith(
+                                                                                fontSize: 10,
                                                                                 color: AppColors.textSecondary,
                                                                                 fontStyle: FontStyle.italic,
                                                                               ),
@@ -2467,14 +2471,14 @@ class _PosScreenState extends State<PosScreen> {
                                                             ),
                                                           ),
                                                           const SizedBox(
-                                                            width: 8,
+                                                            width: 6,
                                                           ),
                                                           // Quantity controls
                                                           Container(
                                                             padding:
                                                                 const EdgeInsets.symmetric(
-                                                                  horizontal: 6,
-                                                                  vertical: 4,
+                                                                  horizontal: 4,
+                                                                  vertical: 2,
                                                                 ),
                                                             decoration: BoxDecoration(
                                                               color: AppColors
@@ -2506,19 +2510,19 @@ class _PosScreenState extends State<PosScreen> {
                                                                   child: const Padding(
                                                                     padding: EdgeInsets.symmetric(
                                                                       horizontal:
-                                                                          6,
-                                                                      vertical:
                                                                           4,
+                                                                      vertical:
+                                                                          2,
                                                                     ),
                                                                     child: Icon(
                                                                       Icons
                                                                           .remove,
-                                                                      size: 18,
+                                                                      size: 16,
                                                                     ),
                                                                   ),
                                                                 ),
                                                                 const SizedBox(
-                                                                  width: 6,
+                                                                  width: 4,
                                                                 ),
                                                                 Text(
                                                                   '${b.qty}',
@@ -2652,32 +2656,6 @@ class _PosScreenState extends State<PosScreen> {
                                                   );
                                                 },
                                               ),
-                                      ),
-                                      const Divider(),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            'Total',
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .titleMedium
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                          ),
-                                          Text(
-                                            '₹${_billingTotal.toStringAsFixed(2)}',
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .titleMedium
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: _accentColor,
-                                                ),
-                                          ),
-                                        ],
                                       ),
                                       const SizedBox(height: 12),
                                       // Quick access held bills: show up to 5 recent holds as buttons
